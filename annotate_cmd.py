@@ -155,6 +155,7 @@ class CMDregion(object):
         name2 = kwargs.get('name2','bheb_bym')
         on_mean = kwargs.get('on_mean',True)
         on_mag = kwargs.get('on_mag',True)
+        print 'on_mag only works for true!!'
         for reg in regs:
             reg = reg.lower()
             if on_mean:
@@ -204,7 +205,6 @@ class CMDregion(object):
             polygon = self.regions[reg]
             color = np.array([])
             mag = np.array([])
-            print len(polygon), polygon
             polygon = uniquify_reg(polygon)
             for (c1,m1),(c2,m2) in zip(polygon,np.roll(polygon,-1,axis=0)):
                 # 1d fit
@@ -216,15 +216,13 @@ class CMDregion(object):
                 # plt.plot(x,y,'o')
                 color = np.append(color,x)
                 mag = np.append(mag, y)
-            self.__setattr__('%s_HD'%reg, np.column_stack((color,mag)))
+            self.regions['%s_hd'%reg] =  np.column_stack((color,mag))
     
             
 def uniquify_reg(reg):
     lixo, inds = np.unique(reg[:,0], return_index = True)
     # unique will sort the array...
-    print inds
     inds = np.sort(inds)
-    print inds
     return reg[inds]
     
 def random_array(arr,offset=0.1,npts=1e4):

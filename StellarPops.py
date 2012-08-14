@@ -12,11 +12,12 @@ class StellarPop(object):
         self.__setattr__('%s_stars'%region, inds)
         return inds
     
-    def star_range(self,region,vals=['mag1','mag2','color']):
+    def star_range(self,reg,vals=['mag1','mag2','color']):
         '''
         finds the limits of the stars in specified region.
         Could also do this with Mag1 etc.
         adds attribute region_[val]_range
+        should loop over reg??
         '''
         if not hasattr(self,'%s_stars'%region):
             inds = StellarPop.number_inside_region(self,region)
