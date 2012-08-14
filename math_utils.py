@@ -1,5 +1,5 @@
 import numpy as np
-
+    
 def is_numeric(lit):
     """
     Return value of numeric literal string or ValueError exception

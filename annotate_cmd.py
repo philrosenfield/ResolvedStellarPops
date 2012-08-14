@@ -6,6 +6,7 @@ import numpy as np
 import os
 import logging
 import pdb
+import scipy.interpolate
 
 from BRparams import *
 import Galaxies 
@@ -100,7 +101,7 @@ class CMDregion(object):
             # new region
             new_verts[inds_to_shift] = shifted
             self.regions['%s_dc%.2f_dm%.2f'%(reg,dcol,dmag)] = new_verts
-
+    
     def join_regions(self,*regs):
         '''
         join two polygons into one, call by self.regions[reg]
@@ -145,25 +146,31 @@ class CMDregion(object):
             self.regions['%s_mean'%reg] = np.column_stack((mean_colors,magbins))
         return
     
-    def split_regions_on_mean(self,*regs,**kwargs):
+    def split_regions(self,*regs,**kwargs):
         '''
-        splits a joined region on the average color.
+        splits a joined region on the average color - or by a spliced arr.
         adds attribues self.regions[name1] and self.regions[name2]: N,2 arrays.
         '''
         name1 = kwargs.get('name1','rheb_bym')
         name2 = kwargs.get('name2','bheb_bym')
-            
+        on_mean = kwargs.get('on_mean',True)
+        on_mag = kwargs.get('on_mag',True)
         for reg in regs:
             reg = reg.lower()
-            # make sure we have average colors.
-            if not'%s_mean'%reg in self.regions.keys():
-               CMDregion.average_color(self,reg)
-            mean_split = self.regions['%s_mean'%reg]
-            polygon = self.regions[reg]
+            if on_mean:
+                # make sure we have average colors.
+                if not'%s_mean'%reg in self.regions.keys():
+                   CMDregion.average_color(self,reg)
+                mean_split = self.regions['%s_mean'%reg]
+            else:
+                mean_split = kwargs.get('splice_arr') 
             
+            polygon = self.regions[reg]
             # insert extreme points and sort them
-            maxpoint = mean_split[np.argmax(mean_split[:,1])]
-            minpoint = mean_split[np.argmin(mean_split[:,1])]            
+            i = 0
+            if on_mag: i = 1
+            maxpoint = mean_split[np.argmax(mean_split[:,i])]
+            minpoint = mean_split[np.argmin(mean_split[:,i])]            
             polygoni = polar_sort(insert_points(polygon,maxpoint,minpoint))
             
             # split the array by the inserted points
@@ -188,6 +195,38 @@ class CMDregion(object):
             self.regions[name2] = stitchedB
         return
         
+    def add_points(self,*regs,**kwargs):
+        '''
+        add points to each line segment, creates new attribute reg_HD.
+        '''
+        npts = kwargs.get('npts',10)
+        for reg in regs:
+            polygon = self.regions[reg]
+            color = np.array([])
+            mag = np.array([])
+            print len(polygon), polygon
+            polygon = uniquify_reg(polygon)
+            for (c1,m1),(c2,m2) in zip(polygon,np.roll(polygon,-1,axis=0)):
+                # 1d fit
+                z = np.polyfit((c1,c2),(m1,m2),1)
+                p = np.poly1d(z)
+                # new array of npts
+                x = np.linspace(c1,c2,npts)
+                y = p(x)
+                # plt.plot(x,y,'o')
+                color = np.append(color,x)
+                mag = np.append(mag, y)
+            self.__setattr__('%s_HD'%reg, np.column_stack((color,mag)))
+    
+            
+def uniquify_reg(reg):
+    lixo, inds = np.unique(reg[:,0], return_index = True)
+    # unique will sort the array...
+    print inds
+    inds = np.sort(inds)
+    print inds
+    return reg[inds]
+    
 def random_array(arr,offset=0.1,npts=1e4):
     '''
     returns a random array of npts within the extremes of arr +/- offset

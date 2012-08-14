@@ -14,8 +14,8 @@ rcParams['ytick.labelsize'] = 'large'
 rcParams['xtick.labelsize'] = 'large'
 rcParams['axes.edgecolor'] = 'grey'
 rc('text',usetex=True)
-import math-utils
 
+import math_utils
 
 def discrete_colors(Ncolors,colormap='gist_rainbow'):
     colors = []
