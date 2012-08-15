@@ -68,6 +68,7 @@ class CMDregion(object):
         col_keys = data[0].strip().replace('#','').split()
         
         self.regions = {}
+        self.region_names = []
         for i in range(len(data)):
             if i==0: continue
             pid,reg,filt1,filt2 = data[i].split('polygon')[0].split()
@@ -75,7 +76,7 @@ class CMDregion(object):
             polygon = data[i].split('polygon')[1].strip()
             if not reg in self.regions.keys(): self.regions[reg] = {}
             self.regions[reg] = poly_fmt(polygon)
-            
+            self.region_names.append(reg)
         self.filter1 = filt1
         self.filter2 = filt2
         lixo,self.survey,lixo,camera,pidtarget = pid.split('_')
@@ -155,7 +156,7 @@ class CMDregion(object):
         name2 = kwargs.get('name2','bheb_bym')
         on_mean = kwargs.get('on_mean',True)
         on_mag = kwargs.get('on_mag',True)
-        print 'on_mag only works for true!!'
+        
         for reg in regs:
             reg = reg.lower()
             if on_mean:
@@ -167,27 +168,34 @@ class CMDregion(object):
                 mean_split = kwargs.get('splice_arr') 
             
             polygon = self.regions[reg]
+            polygon = uniquify_reg(polygon)
             # insert extreme points and sort them
             i = 0
             if on_mag: i = 1
+
             maxpoint = mean_split[np.argmax(mean_split[:,i])]
             minpoint = mean_split[np.argmin(mean_split[:,i])]            
             polygoni = polar_sort(insert_points(polygon,maxpoint,minpoint))
             
             # split the array by the inserted points
             imaxs = np.where(polygoni==maxpoint)[0]
-            imax = not_unique(imaxs)[0]
+            imax, = not_unique(imaxs)
             
             imins = np.where(polygoni==minpoint)[0]
-            imin = not_unique(imins)[0]
+            imin, = not_unique(imins)
             
-            if imin<imax:
-                sideA = polygoni[imin:imax]
-                sideB = np.vstack((polygoni[imax:],polygoni[:imin]))
-            
-            if imin>imax:
-                sideA = polygoni[:imax]
+            if on_mag:
+                if imin<imax:
+                    sideA = polygoni[imin:imax]
+                    sideB = np.vstack((polygoni[imax:],polygoni[:imin]))
+                
+                if imin>imax:
+                    sideA = polygoni[:imax]
+                    sideB = polygoni[imax:imin]
+            else:
+                sideA = np.vstack((polygoni[imin:],polygoni[:imax]))
                 sideB = polygoni[imax:imin]
+
             # attach the mean values
             stitchedA = np.vstack((sideA,mean_split[::-1]))
             stitchedB = np.vstack((sideB,mean_split))
