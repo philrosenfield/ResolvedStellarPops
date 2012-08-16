@@ -21,6 +21,15 @@ def mp_double_gauss(p, fjac = None, x = None, y = None, err = None):
     status = 0
     return [status, (y - model) / err]
 
+def mp_gauss(p, fjac = None, x = None, y = None, err = None):
+    '''
+    double gaussian for mpfit
+    '''
+    model = gaussian(x, p)
+    status = 0
+    return [status, (y - model) / err]
+
+
 def diff_gaussian(x, p):
     '''
     gaussian(arr,p): p[0] = norm1, p[1] = mean1, p[2]=sigma1

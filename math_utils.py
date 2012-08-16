@@ -1,4 +1,81 @@
 import numpy as np
+
+def inside(x,y,u,v,verts=False,get_verts_args={}):
+    """
+    returns the indices of u,v that are within the boundries of x,y.
+    """
+    if verts != True:
+        verts = get_verts(x,y,**get_verts_args)
+    else:
+        verts =  np.column_stack((x,y))
+    points = np.column_stack((u,v))
+    mask = nxutils.points_inside_poly(points, verts)
+    ind, = np.nonzero(mask)
+    return ind
+
+def get_verts(x,y,**kwargs):
+    '''
+    simple edge detection returns n,2 array
+    '''
+    dx=kwargs.get('dx')
+    dy=kwargs.get('dy')
+    nbinsx=kwargs.get('nbinsx',10)
+    nbinsy=kwargs.get('nbinsy',10)
+    smooth=kwargs.get('smooth')
+
+
+    if smooth == None:
+        smooth = 0
+    else:
+        smooth = 1
+    ymin = y.min()
+    ymax = y.max()
+    xmin = x.min()
+    xmax = x.max()
+    
+    if dx == None and dy == None:
+        dx = (xmax-xmin)/nbinsx
+        dy = (ymax-ymin)/nbinsy
+        
+    if nbinsx == None and nbinsy == None:
+        nbinsy = (ymax-ymin)/dy
+        nbinsx = (xmax-xmin)/dx
+    
+    ymid = []
+    min_x = [] 
+    max_x = []
+    for j in range(nbinsy):
+        yinner = ymin+j*dy
+        youter = ymin+(j+1)*dy
+        # counter intuitive because I'm dealing with mags...
+        ind = np.nonzero((y > yinner) & (y < youter))[0]  
+        if len(ind) > 0:
+            if smooth == 1:
+                min_x.append(np.average(x[ind])-3.*np.std(x[ind]))
+                max_x.append(np.average(x[ind])+3.*np.std(x[ind]))
+                ymid.append((yinner+youter)/2.)
+            else:
+                min_x.append(min(x[ind]))
+                max_x.append(max(x[ind]))
+                ymid.append((yinner+youter)/2.)
+    
+    max_x.reverse() 
+    ymidr = ymid[:]
+    ymidr.reverse()
+    
+    # close polygon
+    max_x.append(min_x[0])
+    
+    # close polygon
+    ymidr.append(ymid[0])
+    
+    # get verticies of polygon
+    xs = np.concatenate((min_x,max_x))
+    ys = np.concatenate((ymid,ymidr))
+    verts = np.column_stack((xs,ys))
+    
+    return verts
+    
     
 def is_numeric(lit):
     """
