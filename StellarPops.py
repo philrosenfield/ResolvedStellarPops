@@ -1,6 +1,12 @@
 import matplotlib.nxutils as nxutils
 import numpy as np
 
+class StellarPops(object):
+    def__init__(self,stellar_pops):
+        self.stellarpops = stellar_pops
+        self.galaxies = [sp.galaxy for sp in sps]
+        self.cmdregions = [sp.cmdregion for sp in sps]
+
 class StellarPop(object):
     def __init__(self,galaxy_object,CMDregion_object):
         self.galaxy = galaxy_object
