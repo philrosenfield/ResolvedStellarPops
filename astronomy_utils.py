@@ -2,9 +2,13 @@ import fileIO
 from angst_tables import AngstTables
 import os
 
-
-def parse_mag_tab(photsys,filter):
-    bcdir = os.environ['BCDIR']
+def parse_mag_tab(photsys,filter,bcdir=None):
+    if not bcdir:
+        try:
+            bcdir = os.environ['BCDIR']
+        except KeyError:
+            print 'need bcdir environmental variable, or to pass it to parse_mag_tab' 
+    
     tab_mag_dir = os.path.join(bcdir,'tab_mag_odfnew/')
     tab_mag = fileIO.get_files(tab_mag_dir,'tab_mag_'+photsys+'.dat')[0]
     

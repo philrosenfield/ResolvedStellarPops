@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.nxutils as nxutils
 
 def inside(x,y,u,v,verts=False,get_verts_args={}):
     """
