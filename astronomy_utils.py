@@ -1,6 +1,66 @@
 import fileIO
 from angst_tables import AngstTables
 import os
+import numpy as np
+
+
+def hess(color, mag, binsize, **kw):
+    """
+    Compute a hess diagram (surface-density CMD) on photometry data.
+
+    INPUT:
+       color  
+       mag
+       binsize -- width of bins, in magnitudes
+
+    OPTIONAL INPUT:
+       cbin=  -- set the centers of the color bins
+       mbin=  -- set the centers of the magnitude bins
+
+    OUTPUT:
+       A 3-tuple consisting of:
+         Cbin -- the centers of the color bins
+         Mbin -- the centers of the magnitude bins
+         Hess -- The Hess diagram array
+    
+    EXAMPLE:
+      cbin = out[0]
+      mbin = out[1]
+      imshow(out[2])
+      yticks(range(0, len(mbin), 4), mbin[range(0,len(mbin),4)])
+      xticks(range(0, len(cbin), 4), cbin[range(0,len(cbin),4)])
+      ylim([ylim()[1], ylim()[0]])
+
+    2009-02-08 23:01 IJC: Created, on a whim, for LMC data (of course)
+    2009-02-21 15:45 IJC: Updated with cbin, mbin options
+    """
+    defaults = dict(mbin=None, cbin=None, verbose=False)
+    
+    for key in defaults:
+        if (not kw.has_key(key)):
+            kw[key] = defaults[key]
+    
+    if kw['mbin'] is None:
+        mbin = np.arange(mag.min(), mag.max(), binsize)
+    else:
+        mbin = np.array(kw['mbin']).copy()
+    if kw['cbin'] is None:
+        cbinsize = kw.get('cbinsize')
+        if cbinsize is None: cbinsize=binsize
+        cbin = np.arange(color.min(), color.max(), cbinsize)
+    else:
+        cbin = np.array(kw['cbin']).copy()
+
+    hess = np.zeros((len(mbin), len(cbin)), float)
+    for ii in range(len(cbin)):
+        cindex = (color < (cbin[ii] + binsize / 2)) * \
+                 (color > (cbin[ii] - binsize / 2)) 
+        for jj in range(len(mbin)):
+            index = cindex * (mag < (mbin[jj] + binsize / 2)) * \
+                    (mag > (mbin[jj] - binsize / 2)) 
+            hess[jj, ii] = index.sum()
+
+    return (cbin, mbin, hess)
 
 def parse_mag_tab(photsys,filter,bcdir=None):
     if not bcdir:

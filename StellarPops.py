@@ -114,7 +114,8 @@ class StellarPop(object):
                 err = np.array([abs(c - np.median(colorlimits)) 
                                 for c in bins]) + 1.
             if err == 'weight_by_model':
-                pass
+                params = kwargs.get('params')
+                err = 1./funct(color,params)
             # set up inputs
             hist_in = {'x': bins, 'y': hist, 'err': err}
             if not p0:

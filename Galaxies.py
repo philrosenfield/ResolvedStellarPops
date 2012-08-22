@@ -112,7 +112,7 @@ class galaxy(object):
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
         elif filetype == 'trilegal':
-            print 'left off here!!'
+            self.data = fileIO.read_table(fname)
 
         self.color = self.mag1 - self.mag2
         # angst table loads
@@ -128,10 +128,23 @@ class galaxy(object):
         self.Color = self.Mag1 - self.Mag2
         self.Trgb = astronomy_utils.mag2Mag(self.trgb, self.filter2,
                                             self.photsys, **mag2Mag_kwargs)
-        # etc
-        # this is now done in br_fileIO for lack of a better place.
-        # how should this be done for both agb and br?
+
         self.z = galaxy_metallicity(self, self.target, **kwargs)
+        
+    def hess(self, binsize, absmag=False, hess_kw = {}):
+        '''
+        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
+        doc for more information.
+        '''
+        if absmag:
+            hess = astronomy_utils.hess(self.Color, self.Mag2, binsize,
+                                        **hess_kw)
+            self.Hess = hess 
+        else:
+            hess = astronomy_utils.hess(self.color, self.mag2, binsize,
+                                        **hess_kw)
+            self.hess = hess
+        return hess
 
     def trgb_av_dmod(self):
         '''
@@ -163,8 +176,20 @@ class galaxy(object):
                 self.filter1, self.filter2, self.photsys, self.z)
         return
 
+    def cut_mag_inds(self, mag2cut, mag1cut=None):
+        '''
+        a simple function to return indices of magX that are brighter than magXcut.
+        '''
+        mag2cut, = np.nonzero(self.mag2 <= mag2cut)
+        if mag1cut is not None:
+            mag1cut, = np.nonzero(self.mag1 <= mag1cut)
+            cuts = list(set(mag1cut) & set(mag2cut))
+        else:
+            cuts = mag2cut
+        return cuts
 
 def stage_inds(stage, label):
+    import TrilegalUtils
     return np.nonzero(stage == TrilegalUtils.get_stage_label(label))[0]
 
 
@@ -200,4 +225,21 @@ def galaxy_metallicity(gal, target, **kwargs):
     gal.z = z
     return z
 
+
+def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
+    mag1lim = kwargs.get('mag1lim', self.comp50mag1)
+    mag2lim = kwargs.get('mag2lim', self.comp50mag2)
+    colorlimits = kwargs.get('colorlimits')
+
+    # default input mags, will be corrected if star is not recovered
+    amag1, amag2, dmag1, dmag2 = np.loadtxt(ast_file, unpack=True)
+    ast_mag1 = amag1 + dmag1
+    ast_mag2 = amag2 + dmag2
+
+    # unrecovered stars: stores only input mags
+    if dmag1 > 9.98:
+        ast_mag1 = amag1
+    if dmag2 > 9.98:
+        ast_mag2 = amag2
+                
 #del angst_tables, fileIO, astronomy_utils, os, np

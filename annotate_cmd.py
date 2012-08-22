@@ -22,44 +22,6 @@ def poly_fmt(polygon_str):
     return np.column_stack((polygon_list[0::2], polygon_list[1::2]))
 
 
-class CMDregions(object):
-    '''
-    UNTESTED!
-    '''
-    def __init__(self, region_objects):
-        self.regions = region_objects
-        CMDregions.summary(self, 'target', 'filter1', 'filter2', 'photsys')
-
-    def summary(self, *attrs):
-        '''
-        similar to squish, but has np.unique.
-        '''
-        for attr in attrs:
-            new_list = [g.__getattribute__(attr) for g in self.regions]
-            new_val = np.unique(new_list)
-            self.__setattr__('%ss' % attr, new_val)
-
-    def select_on_key(self, key, val):
-        '''
-        ex filter2 == F814W works great with strings or exact g.key==val.
-        rounds z to four places, no error handling.
-        '''
-        key = key.lower()
-        gs = [g for g in self.regions if g.__dict__[key] == val]
-        return gs
-
-    def intersection(self, **kwargs):
-        '''
-        ex kwargs = {'filter2':'F814W', 'filter1':'F555W'}
-        will return a list of galaxy objects that match all kwarg values.
-        '''
-        gs_tmp = self.regions
-        gs = [regions.select_on_key(self, k, v) for k, v in kwargs.items()]
-        for i in range(len(gs)):
-            gs_tmp = list(set(gs_tmp) & set(gs[i]))
-        return gs_tmp
-
-
 class CMDregion(object):
     '''
     class for messing with the region files that accompany the

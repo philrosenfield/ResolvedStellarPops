@@ -103,4 +103,6 @@ def get_files(src, search_string):
     except IndexError:
         print 'Can''t find %s in %s' % (search_string, src)
         sys.exit(2)
-    return [os.path.join(src, f) for f in files]
+    files = [os.path.join(src, f) for f in files]
+    [ensure_file(f) for f in files] 
+    return files

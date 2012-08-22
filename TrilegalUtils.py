@@ -20,33 +20,33 @@ def find_photsys_number(photsys, filter):
 
 def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
     mag_num = find_photsys_number(photsys, filter)
-    o = [
-        "photosys           %s" % photsys,
-        "mag_num            %s" % mag_num,
-        "mag_lim            5               ",
-        "mag_res            0.1             ",
-        "dust               0               ",
-        "dustM              dpmod60alox40   ",
-        "dustC              AMCSIC15        ",
-        "binary_kind        0               ",
-        "binary_frac        0.              ",
-        "extinction_kind    0               ",
-        "thindisk_kind      0               ",
-        "thickdisk_kind     0               ",
-        "halo_kind          0               ",
-        "bulge_kind         0               ",
-        "object_kind        1               ",
-        "object_mass        %g" % object_mass,
-        "object_dist        10.0            ",
-        "object_avkind      1               ",
-        "object_av          0.000           ",
-        "object_cutoffmass  0.8             ",
-        "object_sfr         %s" % os.path.abspath(sfh),
-        "object_sfr_A       1.              ",
-        "object_sfr_B       0.0             "]
+    lines = (
+            "photosys           %s" % photsys,
+            "mag_num            %s" % mag_num,
+            "mag_lim            5               ",
+            "mag_res            0.1             ",
+            "dust               0               ",
+            "dustM              dpmod60alox40   ",
+            "dustC              AMCSIC15        ",
+            "binary_kind        0               ",
+            "binary_frac        0.              ",
+            "extinction_kind    0               ",
+            "thindisk_kind      0               ",
+            "thickdisk_kind     0               ",
+            "halo_kind          0               ",
+            "bulge_kind         0               ",
+            "object_kind        1               ",
+            "object_mass        %g" % object_mass,
+            "object_dist        10.0            ",
+            "object_avkind      1               ",
+            "object_av          0.000           ",
+            "object_cutoffmass  0.8             ",
+            "object_sfr         %s" % os.path.abspath(sfh),
+            "object_sfr_A       1.              ",
+            "object_sfr_B       0.0             ")
+
     oo = open(parfile, 'w')
-    for line in o:
-        oo.write(line + "\n")
+    [oo.write(line + '\n') for line in lines]
     oo.close()
     logger.info('wrote  %s' % parfile)
     return
@@ -404,68 +404,6 @@ def color_color_diagnostic(trilegal_output_file, filter1, filter2, filter3,
     ax.set_ylabel('$%s - %s$' % (filter1, filter2))
     ax.set_xlabel('$%s - %s$' % (filter3, filter4))
     return ax
-
-
-class TrilegalTab:
-    def __init__(self,
-                 col_heads,
-                 data_array,  # slice of data returned by create_data_array
-                 col_keys,   # dictionary returned by get_col_keys
-                 ):
-        self.data_array = data_array
-        self.key_dict = dict(zip(col_keys, range(len(col_keys))))
-
-    def get_row(self, i):
-        return self.data_array[i, :]
-
-    def get_col(self, key):
-        return self.data_array[:, self.key_dict[key]]
-
-
-def get_data(filename):
-    logger.error('dont use get_data, use fileIO.read_table')
-    sys.exit()
-    f = open(filename, 'r')
-    lines = f.readlines()
-    f.close()
-    d = {}
-    col_heads = lines[0].replace('#', '')
-    col_keys = col_heads.split()
-    for key in col_keys:
-        d[key] = []
-    for i in range(len(lines)):
-        if lines[i].startswith('#'):
-            continue
-    data = lines[i].split()
-    for key, i in zip(col_keys, range(len(col_keys))):
-        d[key].append(math_utils.is_numeric(data[i]))
-    return d
-
-
-def read_tagged_data(filename):
-    # Hopefully you pasted the line with the fiter names on the header.
-    f = open(filename, 'r')
-    lines = f.readlines()
-    f.close()
-    i = 0
-    d = {}
-    for line in lines:
-        if line.startswith('#'):
-            line = line.replace('#', '')
-            col_keys = line.split()
-            i += 1
-    for key in col_keys:
-        d[key] = []
-    if i == 0:
-        print 'I don''t know the names of the damn filters.'
-    for line in lines:
-        if line.startswith('#'):
-            continue
-        row = line.split()
-        for key, i in zip(col_keys, range(len(col_keys))):
-            d[key].append(math_utils.is_numeric(row[i]))
-    return d
-
 
 def mc_tests(ID, dir_name, outdir="MC_TESTS", bestfit_loc="MODELS/"):
     '''
