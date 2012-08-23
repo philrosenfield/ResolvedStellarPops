@@ -1,7 +1,9 @@
 from ResolvedStellarPops import angst_tables
 from ResolvedStellarPops import fileIO
 from ResolvedStellarPops import astronomy_utils
+from TrilegalUtils import get_stage_label
 import os
+import sys
 import numpy as np
 
 angst_data = angst_tables.AngstTables()
@@ -111,8 +113,10 @@ class galaxy(object):
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
-        elif filetype == 'trilegal':
-            self.data = fileIO.read_table(fname)
+        else:
+            print ('filetype must be fitstable or tagged_phot,',
+                    'use simgalaxy for trileagl.')
+            sys.exit(2)
 
         self.color = self.mag1 - self.mag2
         # angst table loads
@@ -188,6 +192,172 @@ class galaxy(object):
             cuts = mag2cut
         return cuts
 
+                
+class simgalaxy(object):
+    '''
+    reads a trilegal output catalog 
+    there is an issue with mags being abs mag or app mag. If dmod == 0, mags 
+    are assumed to be abs mag and get title() attributes. 
+    '''
+    def __init__(self, trilegal_out, filter1, filter2, photsys=None):
+        self.base, self.name = os.path.split(trilegal_out)
+        self.data = fileIO.read_table(trilegal_out)
+        self.filter1 = filter1
+        self.filter2 = filter2
+        if photsys is None:
+            # assume it's the last _item before extension.
+            self.photsys = self.name.split('_')[-1].split('.')[0]
+        else:
+            self.photsys = photsys
+        #self.target = self.name.split('_')[2]
+        if self.data.get_col('m-M0')[0] == 0.: 
+            absmag = True
+        if absmag:
+            self.Mag1 = self.data.get_col(self.filter1)
+            self.Mag2 = self.data.get_col(self.filter2)
+        else:
+            self.mag1 = self.data.get_col(self.filter1)
+            self.mag2 = self.data.get_col(self.filter2)
+
+        self.stage = self.data.get_col('stage')
+
+        do_slice = simgalaxy.load_ast_corrections(self)
+        if do_slice:
+            data_to_slice = ['mag1', 'mag2', 'stage', 'ast_mag1', 'ast_mag2']
+            slice_inds = self.rec
+            simgalaxy.slice_data(self, data_to_slice, slice_inds)    
+            self.ast_color = self.ast_mag1 - self.ast_mag2
+
+        if not absmag:
+            self.color = self.mag1 - self.mag2
+        else:
+            self.Color = self.Mag1 - self.Mag2
+        simgalaxy.load_ic_mstar(self)
+        
+    def get_fits(self):
+        match_out_dir = os.path.join(os.path.split(self.base)[0], 'match', 'output')
+        fit_file_name = '%s_%s_%s.fit'%(self.ID, self.mix, self.model_name)
+        try:
+            fit_file, = fileIO.get_files(match_out_dir, fit_file_name)
+            self.chi2, self.fit = MatchUtils.get_fit(fit_file)
+        except ValueError:
+            print 'no match output for %s.' % fit_file_name
+        return
+        
+    def load_ast_corrections(self):
+        try:
+            diff1 = self.data.get_col('diff_' + self.filter1)
+            diff2 = self.data.get_col('diff_' + self.filter2)
+        except KeyError:
+            # there may not be AST corrections... everything is recovered
+            self.rec = range(len(self.data.get_col('m-M0')))
+            return 0
+        recovered1, = np.nonzero(abs(diff1) < 90.)
+        recovered2, = np.nonzero(abs(diff2) < 90.)
+        self.rec = list(set(recovered1) & set(recovered2))
+        if hasattr(self, 'mag1'):
+            self.ast_mag1 = self.mag1 + diff1
+            self.ast_mag2 = self.mag2 + diff2
+        else:
+            self.ast_Mag1 = self.Mag1 + diff1
+            self.ast_Mag2 = self.Mag2 + diff2
+        return 1
+
+    def slice_data(self, data_to_slice, slice_inds):
+        '''
+        slice already set attributes by some index list.
+        '''
+        for d in data_to_slice:
+            if hasattr(self, d):
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+            if hasattr(self, d.title()):
+                d = d.title()
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+
+    def mix_modelname(self,model):
+        '''
+        give a model, will split into CAF09, modelname
+        '''
+        self.mix, self.model_name = get_mix_modelname(model)
+    
+    def delete_data(self):
+        '''
+        for wrapper functions, I don't want gigs of data stored when they
+        are no longer needed.
+        '''
+        data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
+                      'ast_mag2', 'ast_color', 'rec']
+        for data_name in data_names:
+            if hasattr(data_name):
+                self.__delattr__(data_name)
+            if hasattr(data_name.title()):
+                self.__delattr__(data_name.title())
+
+    def stage_inds(self, stage_name):
+        return np.nonzero(self.stage == get_stage_label(stage_name))[0]
+
+    def load_ic_mstar(self):
+        co = self.data.get_col('C/O')[self.rec]
+        lage = self.data.get_col('logAge')[self.rec]
+        mdot = self.data.get_col('logML')[self.rec]
+        logl = self.data.get_col('logL')[self.rec]
+        
+        self.imstar, = np.nonzero((co <= 1) & 
+                                  (logl >= 3.3) & 
+                                  (mdot<=-5) & 
+                                  (self.stage == get_stage_label('TPAGB')))
+                                  
+        self.icstar, = np.nonzero((co >= 1) & 
+                                  (mdot <= -5) & 
+                                  (self.stage == get_stage_label('TPAGB')))
+    
+    def all_stages(self, *stages):
+        '''
+        adds the indices of some stage as an attribute.
+        '''
+        for stage in stages:
+            i = stage_inds(self.stage, stage)
+            self.__setattr__('i%s'%stage.lower(), i)
+        return
+    
+    def convert_mag(self, dmod=0., Av=0., target=None):
+        '''
+        convert from mag to Mag or from Mag to mag, whichever self doesn't
+        already have an attribute.
+        
+        pass dmod, Av, or use AngstTables to look it up from target.
+        '''
+        if target is not None:
+            self.target = target
+            filters = ','.join((self.filter1, self.filter2))
+            tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
+            __, self.Av, self.dmod = tad
+        else:
+            self.dmod = dmod
+            self.Av = Av
+        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
+
+        if hasattr(self, 'mag1'):
+            self.Mag1 = astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                self.photsys, **mag_covert_kw)
+            self.Mag2 = astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                self.photsys, **mag_covert_kw)
+        elif hasattr(self, 'Mag1'):
+            self.mag1 = astronomy_utils.Mag2mag(self.Mag1, self.filter1,
+                                                self.photsys, **mag_covert_kw)
+            self.mag2 = astronomy_utils.Mag2mag(self.Mag2, self.filter2,
+                                                self.photsys, **mag_covert_kw)
+
+def get_mix_modelname(model):
+    '''
+    separate the mix and model name
+    eg cmd_input_CAF09_COV0.5_ENV0.5.dat => CAF09, COV0.5_ENV0.5
+    '''
+    mix = model.split('.')[0].split('_')[2]
+    model_name = '_'.join(model.split('.')[0].split('_')[3:])
+    return mix, model_name
+
+
 def stage_inds(stage, label):
     import TrilegalUtils
     return np.nonzero(stage == TrilegalUtils.get_stage_label(label))[0]
@@ -227,6 +397,9 @@ def galaxy_metallicity(gal, target, **kwargs):
 
 
 def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
+    '''
+    not finished...
+    '''
     mag1lim = kwargs.get('mag1lim', self.comp50mag1)
     mag2lim = kwargs.get('mag2lim', self.comp50mag2)
     colorlimits = kwargs.get('colorlimits')
@@ -241,5 +414,9 @@ def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
         ast_mag1 = amag1
     if dmag2 > 9.98:
         ast_mag2 = amag2
-                
+
+
+def get_fake(target, fake_loc='.'):
+    return fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
+
 #del angst_tables, fileIO, astronomy_utils, os, np
