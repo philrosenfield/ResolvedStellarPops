@@ -207,6 +207,7 @@ class simgalaxy(object):
         if photsys is None:
             # assume it's the last _item before extension.
             self.photsys = self.name.split('_')[-1].split('.')[0]
+            if self.photsys != 'wfpc2': self.photsys = 'acs_wfc'
         else:
             self.photsys = photsys
         #self.target = self.name.split('_')[2]
@@ -246,8 +247,8 @@ class simgalaxy(object):
         
     def load_ast_corrections(self):
         try:
-            diff1 = self.data.get_col('diff_' + self.filter1)
-            diff2 = self.data.get_col('diff_' + self.filter2)
+            diff1 = self.data.get_col('%s_cor' % self.filter1)
+            diff2 = self.data.get_col('%s_cor' % self.filter2)
         except KeyError:
             # there may not be AST corrections... everything is recovered
             self.rec = range(len(self.data.get_col('m-M0')))
@@ -256,11 +257,8 @@ class simgalaxy(object):
         recovered2, = np.nonzero(abs(diff2) < 90.)
         self.rec = list(set(recovered1) & set(recovered2))
         if hasattr(self, 'mag1'):
-            self.ast_mag1 = self.mag1 + diff1
-            self.ast_mag2 = self.mag2 + diff2
-        else:
-            self.ast_Mag1 = self.Mag1 + diff1
-            self.ast_Mag2 = self.Mag2 + diff2
+            self.ast_mag1 = self.diff1
+            self.ast_mag2 = self.diff2
         return 1
 
     def slice_data(self, data_to_slice, slice_inds):
@@ -347,6 +345,45 @@ class simgalaxy(object):
                                                 self.photsys, **mag_covert_kw)
             self.mag2 = astronomy_utils.Mag2mag(self.Mag2, self.filter2,
                                                 self.photsys, **mag_covert_kw)
+
+    def get_header(self):
+        key_dict = self.data.key_dict
+        names = [k[0] for k in sorted(key_dict.items(),
+                                      key=lambda (k, v): (v, k))]
+        self.header = '# %s' % ' '.join(names)
+        return self.header
+
+    def add_data(self, **new_cols):
+        '''
+        add columns to data
+        new_cols: {new_key: new_vals} 
+        new_vals must have same number of rows as data. 
+        Ie, be same length as self.data.shape[0]
+
+        adds new data to self.data.data_array and self.data.key_dict
+        returns new header string (or -1 if nrows != len(new_vals))
+        '''
+
+        data = self.data.data_array.copy()
+        nrows = data.shape[0]
+        ncols = data.shape[1]
+        # new arrays must be equal length as the data
+        len_test = np.array([len(v) == nrows
+                            for v in new_cols.values()]).prod()
+        if not len_test:
+            'array lengths are not the same.'
+            return -1
+        header = simgalaxy.get_header(self)
+        # add new columns to the data and their names to the header.
+        for k,v in new_cols.items():
+            header += ' %s' % k
+            data = np.column_stack((data, v))
+
+        # update self.data
+        self.data.data_array = data
+        col_keys =  header.replace('#','').split()
+        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
+        return header
 
 def get_mix_modelname(model):
     '''
