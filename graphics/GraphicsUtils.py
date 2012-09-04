@@ -365,4 +365,88 @@ def setup_five_panel_plot(ftsize=20):
         
     return axs
 
+
+def histOutline(dataIn, *args, **kwargs):
+    '''
+    Then you do something like..
+
+    Any of the np keyword arguments can be passed:
+
+    bins, hist = histOutline(x)
+
+    plt.plot(bins, hist)
+
+    or plt.fill_between(bins, hist)
+    '''
+    (histIn, binsIn) = np.histogram(dataIn, *args, **kwargs)
+
+    stepSize = binsIn[1] - binsIn[0]
+
+    bins = np.zeros(len(binsIn)*2 + 2, dtype=np.float)
+    data = np.zeros(len(binsIn)*2 + 2, dtype=np.float)
+    for bb in range(len(binsIn)):
+        bins[2*bb + 1] = binsIn[bb]
+        bins[2*bb + 2] = binsIn[bb] + stepSize
+        if bb < len(histIn):
+            data[2*bb + 1] = histIn[bb]
+            data[2*bb + 2] = histIn[bb]
+
+    bins[0] = bins[1]
+    bins[-1] = bins[-2]
+    data[0] = 0
+    data[-1] = 0
+
+    return (bins, data)
+
+'''
+Stuff from Adrienne:
+I started this email because I wanted to know if you had the answer, and I found it along the way. Now I think it's useful knowledge. Basically, it's an easy way to put a legend anywhere on a figure in figure coordinates, not axis coordinates or data coordinates. Helpful if you have one legend for multiple subplots.
+
+Basically, you can do a transform in legend to tell matplotlib that you're specifying the coordinates in data units or in axis units, ie,
+
+bbox_transform = ax.transAxes (0 - 1 means left to right or bottom to top of current axis)
+
+bbox_transform = ax.transData (specify location in data coordinates for that particular axis)
+
+bbox_transform = fig.transFigure (specify location in figure coordinates, so 0 - 1 means bottom to top or left to right of the current *figure*, not the current axis)
+
+Now I am trying to figure out how to get it to use points from different subplots in one legend.. fun.
+
+proxy artists:
+    p_corr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = 'k',
+                                     linestyle = 'None')
+    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = '0.7',
+                                       linestyle = 'None',
+                                       markeredgecolor = '0.7')
+
+    l = plt.legend([p_corr, p_uncorr], ["Correlated", "Uncorrelated"],
+                   bbox_transform = fig.transFigure, loc = 'upper right',
+                   bbox_to_anchor = (0.9, 0.9),
+                   numpoints = 1,
+                   title = "Log scaling",
+                   borderpad = 1,
+                   handletextpad = 0.3,
+                   labelspacing = 0.5)#,
+                   #prop = matplotlib.font_manager.FontProperties(size=20))
+
+I've been looking for this for a while. I don't know how you do colors in plotting but I think it's different than me. This is good for scatterplots with color.
+
+Easy to way go from array of float values of any range -> floats between 0 and 1 with some scaling so you can pass it to a colormap -> colors:
+
+
+import matplotlib
+
+norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array),
+    vmax = np.max(float_array) )
+
+normed_floats = norm_instance( float_array )
+
+colors = matplotlib.cm.jet( normed_floats ) # or any cmap really.
+
+
+and voila, colors is your usual array of [R G B alpha] values for the color or each point. I've been trying to find something like this for a long time and finally stumbled across the right google search terms.
+
+There's also a matplotlib.colors.LogNorm if you want to normalize the colors on a log scale.
+
+'''
     

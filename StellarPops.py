@@ -3,13 +3,6 @@ import numpy as np
 from mpfit import mpfit
 
 
-class StellarPops(object):
-    def __init__(self, stellar_pops):
-        self.stellarpops = stellar_pops
-        self.galaxies = [sp.galaxy for sp in sps]
-        self.cmdregions = [sp.cmdregion for sp in sps]
-
-
 class StellarPop(object):
     def __init__(self, galaxy_object, CMDregion_object):
         self.galaxy = galaxy_object
@@ -135,6 +128,5 @@ class StellarPop(object):
             self.__dict__[new_attr][new_key] = {'fit': mp_dg,
                                                 'nstars': color.size,
                                                 'functkw': hist_in}
-
 
 # del np, nxutils

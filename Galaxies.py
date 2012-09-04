@@ -308,7 +308,7 @@ class simgalaxy(object):
         self.icstar, = np.nonzero((co >= 1) & 
                                   (mdot <= -5) & 
                                   (self.stage == get_stage_label('TPAGB')))
-    
+
     def all_stages(self, *stages):
         '''
         adds the indices of some stage as an attribute.
@@ -317,7 +317,7 @@ class simgalaxy(object):
             i = stage_inds(self.stage, stage)
             self.__setattr__('i%s'%stage.lower(), i)
         return
-    
+
     def convert_mag(self, dmod=0., Av=0., target=None):
         '''
         convert from mag to Mag or from Mag to mag, whichever self doesn't
@@ -333,7 +333,7 @@ class simgalaxy(object):
         else:
             self.dmod = dmod
             self.Av = Av
-        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
+        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod-1.4}
 
         if hasattr(self, 'mag1'):
             self.Mag1 = astronomy_utils.mag2Mag(self.mag1, self.filter1,
@@ -385,6 +385,50 @@ class simgalaxy(object):
         self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
         return header
 
+    def normalize_by_stage(self, mag2, stage, stage_lab, magcut=999.,
+                           useasts=False, sinds_cut=None):
+        '''
+        this could be in some simgalaxy/galaxy class. just sayin.
+        returns inds, normalization
+
+        input
+        assumes self.mag2
+        mag2, stage: data arrays of filter2 and the tagged stage
+        stage_lab: the label of the stage, probably 'ms' or 'rgb'
+        magcut: 
+        normalization: N_i/N_j 
+        N_i = number of stars in stage == stage_lab (brighter than magcut)
+        N_j = number of simulated stars in stage == stage_lab (brighter than magcut)
+
+        inds: random sample of simulated stars < normalization
+        
+        mag2 and stage are from observational data.
+        '''
+        smag2 = self.mag2
+        if useasts:
+            smag2 = self.data.get_col('%s_cor' % self.filter2)
+            # ast corrections keep nans and infs to stay the same length as data
+            sinds_cut, = np.nonzero(np.isfinite(smag2))
+        new_attr = '%s_norm' % stage_lab
+        stage_lab = get_stage_label(stage_lab)
+    
+        sinds, = np.nonzero((self.stage == stage_lab) & (smag2 < magcut))
+        if len(sinds) == 0:
+            print 'no stars with %s < %.2f' % (new_attr, magcut)
+
+        if sinds_cut is not None:
+            # inf could be less than magcut, so better keep only finite vals.
+            sinds = list(set(sinds) & set(sinds_cut))
+        dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
+        normalization = float(len(dsinds)) / float(len(sinds))
+    
+        # random sample the data distribution
+        rands = np.random.random(len(smag2))
+        ind, = np.nonzero(rands < normalization)
+        self.__setattr__('%s_inds' % new_attr, ind)
+        self.__setattr__('%s' % new_attr, normalization)
+        return ind, normalization
+
 def get_mix_modelname(model):
     '''
     separate the mix and model name
@@ -397,7 +441,7 @@ def get_mix_modelname(model):
 
 def stage_inds(stage, label):
     import TrilegalUtils
-    return np.nonzero(stage == TrilegalUtils.get_stage_label(label))[0]
+    return np.nonzero(stage == get_stage_label(label))[0]
 
 
 def read_galtable(**kwargs):

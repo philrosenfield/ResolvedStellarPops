@@ -23,7 +23,7 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
     lines = (
             "photosys           %s" % photsys,
             "mag_num            %s" % mag_num,
-            "mag_lim            5               ",
+            "mag_lim            2               ",
             "mag_res            0.1             ",
             "dust               0               ",
             "dustM              dpmod60alox40   ",
@@ -45,9 +45,9 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
             "object_sfr_A       1.              ",
             "object_sfr_B       0.0             ")
 
-    oo = open(parfile, 'w')
-    [oo.write(line + '\n') for line in lines]
-    oo.close()
+    with open(parfile, 'w') as oo:
+        [oo.write(line + '\n') for line in lines]
+
     logger.info('wrote  %s' % parfile)
     return
 
