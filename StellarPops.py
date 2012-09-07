@@ -123,6 +123,7 @@ class StellarPop(object):
         else:
             if not hasattr(self, new_attr):
                 self.__setattr__(new_attr, {})
+            # initialize new_key as dictionary
             if not new_key in self.__dict__[new_attr]:
                 self.__dict__[new_attr][new_key] = {}
             self.__dict__[new_attr][new_key] = {'fit': mp_dg,

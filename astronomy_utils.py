@@ -51,6 +51,10 @@ def hess(color, mag, binsize, **kw):
     else:
         cbin = np.array(kw['cbin']).copy()
 
+
+    hesst, cbin, mbin = np.histogram2d(color, mag, bins=[cbin, mbin])
+    hess = hesst.T
+    '''
     hess = np.zeros((len(mbin), len(cbin)), float)
     for ii in range(len(cbin)):
         cindex = (color < (cbin[ii] + binsize / 2)) * \
@@ -59,8 +63,9 @@ def hess(color, mag, binsize, **kw):
             index = cindex * (mag < (mbin[jj] + binsize / 2)) * \
                     (mag > (mbin[jj] - binsize / 2)) 
             hess[jj, ii] = index.sum()
-
+    '''
     return (cbin, mbin, hess)
+
 
 def parse_mag_tab(photsys, filter, bcdir=None):
     if not bcdir:
