@@ -1,12 +1,11 @@
-from ResolvedStellarPops import angst_tables
-from ResolvedStellarPops import fileIO
+import ResolvedStellarPops as rsp
 from ResolvedStellarPops import astronomy_utils
 from TrilegalUtils import get_stage_label
 import os
 import sys
 import numpy as np
 
-angst_data = angst_tables.AngstTables()
+angst_data = rsp.angst_tables.AngstTables()
 
 
 class galaxies(object):
@@ -105,11 +104,11 @@ class galaxy(object):
         self.photsys = psys.replace('-', '_')
 
         if filetype == 'fitstable':
-            self.data = fileIO.read_fits(fname)
+            self.data = rsp.fileIO.read_fits(fname)
             self.mag1 = self.data['mag1_%s' % photsys.split('-')[0]]
             self.mag2 = self.data['mag2_%s' % photsys.split('-')[0]]
         elif filetype == 'tagged_phot':
-            self.data = fileIO.read_tagged_phot(fname)
+            self.data = rsp.fileIO.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
@@ -125,28 +124,28 @@ class galaxy(object):
         self.trgb, self.Av, self.dmod = galaxy.trgb_av_dmod(self)
         # Abs mag
         mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
-        self.Mag1 = astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                            self.photsys, **mag2Mag_kwargs)
-        self.Mag2 = astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                            self.photsys, **mag2Mag_kwargs)
+        self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                self.photsys, **mag2Mag_kwargs)
+        self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                self.photsys, **mag2Mag_kwargs)
         self.Color = self.Mag1 - self.Mag2
-        self.Trgb = astronomy_utils.mag2Mag(self.trgb, self.filter2,
-                                            self.photsys, **mag2Mag_kwargs)
+        self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
+                                                self.photsys, **mag2Mag_kwargs)
 
         self.z = galaxy_metallicity(self, self.target, **kwargs)
-        
+
     def hess(self, binsize, absmag=False, hess_kw = {}):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
         doc for more information.
         '''
         if absmag:
-            hess = astronomy_utils.hess(self.Color, self.Mag2, binsize,
-                                        **hess_kw)
-            self.Hess = hess 
+            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
+                                            **hess_kw)
+            self.Hess = hess
         else:
-            hess = astronomy_utils.hess(self.color, self.mag2, binsize,
-                                        **hess_kw)
+            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
+                                            **hess_kw)
             self.hess = hess
         return hess
 
@@ -182,7 +181,8 @@ class galaxy(object):
 
     def cut_mag_inds(self, mag2cut, mag1cut=None):
         '''
-        a simple function to return indices of magX that are brighter than magXcut.
+        a simple function to return indices of magX that are brighter than
+        magXcut.
         '''
         mag2cut, = np.nonzero(self.mag2 <= mag2cut)
         if mag1cut is not None:
@@ -192,26 +192,27 @@ class galaxy(object):
             cuts = mag2cut
         return cuts
 
-                
+
 class simgalaxy(object):
     '''
-    reads a trilegal output catalog 
-    there is an issue with mags being abs mag or app mag. If dmod == 0, mags 
-    are assumed to be abs mag and get title() attributes. 
+    reads a trilegal output catalog
+    there is an issue with mags being abs mag or app mag. If dmod == 0, mags
+    are assumed to be abs mag and get title() attributes.
     '''
     def __init__(self, trilegal_out, filter1, filter2, photsys=None):
         self.base, self.name = os.path.split(trilegal_out)
-        self.data = fileIO.read_table(trilegal_out)
+        self.data = rsp.fileIO.read_table(trilegal_out)
         self.filter1 = filter1
         self.filter2 = filter2
         if photsys is None:
             # assume it's the last _item before extension.
             self.photsys = self.name.split('_')[-1].split('.')[0]
-            if self.photsys != 'wfpc2': self.photsys = 'acs_wfc'
+            if self.photsys != 'wfpc2':
+                self.photsys = 'acs_wfc'
         else:
             self.photsys = photsys
         #self.target = self.name.split('_')[2]
-        if self.data.get_col('m-M0')[0] == 0.: 
+        if self.data.get_col('m-M0')[0] == 0.:
             absmag = True
         if absmag:
             self.Mag1 = self.data.get_col(self.filter1)
@@ -226,7 +227,7 @@ class simgalaxy(object):
         if do_slice:
             data_to_slice = ['mag1', 'mag2', 'stage', 'ast_mag1', 'ast_mag2']
             slice_inds = self.rec
-            simgalaxy.slice_data(self, data_to_slice, slice_inds)    
+            simgalaxy.slice_data(self, data_to_slice, slice_inds)
             self.ast_color = self.ast_mag1 - self.ast_mag2
 
         if not absmag:
@@ -234,17 +235,18 @@ class simgalaxy(object):
         else:
             self.Color = self.Mag1 - self.Mag2
         simgalaxy.load_ic_mstar(self)
-        
+
     def get_fits(self):
-        match_out_dir = os.path.join(os.path.split(self.base)[0], 'match', 'output')
+        match_out_dir = os.path.join(os.path.split(self.base)[0], 'match',
+                                     'output')
         fit_file_name = '%s_%s_%s.fit'%(self.ID, self.mix, self.model_name)
         try:
-            fit_file, = fileIO.get_files(match_out_dir, fit_file_name)
+            fit_file, = rsp.fileIO.get_files(match_out_dir, fit_file_name)
             self.chi2, self.fit = MatchUtils.get_fit(fit_file)
         except ValueError:
             print 'no match output for %s.' % fit_file_name
         return
-        
+
     def load_ast_corrections(self):
         try:
             diff1 = self.data.get_col('%s_cor' % self.filter1)
@@ -277,7 +279,7 @@ class simgalaxy(object):
         give a model, will split into CAF09, modelname
         '''
         self.mix, self.model_name = get_mix_modelname(model)
-    
+
     def delete_data(self):
         '''
         for wrapper functions, I don't want gigs of data stored when they
@@ -299,14 +301,14 @@ class simgalaxy(object):
         lage = self.data.get_col('logAge')[self.rec]
         mdot = self.data.get_col('logML')[self.rec]
         logl = self.data.get_col('logL')[self.rec]
-        
-        self.imstar, = np.nonzero((co <= 1) & 
-                                  (logl >= 3.3) & 
-                                  (mdot<=-5) & 
+
+        self.imstar, = np.nonzero((co <= 1) &
+                                  (logl >= 3.3) &
+                                  (mdot<=-5) &
                                   (self.stage == get_stage_label('TPAGB')))
-                                  
-        self.icstar, = np.nonzero((co >= 1) & 
-                                  (mdot <= -5) & 
+
+        self.icstar, = np.nonzero((co >= 1) &
+                                  (mdot <= -5) &
                                   (self.stage == get_stage_label('TPAGB')))
 
     def all_stages(self, *stages):
@@ -322,7 +324,7 @@ class simgalaxy(object):
         '''
         convert from mag to Mag or from Mag to mag, whichever self doesn't
         already have an attribute.
-        
+
         pass dmod, Av, or use AngstTables to look it up from target.
         '''
         if target is not None:
@@ -336,15 +338,19 @@ class simgalaxy(object):
         mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod-1.4}
 
         if hasattr(self, 'mag1'):
-            self.Mag1 = astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                                self.photsys, **mag_covert_kw)
-            self.Mag2 = astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                                self.photsys, **mag_covert_kw)
+            self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
+            self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
         elif hasattr(self, 'Mag1'):
-            self.mag1 = astronomy_utils.Mag2mag(self.Mag1, self.filter1,
-                                                self.photsys, **mag_covert_kw)
-            self.mag2 = astronomy_utils.Mag2mag(self.Mag2, self.filter2,
-                                                self.photsys, **mag_covert_kw)
+            self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, self.filter1,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
+            self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
 
     def get_header(self):
         key_dict = self.data.key_dict
@@ -356,8 +362,8 @@ class simgalaxy(object):
     def add_data(self, **new_cols):
         '''
         add columns to data
-        new_cols: {new_key: new_vals} 
-        new_vals must have same number of rows as data. 
+        new_cols: {new_key: new_vals}
+        new_vals must have same number of rows as data.
         Ie, be same length as self.data.shape[0]
 
         adds new data to self.data.data_array and self.data.key_dict
@@ -395,23 +401,25 @@ class simgalaxy(object):
         assumes self.mag2
         mag2, stage: data arrays of filter2 and the tagged stage
         stage_lab: the label of the stage, probably 'ms' or 'rgb'
-        magcut: 
-        normalization: N_i/N_j 
+        magcut:
+        normalization: N_i/N_j
         N_i = number of stars in stage == stage_lab (brighter than magcut)
-        N_j = number of simulated stars in stage == stage_lab (brighter than magcut)
+        N_j = number of simulated stars in stage == stage_lab
+        (brighter than magcut)
 
         inds: random sample of simulated stars < normalization
-        
+
         mag2 and stage are from observational data.
         '''
         smag2 = self.mag2
         if useasts:
             smag2 = self.data.get_col('%s_cor' % self.filter2)
-            # ast corrections keep nans and infs to stay the same length as data
+            # ast corrections keep nans and infs to stay the same length as
+            # data
             sinds_cut, = np.nonzero(np.isfinite(smag2))
         new_attr = '%s_norm' % stage_lab
         stage_lab = get_stage_label(stage_lab)
-    
+
         sinds, = np.nonzero((self.stage == stage_lab) & (smag2 < magcut))
         if len(sinds) == 0:
             print 'no stars with %s < %.2f' % (new_attr, magcut)
@@ -421,7 +429,7 @@ class simgalaxy(object):
             sinds = list(set(sinds) & set(sinds_cut))
         dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
         normalization = float(len(dsinds)) / float(len(sinds))
-    
+
         # random sample the data distribution
         rands = np.random.random(len(smag2))
         ind, = np.nonzero(rands < normalization)
@@ -498,6 +506,6 @@ def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
 
 
 def get_fake(target, fake_loc='.'):
-    return fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
+    return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
 #del angst_tables, fileIO, astronomy_utils, os, np

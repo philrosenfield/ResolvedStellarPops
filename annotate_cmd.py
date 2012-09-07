@@ -8,7 +8,6 @@ import logging
 import pdb
 import scipy.interpolate
 
-from BRparams import *
 import Galaxies
 import TrilegalUtils
 from scatter_contour import scatter_contour
@@ -337,7 +336,10 @@ def define_color_mag_region(fitsfiles, region_names, **kwargs):
         ctrl click to delete,
         command+click to exit (edit: I think it's actually alt)
     '''
-    cmd_regions_loc = os.path.join(BRFOLDER, 'data', 'cmd_regions')
+    cmd_regions_loc = kwargs.get('cmd_regions_loc')
+    if not cmd_regions_loc:
+        from BRparams import *
+        cmd_regions_loc = os.path.join(BRFOLDER, 'data', 'cmd_regions')
     tagged_data_loc = os.path.join(cmd_regions_loc, 'tagged_photometry')
     plot_dir = os.path.join(cmd_regions_loc, 'plots')
 
