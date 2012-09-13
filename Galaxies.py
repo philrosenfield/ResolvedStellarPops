@@ -1,11 +1,10 @@
 import ResolvedStellarPops as rsp
-from ResolvedStellarPops import astronomy_utils
 from TrilegalUtils import get_stage_label
 import os
 import sys
 import numpy as np
 
-angst_data = rsp.angst_tables.AngstTables()
+#angst_data = rsp.angst_tables.AngstTables()
 
 
 class galaxies(object):
@@ -212,9 +211,10 @@ class simgalaxy(object):
         else:
             self.photsys = photsys
         #self.target = self.name.split('_')[2]
+        absmag = False
         if self.data.get_col('m-M0')[0] == 0.:
             absmag = True
-        if absmag:
+        if absmag is True:
             self.Mag1 = self.data.get_col(self.filter1)
             self.Mag2 = self.data.get_col(self.filter2)
         else:

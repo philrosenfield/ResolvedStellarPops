@@ -9,11 +9,10 @@ import pdb
 import scipy.interpolate
 
 import Galaxies
-import TrilegalUtils
+from TrilegalUtils import get_stage_label
 from scatter_contour import scatter_contour
 
 logger = logging.getLogger()
-
 
 def poly_fmt(polygon_str):
     polygon_str = polygon_str.replace(')', '').replace('(', '').strip()
@@ -420,7 +419,7 @@ def define_color_mag_region(fitsfiles, region_names, **kwargs):
         for region in region_names:
             ax.set_title(region)
             plt.draw()
-            stage_lab = TrilegalUtils.get_stage_label(region)
+            stage_lab = get_stage_label(region)
             pts = ginput(0, timeout=-1)
             xs, ys = np.transpose(pts)
             inds, = np.nonzero(nxutils.points_inside_poly(datapts, pts))
