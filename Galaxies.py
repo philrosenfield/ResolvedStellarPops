@@ -4,8 +4,7 @@ import os
 import sys
 import numpy as np
 
-#angst_data = rsp.angst_tables.AngstTables()
-
+angst_data = rsp.angst_tables.AngstTables()
 
 class galaxies(object):
     '''
@@ -81,7 +80,7 @@ class galaxies(object):
         return ''
 
 
-def galaxy_info(filename):
+def hla_galaxy_info(filename):
     name = os.path.split(filename)[1]
     name_split = name.split('_')[1:-2]
     survey, lixo, photsys, pidtarget, filters = name_split
@@ -89,23 +88,40 @@ def galaxy_info(filename):
     target = '-'.join(pidtarget.split('-')[1:])
     return survey, propid, target, filters, photsys
 
+def bens_fmt_galaxy_info(filename):
+    info = os.path.split(filename)[1].split('.')[0].split('_')
+    # Why not just split? Sometimes there's an IR right in there for
+    # reasons beyond comprehension.
+    (propid, target) = info[:2]
+    (filter1, filter2) = info[-2:]
+    return propid, target, filter1, filter2
 
 class galaxy(object):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
     '''
     def __init__(self, fname, filetype='tagged_phot', **kwargs):
+        hla = kwargs.get('hla', True)
+        band = kwargs.get('band')
         # name spaces
         self.base, self.name = os.path.split(fname)
-        self.survey, self.propid, self.target, filts, psys = galaxy_info(fname)
-        # photometry
-        self.filter1, self.filter2 = filts.upper().split('-')
-        self.photsys = psys.replace('-', '_')
+        if hla is True:
+            self.survey, self.propid, self.target, filts, psys = hla_galaxy_info(fname)
+            # photometry
+            self.filter1, self.filter2 = filts.upper().split('-')
+            self.photsys = psys.replace('-', '_')
+        else:
+            # this is really for TPAGB with WFC/SNAP.
+            self.photsys = 'wfc3'
+            self.propid, self.target, self.filter1, self.filter2 = bens_fmt_galaxy_info(fname)
 
         if filetype == 'fitstable':
             self.data = rsp.fileIO.read_fits(fname)
-            self.mag1 = self.data['mag1_%s' % photsys.split('-')[0]]
-            self.mag2 = self.data['mag2_%s' % photsys.split('-')[0]]
+            ext = self.photsys.split('_')[0]
+            if band is not None:
+                ext = band.upper()
+            self.mag1 = self.data['mag1_%s' % ext]
+            self.mag2 = self.data['mag2_%s' % ext]
         elif filetype == 'tagged_phot':
             self.data = rsp.fileIO.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
@@ -113,26 +129,31 @@ class galaxy(object):
             self.stage = self.data['stage']
         else:
             print ('filetype must be fitstable or tagged_phot,',
-                    'use simgalaxy for trileagl.')
+                    'use simgalaxy for trilegal.')
             sys.exit(2)
 
         self.color = self.mag1 - self.mag2
         # angst table loads
         self.comp50mag1 = angst_data.get_50compmag(self.target, self.filter1)
         self.comp50mag2 = angst_data.get_50compmag(self.target, self.filter2)
-        self.trgb, self.Av, self.dmod = galaxy.trgb_av_dmod(self)
-        # Abs mag
-        mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
-        self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                                self.photsys, **mag2Mag_kwargs)
-        self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                                self.photsys, **mag2Mag_kwargs)
-        self.Color = self.Mag1 - self.Mag2
-        self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
-                                                self.photsys, **mag2Mag_kwargs)
+        if hla:
+            self.trgb, self.Av, self.dmod = galaxy.trgb_av_dmod(self)
+            # Abs mag
+            mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
+            self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                    self.photsys, **mag2Mag_kwargs)
+            self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                    self.photsys, **mag2Mag_kwargs)
+            self.Color = self.Mag1 - self.Mag2
+            self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
+                                                    self.photsys, **mag2Mag_kwargs)
 
         self.z = galaxy_metallicity(self, self.target, **kwargs)
-
+        if kwargs.get('z'):
+            self.z = kwargs['z']
+        if kwargs.get('trgb'):
+            self.trgb = kwargs['trgb']
+        
     def hess(self, binsize, absmag=False, hess_kw = {}):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
@@ -164,6 +185,13 @@ class galaxy(object):
             self.__setattr__('i%s' % stage.lower(), i)
         return
 
+    def stage_inds(self, stage_name):
+        return get_stage_inds(self.data, stage_name)
+
+    def delete_data(self):
+        data_names = ['data', 'mag1', 'mag2', 'color', 'stage']
+        [self.__delattr__(data_name) for data_name in data_names]
+    
     def __str__(self):
         out = (
             "%s data: "
@@ -198,11 +226,12 @@ class simgalaxy(object):
     there is an issue with mags being abs mag or app mag. If dmod == 0, mags
     are assumed to be abs mag and get title() attributes.
     '''
-    def __init__(self, trilegal_out, filter1, filter2, photsys=None):
+    def __init__(self, trilegal_out, filter1, filter2, photsys=None, count_offset=0.0):
         self.base, self.name = os.path.split(trilegal_out)
         self.data = rsp.fileIO.read_table(trilegal_out)
         self.filter1 = filter1
         self.filter2 = filter2
+        self.count_offset = count_offset
         if photsys is None:
             # assume it's the last _item before extension.
             self.photsys = self.name.split('_')[-1].split('.')[0]

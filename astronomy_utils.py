@@ -80,6 +80,11 @@ def parse_mag_tab(photsys, filter, bcdir=None):
     tab = open(tab_mag, 'r').readlines()
     mags = tab[1].strip().split()
     Alam_Av = map(float, tab[3].strip().split())
+    try:
+        Alam_Av[mags.index(filter)]
+    except ValueError:
+        print '%s not in list' % filter
+        print tab_mag, mags
     return Alam_Av[mags.index(filter)]
     
 def Mag2mag(Mag, filter, photsys, **kwargs):

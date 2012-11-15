@@ -449,4 +449,10 @@ and voila, colors is your usual array of [R G B alpha] values for the color or e
 There's also a matplotlib.colors.LogNorm if you want to normalize the colors on a log scale.
 
 '''
+
+
+'''
+import matplotlib.ticker as poop
+ax.yaxis.set_major_formatter( poop.FormatStrFormatter('%g'))
+'''
     
