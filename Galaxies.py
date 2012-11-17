@@ -102,6 +102,7 @@ class galaxy(object):
     '''
     def __init__(self, fname, filetype='tagged_phot', **kwargs):
         hla = kwargs.get('hla', True)
+        angst = kwargs.get('angst', True)
         band = kwargs.get('band')
         # name spaces
         self.base, self.name = os.path.split(fname)
@@ -111,13 +112,20 @@ class galaxy(object):
             self.filter1, self.filter2 = filts.upper().split('-')
             self.photsys = psys.replace('-', '_')
         else:
-            # this is really for TPAGB with WFC/SNAP.
-            self.photsys = 'wfc3'
+            self.survey = ' '
+            self.dmod = kwargs.get('dmod', 0.)
+            self.Av = kwargs.get('Av', 0.)
+            self.z = kwargs.get('z', -99)
+            self.trgb = kwargs.get('trgb', np.nan)
+            self.photsys = kwargs.get('photsys')
+            if self.photsys is None: 
+                self.photsys = 'wfc3'
+                print 'assuming this is wfc3 data'
             self.propid, self.target, self.filter1, self.filter2 = bens_fmt_galaxy_info(fname)
 
         if filetype == 'fitstable':
             self.data = rsp.fileIO.read_fits(fname)
-            ext = self.photsys.split('_')[0]
+            ext = self.photsys.upper().split('_')[0]
             if band is not None:
                 ext = band.upper()
             self.mag1 = self.data['mag1_%s' % ext]
@@ -134,26 +142,25 @@ class galaxy(object):
 
         self.color = self.mag1 - self.mag2
         # angst table loads
-        self.comp50mag1 = angst_data.get_50compmag(self.target, self.filter1)
-        self.comp50mag2 = angst_data.get_50compmag(self.target, self.filter2)
-        if hla:
+        if angst is True:
+            self.comp50mag1 = angst_data.get_50compmag(self.target, self.filter1)
+            self.comp50mag2 = angst_data.get_50compmag(self.target, self.filter2)
             self.trgb, self.Av, self.dmod = galaxy.trgb_av_dmod(self)
             # Abs mag
-            mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
-            self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                                    self.photsys, **mag2Mag_kwargs)
-            self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                                    self.photsys, **mag2Mag_kwargs)
-            self.Color = self.Mag1 - self.Mag2
-            self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
-                                                    self.photsys, **mag2Mag_kwargs)
+            self.AbsMag()
+            self.z = galaxy_metallicity(self, self.target, **kwargs)
 
-        self.z = galaxy_metallicity(self, self.target, **kwargs)
-        if kwargs.get('z'):
-            self.z = kwargs['z']
-        if kwargs.get('trgb'):
-            self.trgb = kwargs['trgb']
-        
+    def AbsMag(self):
+        mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
+        print mag2Mag_kwargs
+        self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                self.photsys, **mag2Mag_kwargs)
+        self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                self.photsys, **mag2Mag_kwargs)
+        self.Color = self.Mag1 - self.Mag2
+        self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
+                                                self.photsys, **mag2Mag_kwargs)
+
     def hess(self, binsize, absmag=False, hess_kw = {}):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
@@ -194,17 +201,17 @@ class galaxy(object):
     
     def __str__(self):
         out = (
-            "%s data: "
-            "   Prop ID: %s"
-            "   Target: %s"
-            "   dmod: %g"
-            "   Av: %g"
-            "   Filters: %s - %s"
-            "   Camera: %s"
+            "%s data: \n"
+            "   Prop ID: %s\n"
+            "   Target: %s\n"
+            "   dmod: %g\n"
+            "   Av: %g\n"
+            "   Filters: %s - %s\n"
+            "   Camera: %s\n"
             "   Z: %.4f") % (
                 self.survey, self.propid, self.target, self.dmod, self.Av,
                 self.filter1, self.filter2, self.photsys, self.z)
-        return
+        return out
 
     def cut_mag_inds(self, mag2cut, mag1cut=None):
         '''
@@ -288,8 +295,8 @@ class simgalaxy(object):
         recovered2, = np.nonzero(abs(diff2) < 90.)
         self.rec = list(set(recovered1) & set(recovered2))
         if hasattr(self, 'mag1'):
-            self.ast_mag1 = self.diff1
-            self.ast_mag2 = self.diff2
+            self.ast_mag1 = diff1
+            self.ast_mag2 = diff2
         return 1
 
     def slice_data(self, data_to_slice, slice_inds):
@@ -326,7 +333,11 @@ class simgalaxy(object):
         return np.nonzero(self.stage == get_stage_label(stage_name))[0]
 
     def load_ic_mstar(self):
-        co = self.data.get_col('C/O')[self.rec]
+        try:
+            co = self.data.get_col('C/O')[self.rec]
+        except KeyError:
+            print 'warning, no agb stars'
+            return
         lage = self.data.get_col('logAge')[self.rec]
         mdot = self.data.get_col('logML')[self.rec]
         logl = self.data.get_col('logL')[self.rec]
@@ -380,7 +391,7 @@ class simgalaxy(object):
             self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
-
+    
     def get_header(self):
         key_dict = self.data.key_dict
         names = [k[0] for k in sorted(key_dict.items(),
@@ -408,7 +419,8 @@ class simgalaxy(object):
         if not len_test:
             'array lengths are not the same.'
             return -1
-        header = simgalaxy.get_header(self)
+
+        header = self.get_header()
         # add new columns to the data and their names to the header.
         for k,v in new_cols.items():
             header += ' %s' % k
@@ -537,4 +549,203 @@ def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
 def get_fake(target, fake_loc='.'):
     return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
-#del angst_tables, fileIO, astronomy_utils, os, np
+
+def ast_correct_trileagl_sim(sgal, fake_file, outfile=None, overwrite=False, 
+                             spread_too=False, spread_outfile=None, 
+                             savefile=False):
+    '''
+    convolve trilegal simulation with artificial star tests.
+    options to write the a copy of the trilegal simulation with the corrected
+    mag columns, and also just the color, mag into a file (spread_too). 
+    
+    input:
+    sgal: simgalaxy instance with convert_mag method already called.
+    fake_file: string - matchfake file, or an artifical_star_tests instance.
+    outfile: string - ast_file to write
+    overwrite: overwrite output files, is also passed to write_spread
+    spread_too: call write_spread flag
+    spread_outfile: outfile for write_spread
+
+    returns
+    adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
+    '''
+
+    if type(fake_file) is str:
+        asts = artificial_star_tests(fake_file)
+    else:
+        asts = fake_file
+
+    if sgal.filter1 != asts.filter1 or sgal.filter2 != asts.filter2:
+        print 'bad filter match between sim gal and ast.'
+        return -1
+
+    cor_mag1, cor_mag2 = asts.ast_correction(sgal.mag1, sgal.mag2, 
+                                             **{'binsize': 0.2})
+    new_cols = {'%s_cor' % asts.filter1: cor_mag1, 
+                '%s_cor' % asts.filter2: cor_mag2}
+    sgal.add_data(**new_cols)
+
+    if savefile is True: 
+        if not outfile:
+            outfile_name = sgal.name.replace('out', 'ast')
+            outfile_base = os.path.join(os.path.split(sgal.base)[0], 'AST')
+            rsp.fileIO.ensure_dir(outfile_base)
+            outfile = os.path.join(outfile_base, outfile_name)
+        if overwrite or not os.path.isfile(outfile):
+            write_trilegal_sim(sgal, outfile)
+        else:
+            print '%s exists, send overwrite=True arg to overwrite' % outfile
+    if spread_too:
+        write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
+
+    return
+
+
+class artificial_star_tests(object):
+    '''
+    class for reading and using artificial stars. 
+    If *filename* is not a matchfake file, MUST create a new method to read in
+    artificial stars.
+
+    for load_fake:
+    mag1 is assumed to be mag1in
+    mag2 is assumed to be mag2in
+    mag1diff is assumed to be mag1in-mag1out
+    mag2diff is assumed to be mag2in-mag2out
+
+    filename is assumed as matchfake:
+    PID_TARGET_FILTER1_FILTER2_....
+    this is how attributes target, filter1, and filter2 are assigned.
+    
+    '''
+    def __init__(self, filename):
+        self.base, self.name = os.path.split(filename)
+        __, self.target, self.filter1, self.filter2, __ = self.name.split('_')
+        artificial_star_tests.load_fake(self, filename)
+
+    def recovered(self, threshold=9.99):
+        '''
+        indicies of recovered stars in both filters.
+        threshold of recovery [9.99]
+        '''
+        rec1, = np.nonzero(self.mag1diff > threshold)
+        rec2, = np.nonzero(self.mag2diff > threshold)
+        self.rec = list(set(rec1) & set(rec2))
+        return rec
+
+    def load_fake(self, filename):
+        '''
+        reads matchfake file and assigns each column to its own attribute
+        see artificial_star_tests.__doc__
+        '''
+        names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
+        self.data = np.genfromtxt(filename, names = names)
+        # unpack into attribues
+        for name in names:
+            self.__setattr__(name, self.data[name])
+    
+    def bin_asts(self, binsize=0.2, bins=None):
+        '''
+        bins the artificial star tests in bins of *binsize* or with *bins*
+        assigns attributes am1_inds and am2_inds, the indices of the bins to
+        which each value in mag1 and mag2 belong (see np.digitize).
+        '''
+        if bins is None:
+            ast_max = np.max(np.concatenate((self.mag1, self.mag2)))
+            ast_min = np.min(np.concatenate((self.mag1, self.mag2)))
+            self.ast_bins = np.arange(ast_min, ast_max, binsize)
+        else:
+            self.ast_bins = bins
+        
+        self.am1_inds = np.digitize(self.mag1, self.ast_bins)
+        self.am2_inds = np.digitize(self.mag2, self.ast_bins)
+
+    def _random_select(self, arr, nselections):
+        '''
+        randomly sample *arr* *nselections* times, used in ast_correction
+    
+        input
+        arr: array or list to sample
+        nselections: int times to sample
+        returns
+        rands: list of selections, length nselections
+        '''
+        import random
+        rands = [random.choice(arr) for i in range(nselections)]
+        return rands
+    
+    def ast_correction(self, obs_mag1, obs_mag2, **kwargs):
+        '''
+        apply ast correction to input mags.
+        This is done by going through obs_mag1 in bins of *bin_asts* (which
+        will be called if not already) and randomly selecting magdiff values
+        in that ast_bin. obs_mag2 simply follows along since it is tied to
+        obs_mag1.
+
+        Random selection was chosen because of the spatial nature of artificial
+        star tests. If there are 400 asts in one mag bin, and 30 are not
+        recovered, random selection should match that distribution (if there
+        are many obs stars).
+        input: 
+        obs_mag1, obs_mag2: N, 1 arrays
+        kwargs:
+        binsize, bins: for bin_asts if not already run. 
+
+        TODO:
+        possibly return magXdiff rather than magX + magXdiff?
+        reason not to: using AST results from one filter to another isn't
+        kosher. At least not glatt kosher.
+        '''
+        nstars = obs_mag1.size
+        if obs_mag1.size != obs_mag2.size:
+            print 'mag arrays of different lengths'
+            return -1
+
+        # corrected mags are filled with nan.
+        cor_mag1 = np.empty(nstars)
+        cor_mag1.fill(np.nan)
+        cor_mag2 = np.empty(nstars)
+        cor_mag2.fill(np.nan)
+
+        # need asts to be binned for this method.
+        if not hasattr(self, 'ast_bins'):
+            binsize = kwargs.get('binsize', 0.2)
+            bins = kwargs.get('bins')
+            self.bin_asts(binsize=binsize, bins=bins)
+
+
+        om1_inds = np.digitize(obs_mag1, self.ast_bins)
+
+        for i in range(len(self.ast_bins)):
+            obsbin, = np.nonzero(om1_inds == i)
+            astbin, = np.nonzero(self.am1_inds == i)
+            nobs = len(obsbin)
+            nast = len(astbin)
+            if nobs == 0:
+                # no stars in this mag bin to correct
+                continue
+            if nast == 0:
+                # no asts in this bin, probably means the simulation
+                # is too deep
+                continue
+
+            # randomly select the appropriate ast correction for obs stars
+            # in this bin
+            cor1 = artificial_star_tests._random_select(self, 
+                                                        self.mag1diff[astbin], 
+                                                        nobs)
+            cor2 = artificial_star_tests._random_select(self, 
+                                                        self.mag2diff[astbin], 
+                                                        nobs)
+
+            # apply corrections
+            cor_mag1[obsbin] = obs_mag1[obsbin] + cor1
+            cor_mag2[obsbin] = obs_mag2[obsbin] + cor2
+
+            # finite values only: not implemented because trilegal array should
+            # maintain the same size.
+            #fin1, = np.nonzero(np.isfinite(cor_mag1))
+            #fin2, = np.nonzero(np.isfinite(cor_mag2))
+            #fin = list(set(fin1) & set(fin2))
+        return cor_mag1, cor_mag2
+

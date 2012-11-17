@@ -5,6 +5,7 @@ __version__ = '0.1alpha'
 
 import angst_tables
 import Galaxies
+import match_utils
 import StellarPops
 import math_utils
 import fileIO

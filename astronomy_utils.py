@@ -73,10 +73,12 @@ def parse_mag_tab(photsys, filter, bcdir=None):
             bcdir = os.environ['BCDIR']
         except KeyError:
             print 'need bcdir environmental variable, or to pass it to parse_mag_tab' 
-    
+
+    photsys = photsys.lower()
+
     tab_mag_dir = os.path.join(bcdir, 'tab_mag_odfnew/')
-    tab_mag = fileIO.get_files(tab_mag_dir, 'tab_mag_'+photsys+'.dat')[0]
-    
+    tab_mag, = fileIO.get_files(tab_mag_dir, 'tab_mag_%s.dat' % photsys)
+
     tab = open(tab_mag, 'r').readlines()
     mags = tab[1].strip().split()
     Alam_Av = map(float, tab[3].strip().split())
@@ -99,7 +101,7 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
     '''
     target = kwargs.get('target', None)
     A = 0.
-    if target != None:
+    if target is not None:
         filter2 = filter
         filter1 = kwargs.get('filter1', None)
         trgb, Av, dmod = AngstTables.get_tab5_trgb_av_dmod(target, 

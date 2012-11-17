@@ -52,11 +52,13 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
     return
 
 
-def run_trilegal(cmd_input, parfile, inp, out):
+def run_trilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
     cmd = "/Users/phil/research/PyTRILEGAL/run_trilegal.py  -e code/main"
     cmd += "%s" % parfile
-    cmd += " -a"
-    cmd += " -l"
+    if agb is True:
+        cmd += " -a"
+    if tagstages is True:
+        cmd += " -l"
     cmd += " -i  %s" % inp
     cmd += " -o  %s" % out
     cmd += " -f  %s" % cmd_input

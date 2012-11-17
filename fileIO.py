@@ -3,6 +3,77 @@ import os
 import glob
 import pyfits
 
+class input_file(object):
+    '''
+    a class to replace too many kwargs from the input file.
+    does two things:
+    1. sets a default dictionary (see input_defaults) as attributes
+    2. unpacks the dictionary from load_input as attributes.
+    '''
+    def __init__(self, filename, default_dict=None):
+        if default_dict is not None:
+            self.set_defaults(default_dict)
+        self.in_dict = load_input(filename)
+        self.unpack_dict()
+
+    def set_defaults(self, in_def):
+        self.unpack_dict(udict=in_def)
+
+    def unpack_dict(self, udict=None):
+        if udict is None:
+            udict = self.in_dict
+        [self.__setattr__(k, v) for k, v in udict.items()]
+
+
+def load_input(filename):
+    '''
+    reads an input file into a dictionary.
+    file must have key first then value(s)
+    Will make 'True' into a boolean True
+    Will understand if a value is a float, string, or list, etc.
+    Ignores all lines that start with #, but not with # on the same line as
+    key, value.
+    '''
+    try:
+        literal_eval
+    except NameError:
+        from ast import literal_eval
+
+    d = {}
+    with open(filename) as f:
+        for line in f.readlines():
+            if line.startswith('#'):
+                continue
+            if len(line.strip()) == 0:
+                continue
+            key, val = line.strip().partition(' ')[0::2]
+            d[key] = math_utils.is_numeric(val.replace(' ', ''))
+    # do we have a list?
+    for key in d.keys():
+        # float
+        if type(d[key]) == float:
+            continue
+        # list:
+        temp = d[key].split(',')
+        if len(temp) > 1:
+            try:
+                d[key] = map(float, temp)
+            except:
+                d[key] = temp
+        # dict:
+        elif len(d[key].split(':')) > 1:
+            temp1 = d[key].split(':')
+            d[key] = {math_utils.is_numeric(temp1[0]): math_utils.is_numeric(temp1[1])}
+        else:
+            val = temp[0]
+            # boolean
+            true = val.upper().startswith('TR')
+            false = val.upper().startswith('FA')
+            if true or false:
+                val = literal_eval(val)
+            # string
+            d[key] = val
+    return d
 
 def replace_ext(filename, ext):
     return '.'.join(filename.split('.')[:-1]) + ext

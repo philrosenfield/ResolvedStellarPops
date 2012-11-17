@@ -248,6 +248,7 @@ def set_up_three_panel_plot():
     axs = [plt.axes([l,b,w,h]) for l,b,w,h in zip(lefts,bottoms,widths,heights)]
     return axs
 
+
 def two_panel_plot(sizex,sizey,xlab1,xlab2,ylab,ylab2=None,ftsize=20,mag2_cut=0,mag2_max=1):
     fig = plt.figure(2, figsize=(sizex,sizey))
     left, width = 0.1, 0.4

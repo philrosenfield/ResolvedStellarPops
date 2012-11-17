@@ -70,6 +70,8 @@ def get_all_isochrones(filename):
         #print i
         if lines[i].startswith('#'):
             continue
+        if not len(lines[i].split()) == Ncols:
+            continue
         items = [math_utils.is_numeric(m) for m in lines[i].split()]
         if len(lines[i].split()) != Ncols:
             items.append('')
