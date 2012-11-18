@@ -16,6 +16,7 @@ def hess(color, mag, binsize, **kw):
     OPTIONAL INPUT:
        cbin=  -- set the centers of the color bins
        mbin=  -- set the centers of the magnitude bins
+       cbinsize -- width of bins, in magnitudes
 
     OUTPUT:
        A 3-tuple consisting of:
@@ -33,6 +34,7 @@ def hess(color, mag, binsize, **kw):
 
     2009-02-08 23:01 IJC: Created, on a whim, for LMC data (of course)
     2009-02-21 15:45 IJC: Updated with cbin, mbin options
+    2012 PAR: Gutted and changed it do histogram2d for faster implementation.
     """
     defaults = dict(mbin=None, cbin=None, verbose=False)
     
@@ -51,19 +53,8 @@ def hess(color, mag, binsize, **kw):
     else:
         cbin = np.array(kw['cbin']).copy()
 
-
     hesst, cbin, mbin = np.histogram2d(color, mag, bins=[cbin, mbin])
     hess = hesst.T
-    '''
-    hess = np.zeros((len(mbin), len(cbin)), float)
-    for ii in range(len(cbin)):
-        cindex = (color < (cbin[ii] + binsize / 2)) * \
-                 (color > (cbin[ii] - binsize / 2)) 
-        for jj in range(len(mbin)):
-            index = cindex * (mag < (mbin[jj] + binsize / 2)) * \
-                    (mag > (mbin[jj] - binsize / 2)) 
-            hess[jj, ii] = index.sum()
-    '''
     return (cbin, mbin, hess)
 
 

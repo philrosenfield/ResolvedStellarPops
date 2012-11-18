@@ -43,10 +43,12 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
 
     for i, (ax, z) in enumerate(zip(grid, ZS)):
         if i > 1:
+            # second row: make 0 on the color bar white
             vmin =  - np.max(np.abs(z))
             vmax = np.max(np.abs(z))
             colors = cm.RdBu
         else:
+            # first row: make white 0, but will be on the left of color bar
             vmin = None
             vmax = None
             colors = cm.bone_r
@@ -111,12 +113,6 @@ def pgcmd(filename, labels=None, saveplot=False, out_dir=None, axis_labels='defa
     return grid
 
 def plot_sfh(filename):  
-    def plot_sfh(self,
-                 sfh_type = None,
-                 time_array = None,
-                 tmax = 200e6,
-                 ax = None,
-                 plot_errors = True):        
         """
         Plots the star formation history (default at input (logarithmic) time resolution).
         Optionally plots the cumulative energy added from star formation, if

@@ -116,6 +116,10 @@ def check_for_bg_file(param):
         bg_file = os.path.split(bg_file)[1]
     return bg_file
 
+def write_match_bg(color, mag, filename):
+    np.savetxt(filename, np.column_stack((color, mag)), fmt='%.4f')
+    print 'wrote match_bg as %s' % filename
+    return
 
 def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
     '''
@@ -142,6 +146,48 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
         os.remove(bg_file)
     return out
 
+def match_param_kwargs(filename, track_time=False):
+    '''
+    a horribly ugly way to read a file into kwargs. not caring....
+    '''
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    
+    (imf, dmod, dmod2, ddmod, Av, Av2, dAv) = map(float, lines[0].strip().split())
+    zline = map(float, lines[1].strip().split())
+    if len(zline) <= 3:
+        (logzmin, logzmax, dlogz) = zline[:3]
+        (ilogzmin, ilogzmax, flogzmin, flogzmax) = (None, None, None, None)
+    else:
+        (logzmin, logzmax, dlogz, ilogzmin, ilogzmax, flogzmin, flogzmax) = zline
+    
+    (bf, bad0, bad1) = map(float, lines[2].strip().split())
+    Ncmds = int(lines[3].strip())
+    (dmag, dcol, fake_sm, colmin, colmax) = map(float, 
+                                                lines[4].strip().split()[:5])
+    (filter1, filter2) = lines[4].strip().split()[-1].split(',')
+    (bright1, faint1) = map(float, lines[5].strip().split()[:2])
+    (bright2, faint2) = map(float, lines[6].strip().split()[:2])
+    (nexclude_gates, ncombine_gates) = map(int, lines[7].strip().split())
+    if track_time is True:
+        print 'write some code if you want to care about time bins.'
+    
+    kwargs = {'imf': imf, 'dmod': dmod, 'dmod2': dmod2, 'ddmod': ddmod,
+              'Av': Av, 'Av2': Av2, 'dAv': dAv, 'logzmin': logzmin,
+              'logzmax': logzmax, 'dlogz': dlogz, 'ilogzmin': ilogzmin,
+              'ilogzmax': ilogzmax, 'flogzmin': flogzmin, 'flogzmax': flogzmax,
+              'logzmin': logzmin, 'logzmax': logzmax, 'dlogz': dlogz, 
+              'ilogzmin': ilogzmin, 'ilogzmax': ilogzmax, 'flogzmin': flogzmin,
+              'flogzmax': flogzmax, 'bf': bf, 'bad0': bad0, 'bad1': bad1,
+              'Ncmds': Ncmds, 'dmag': dmag, 'dcol': dcol, 'fake_sm': fake_sm, 
+              'colmin': colmin, 'colmax': colmax, 'filter1': filter1,
+              'filter2': filter2, 'bright1': bright1, 'faint1': faint1,
+              'bright2': bright2, 'faint2': faint2,
+              'nexclude_gates': nexclude_gates,
+              'ncombine_gates': ncombine_gates}
+    return kwargs
+
+    
 
 def make_calcsfh_param_file(match_bg, **kwargs):
     '''

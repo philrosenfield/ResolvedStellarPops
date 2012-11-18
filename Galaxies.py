@@ -1,4 +1,5 @@
 import ResolvedStellarPops as rsp
+import matplotlib.nxutils as nxutils
 from TrilegalUtils import get_stage_label
 import os
 import sys
@@ -161,7 +162,7 @@ class galaxy(object):
         self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
                                                 self.photsys, **mag2Mag_kwargs)
 
-    def hess(self, binsize, absmag=False, hess_kw = {}):
+    def make_hess(self, binsize, absmag=False, hess_kw = {}):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
         doc for more information.
@@ -253,10 +254,11 @@ class simgalaxy(object):
         if absmag is True:
             self.Mag1 = self.data.get_col(self.filter1)
             self.Mag2 = self.data.get_col(self.filter2)
+            self.Color = self.Mag1 - self.Mag2
         else:
             self.mag1 = self.data.get_col(self.filter1)
             self.mag2 = self.data.get_col(self.filter2)
-
+            self.color = self.mag1 - self.mag2
         self.stage = self.data.get_col('stage')
 
         do_slice = simgalaxy.load_ast_corrections(self)
@@ -336,7 +338,7 @@ class simgalaxy(object):
         try:
             co = self.data.get_col('C/O')[self.rec]
         except KeyError:
-            print 'warning, no agb stars'
+            print 'warning, no agb stars... trilegal ran w/o -a flag'
             return
         lage = self.data.get_col('logAge')[self.rec]
         mdot = self.data.get_col('logML')[self.rec]
@@ -391,7 +393,26 @@ class simgalaxy(object):
             self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
-    
+
+    def make_hess(self, binsize, absmag=False, hess_kw = {}):
+        '''
+        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
+        doc for more information.
+        '''
+        if absmag:
+            if not hasattr(self, 'Color'):
+                self.Color = self.Mag1 - self.Mag2
+            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
+                                            **hess_kw)
+            self.Hess = hess
+        else:
+            if not hasattr(self, 'color'):
+                self.color = self.mag1 - self.mag2
+            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
+                                            **hess_kw)
+            self.hess = hess
+        return hess
+
     def get_header(self):
         key_dict = self.data.key_dict
         names = [k[0] for k in sorted(key_dict.items(),
@@ -432,44 +453,66 @@ class simgalaxy(object):
         self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
         return header
 
-    def normalize_by_stage(self, mag2, stage, stage_lab, magcut=999.,
-                           useasts=False, sinds_cut=None):
+    def normalize(self, stage_lab, mag2=None, stage=None, by_stage=True,
+                  magcut=999., useasts=False, sinds_cut=None, verts=None,
+                  ndata_stars=None):
         '''
-        this could be in some simgalaxy/galaxy class. just sayin.
         returns inds, normalization
 
         input
-        assumes self.mag2
+        assumes mag2 either self.mag2 or if useasts self.ast_mag2
         mag2, stage: data arrays of filter2 and the tagged stage
         stage_lab: the label of the stage, probably 'ms' or 'rgb'
-        magcut:
+        by_stage:
+           mag2 (data mage) and stage (stage inds) are from observational
+           data.
+        else, by verts:
+           don't normalize by data stage (e.g., not a tagged file)
+           in this case verts should be a cmd polygon and ndata_stars should be
+           the number of data stars in that cmd polygon.
+        
+        magcut: flat mag2 cut to apply (return brighter than)
+
+        RETURNS
         normalization: N_i/N_j
-        N_i = number of stars in stage == stage_lab (brighter than magcut)
-        N_j = number of simulated stars in stage == stage_lab
-        (brighter than magcut)
+            N_i = number of stars in stage or verts
+            N_j = number of simulated stars in stage or verts
 
         inds: random sample of simulated stars < normalization
-
-        mag2 and stage are from observational data.
         '''
         smag2 = self.mag2
+        scolor = self.mag1 - self.mag2
         if useasts:
             smag2 = self.data.get_col('%s_cor' % self.filter2)
+            smag1 = self.data.get_col('%s_cor' % self.filter1)
+            scolor = smag1 - smag2
             # ast corrections keep nans and infs to stay the same length as
             # data
-            sinds_cut, = np.nonzero(np.isfinite(smag2))
-        new_attr = '%s_norm' % stage_lab
-        stage_lab = get_stage_label(stage_lab)
+            sinds_cut, = np.nonzero(np.isfinite(smag2) & np.isfinite(smag1))
 
+        new_attr = '%s_norm' % stage_lab
+        
+        stage_lab = get_stage_label(stage_lab)
         sinds, = np.nonzero((self.stage == stage_lab) & (smag2 < magcut))
-        if len(sinds) == 0:
-            print 'no stars with %s < %.2f' % (new_attr, magcut)
 
         if sinds_cut is not None:
             # inf could be less than magcut, so better keep only finite vals.
             sinds = list(set(sinds) & set(sinds_cut))
-        dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
-        normalization = float(len(dsinds)) / float(len(sinds))
+        
+        if by_stage is False:
+            points = np.column_stack((scolor[sinds], smag2[sinds]))
+            sinds, = np.nonzero(nxutils.points_inside_poly(points, verts))
+        
+        nsim_stars = float(len(sinds))    
+
+        if len(sinds) == 0:
+            print 'no stars with %s < %.2f' % (new_attr, magcut)
+    
+        if by_stage is True:
+            dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
+            ndata_stars = float(len(dsinds))
+
+        normalization = ndata_stars / nsim_stars
 
         # random sample the data distribution
         rands = np.random.random(len(smag2))

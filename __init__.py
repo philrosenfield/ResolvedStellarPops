@@ -2,13 +2,12 @@
 
 __version__ = '0.1alpha'
 
-
-import angst_tables
-import Galaxies
-import match_utils
-import StellarPops
-import math_utils
-import fileIO
 import functions
-import annotate_cmd
+import fileIO
+import angst_tables
 import astronomy_utils
+import match_utils
+import math_utils
+import Galaxies
+import StellarPops
+import annotate_cmd
