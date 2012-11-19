@@ -116,8 +116,9 @@ def check_for_bg_file(param):
         bg_file = os.path.split(bg_file)[1]
     return bg_file
 
-def write_match_bg(color, mag, filename):
-    np.savetxt(filename, np.column_stack((color, mag)), fmt='%.4f')
+def write_match_bg(color, mag2, filename):
+    mag1 = color + mag2
+    np.savetxt(filename, np.column_stack((mag1, mag2)), fmt='%.4f')
     print 'wrote match_bg as %s' % filename
     return
 
@@ -136,6 +137,7 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
     cmd += ' -'.join(flags)
     cmd += ' > %s' % (msg)
     logger.debug(cmd)
+    #print cmd
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
     stdout, stderr = (p.stdout, p.stderr)
     err = p.wait()
@@ -288,25 +290,24 @@ def make_calcsfh_param_file(match_bg, **kwargs):
         flogzmin = kwargs.get('flogzmin', -1.9)
         flogzmax = kwargs.get('flogzmax', -1.1)
 
-    line = ' % .2f %.2f %.2f %.3f %.2f %.2f %.3f\n' % \
+    line = '%.2f %.2f %.2f %.3f %.2f %.2f %.3f\n' % \
            (imf, dmod, dmod2, ddmod, Av, Av2, dAv)
     if not zinc:
-        line += ' % .1f %.1f %.1f\n' % \
-                (logzmin, logzmax, dlogz)
+        line += '%.1f %.1f %.1f\n' % (logzmin, logzmax, dlogz)
     else:
-        line += ' % .1f %.1f %.1f %.1f %.1f %.1f %.1f\n' % \
-                (logzmin, logzmax, dlogz,
-                 ilogzmin, ilogzmax, flogzmin, flogzmax)
-    line += ' % .2f %f %f\n' % (bf, bad0, bad1)
-    line += ' % i\n' % Ncmds
-    line += ' % .1f %.2f %i %.1f %.1f %s, %s\n' % (dmag, dcol, fake_sm, colmin,
+        line += '%.1f %.1f %.1f %.1f %.1f %.1f %.1f\n' % \
+                (logzmin, logzmax, dlogz, ilogzmin, ilogzmax, flogzmin,
+                 flogzmax)
+    line += '%.2f %f %f\n' % (bf, bad0, bad1)
+    line += '%i\n' % Ncmds
+    line += '%.1f %.2f %i %.1f %.1f %s,%s\n' % (dmag, dcol, fake_sm, colmin,
                                                    colmax, filter1, filter2)
-    line += ' % .2f %.2f %s\n' % (bright1, faint1, filter1)
-    line += ' % .2f %.2f %s\n' % (bright2, faint2, filter2)
-    line += ' % i %i\n' % (nexclude_gates, ncombine_gates)
-    line += ' % i\n' % (ntbins)
+    line += '%.2f %.2f %s\n' % (bright1, faint1, filter1)
+    line += '%.2f %.2f %s\n' % (bright2, faint2, filter2)
+    line += '%i %i\n' % (nexclude_gates, ncombine_gates)
+    line += '%i\n' % (ntbins)
     # if ntbins != 0: something...[to tf\n for to, tf in zip(TO, TF)]
-    line += ' % i %i %i%s\n' % (dobg, bg_hess, smooth, match_bg)
+    line += '%i %i %i%s\n' % (dobg, bg_hess, smooth, match_bg)
     line += '-1 1 -1\n'
 
     pm = open(pmfile, 'w')

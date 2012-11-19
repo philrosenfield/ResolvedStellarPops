@@ -268,10 +268,6 @@ class simgalaxy(object):
             simgalaxy.slice_data(self, data_to_slice, slice_inds)
             self.ast_color = self.ast_mag1 - self.ast_mag2
 
-        if not absmag:
-            self.color = self.mag1 - self.mag2
-        else:
-            self.Color = self.Mag1 - self.Mag2
         simgalaxy.load_ic_mstar(self)
 
     def get_fits(self):
@@ -362,10 +358,9 @@ class simgalaxy(object):
             self.__setattr__('i%s'%stage.lower(), i)
         return
 
-    def convert_mag(self, dmod=0., Av=0., target=None):
+    def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False):
         '''
-        convert from mag to Mag or from Mag to mag, whichever self doesn't
-        already have an attribute.
+        convert from mag to Mag or from Mag to mag.
 
         pass dmod, Av, or use AngstTables to look it up from target.
         '''
@@ -379,20 +374,31 @@ class simgalaxy(object):
             self.Av = Av
         mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod-1.4}
 
-        if hasattr(self, 'mag1'):
-            self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+        if shift_distance is True:
+            self.mag1 = rsp.astronomy_utils.Mag2mag(self.data.get_col(self.filter1), self.filter1,
                                                     self.photsys,
                                                     **mag_covert_kw)
-            self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+            self.mag2 = rsp.astronomy_utils.Mag2mag(self.data.get_col(self.filter2), self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
-        elif hasattr(self, 'Mag1'):
-            self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, self.filter1,
-                                                    self.photsys,
-                                                    **mag_covert_kw)
-            self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
-                                                    self.photsys,
-                                                    **mag_covert_kw)
+            self.color = self.mag1 - self.mag2
+        else:
+            if hasattr(self, 'mag1'):
+                self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.Color = self.Mag1 - self.Mag2
+            if hasattr(self, 'Mag1'):
+                self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, self.filter1,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.color = self.mag1 - self.mag2
 
     def make_hess(self, binsize, absmag=False, hess_kw = {}):
         '''

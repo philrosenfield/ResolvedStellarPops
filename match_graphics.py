@@ -75,20 +75,25 @@ def forceAspect(ax,aspect=1):
     extent =  im[0].get_extent()
     ax.set_aspect(abs((extent[1]-extent[0])/(extent[3]-extent[2]))/aspect)
 
-def pgcmd(filename, labels=None, saveplot=False, out_dir=None, axis_labels='default'):
+def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
+          axis_labels='default', **kwargs):
     '''
     produces the image that pgcmd.pro makes
     '''
     cmd = match_utils.read_match_cmd(filename)
     if axis_labels.lower() == 'default':
-        import re
-        print filename
-        t = re.search('_(.*)/(.*)_(.*)_(.{5})_(.{5}).(.*)', filename)
-        (__, propidtarget, filter1, filter2, __, __) = t.groups()
+        filter1 = kwargs.get('filter1')
+        filter2 = kwargs.get('filter2')
+        if filter1 is None or filter2 is None:
+            import re
+            print filename
+            t = re.search('_(.*)/(.*)_(.*)_(.{5})_(.{5}).(.*)', filename)
+            (__, propidtarget, filter1, filter2, __, __) = t.groups()
         kwargs = {'xlabel': r'$%s-%s$' % (filter1, filter2),
                   'ylabel': r'$%s$' % filter2}
-        labels = [r'$%s$' % propidtarget.replace('_', '\ '),
-                  'Model', 'Diff', 'Sig']
+        if labels is None:
+            labels = [r'$%s$' % propidtarget.replace('_', '\ '),
+                      'Model', 'Diff', 'Sig']
 
     nmagbin = len(np.unique(cmd['mag']))
     ncolbin = len(np.unique(cmd['color']))
