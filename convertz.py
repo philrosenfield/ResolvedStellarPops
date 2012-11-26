@@ -34,11 +34,18 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
     if mh is None:
         mh = np.log10((z / x) / 0.0207)
     
-    print 'oh = %2f\nz = %.4f\ny = %.4f\nx = %.4f\n[Fe/H] = %.4f\n[M/H] = %.4f' % (oh, z, y, x, feh, mh)
-    return z, y, x, feh, mh
+    if __name__ == "__main__":
+        print '''[O/H] = %2f\n
+                 z = %.4f\n
+                 y = %.4f\n
+                 x = %.4f\n
+                 [Fe/H] = %.4f\n
+                 [M/H] = %.4f''' % (oh, z, y, x, feh, mh)
+    return oh, z, y, x, feh, mh
     
 if __name__=="__main__":
     '''
+    ex:
     python convertz z 0.001
     python convertz oh 7.80
     python convertz mh 1.50
