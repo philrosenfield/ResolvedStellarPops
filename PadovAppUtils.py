@@ -32,7 +32,7 @@ class IsotrackSets(object):
         self.__setattr__(item, dir_list)
         return
 
-    def short_name(self, item)
+    def short_name(self, item):
         short_names = [os.path.split(s)[1].replace('.dat','')
                        for s in self.__getattr__(item)]
         

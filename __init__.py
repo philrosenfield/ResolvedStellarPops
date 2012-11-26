@@ -12,3 +12,6 @@ import math_utils
 import Galaxies
 import StellarPops
 import annotate_cmd
+import IsochroneUtils
+import PadovAppUtils
+import TrilegalUtils

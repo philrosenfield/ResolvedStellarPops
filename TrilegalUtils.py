@@ -69,10 +69,10 @@ def run_trilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
     lines = stdout.readlines()
     p.wait()
     # append the standard output to the end of the output file
-    ff = open(out, 'a')
-    for l in lines:
-        ff.write("# %s" % l)
-    ff.close()
+    with open(out, 'a') as ff:
+        for l in lines:
+            ff.write("# %s" % l)
+    
     logger.debug([l.strip() for l in lines])
     return
 
@@ -271,6 +271,33 @@ def read_cmd_input_file(filename):
             d[c.strip().replace(' ', '_')] = math_utils.is_numeric(dat)
     return d
 
+
+def change_trilegal_input_file(input_file, over_write=True, **kwargs):
+    with open(input_file, 'r') as f:
+        lines = f.readlines()
+    for k, v in kwargs.items():
+        try:
+            (i, line), = [(i, l) for i, l in enumerate(lines) if k in l]
+        except ValueError:
+            print '%s not found' % k
+            continue
+        vals, info = line.strip().split('#')
+        val_ind = info.strip().index(k)
+        old_vals = map(float, vals.split())
+        if over_write is False:
+            print 'current: %s=%g:' % (k, old_vals[val_ind])
+            return old_vals[val_ind]
+        
+        new_vals = old_vals.copy()
+        new_vals[val_ind] = v
+        new_line = '%s # %s\n' % (' '.join(['%g' % x for x in new_vals]), info)
+        print 'new line: %s' % new_line.strip()
+        lines[i] = new_line
+
+    with open(input_file, 'w') as o:
+        [o.write(l) for l in lines]
+
+    return
 
 def write_cmd_input_file(**kwargs):
     '''

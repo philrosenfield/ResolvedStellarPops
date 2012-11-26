@@ -89,6 +89,7 @@ def hla_galaxy_info(filename):
     target = '-'.join(pidtarget.split('-')[1:])
     return survey, propid, target, filters, photsys
 
+
 def bens_fmt_galaxy_info(filename):
     info = os.path.split(filename)[1].split('.')[0].split('_')
     # Why not just split? Sometimes there's an IR right in there for
@@ -96,6 +97,8 @@ def bens_fmt_galaxy_info(filename):
     (propid, target) = info[:2]
     (filter1, filter2) = info[-2:]
     return propid, target, filter1, filter2
+
+
 
 class galaxy(object):
     '''
@@ -234,7 +237,8 @@ class simgalaxy(object):
     there is an issue with mags being abs mag or app mag. If dmod == 0, mags
     are assumed to be abs mag and get title() attributes.
     '''
-    def __init__(self, trilegal_out, filter1, filter2, photsys=None, count_offset=0.0):
+    def __init__(self, trilegal_out, filter1, filter2, photsys=None,
+                 count_offset=0.0):
         self.base, self.name = os.path.split(trilegal_out)
         self.data = rsp.fileIO.read_table(trilegal_out)
         self.filter1 = filter1
@@ -287,6 +291,8 @@ class simgalaxy(object):
             diff2 = self.data.get_col('%s_cor' % self.filter2)
         except KeyError:
             # there may not be AST corrections... everything is recovered
+            print 'no ast corrections.'
+            # makes self.rec all inds.
             self.rec = range(len(self.data.get_col('m-M0')))
             return 0
         recovered1, = np.nonzero(abs(diff1) < 90.)
@@ -295,6 +301,7 @@ class simgalaxy(object):
         if hasattr(self, 'mag1'):
             self.ast_mag1 = diff1
             self.ast_mag2 = diff2
+            self.ast_color = self.ast_mag1 - self.ast_mag2
         return 1
 
     def slice_data(self, data_to_slice, slice_inds):
@@ -331,18 +338,25 @@ class simgalaxy(object):
         return np.nonzero(self.stage == get_stage_label(stage_name))[0]
 
     def load_ic_mstar(self):
+        '''
+        separate C and M stars, sets their indicies as attributes: icstar and
+        imstar, will include artificial star tests (if there are any).
+        M star: C/O <= 1, LogL >= 3.3 Mdot <=-5, and TPAGB flag
+        C star: C/O >= 1, Mdot <=-5, and TPAGB flag
+        '''
         try:
             co = self.data.get_col('C/O')[self.rec]
         except KeyError:
-            print 'warning, no agb stars... trilegal ran w/o -a flag'
+            print 'warning, no agb stars... trilegal ran w/o -a flag?'
             return
+
         lage = self.data.get_col('logAge')[self.rec]
         mdot = self.data.get_col('logML')[self.rec]
         logl = self.data.get_col('logL')[self.rec]
 
         self.imstar, = np.nonzero((co <= 1) &
                                   (logl >= 3.3) &
-                                  (mdot<=-5) &
+                                  (mdot <=- 5) &
                                   (self.stage == get_stage_label('TPAGB')))
 
         self.icstar, = np.nonzero((co >= 1) &
@@ -355,14 +369,21 @@ class simgalaxy(object):
         '''
         for stage in stages:
             i = stage_inds(self.stage, stage)
-            self.__setattr__('i%s'%stage.lower(), i)
+            self.__setattr__('i%s' % stage.lower(), i)
         return
 
     def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False):
         '''
-        convert from mag to Mag or from Mag to mag.
+        convert from mag to Mag or from Mag to mag or just shift distance.
 
         pass dmod, Av, or use AngstTables to look it up from target.
+        shift_distance: for the possibility of doing dmod, Av fitting of model
+        to data the key here is that we re-read the mag from the original data
+        array.
+
+        Without shift_distance: Just for common usage. If trilegal was given a
+        dmod, it will swap it back to Mag, if it was done at dmod=10., will
+        shift to given dmod. mag or Mag attributes are set in __init__.
         '''
         if target is not None:
             self.target = target
@@ -372,13 +393,15 @@ class simgalaxy(object):
         else:
             self.dmod = dmod
             self.Av = Av
-        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod-1.4}
+        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
 
         if shift_distance is True:
-            self.mag1 = rsp.astronomy_utils.Mag2mag(self.data.get_col(self.filter1), self.filter1,
+            m1 = self.data.get_col(self.filter1)
+            m2 = self.data.get_col(self.filter2)
+            self.mag1 = rsp.astronomy_utils.Mag2mag(m1, self.filter1,
                                                     self.photsys,
                                                     **mag_covert_kw)
-            self.mag2 = rsp.astronomy_utils.Mag2mag(self.data.get_col(self.filter2), self.filter2,
+            self.mag2 = rsp.astronomy_utils.Mag2mag(m2, self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
             self.color = self.mag1 - self.mag2
@@ -420,6 +443,10 @@ class simgalaxy(object):
         return hess
 
     def get_header(self):
+        '''
+        utility for writing data files, sets header attribute and returns
+        header string.
+        '''
         key_dict = self.data.key_dict
         names = [k[0] for k in sorted(key_dict.items(),
                                       key=lambda (k, v): (v, k))]
@@ -463,28 +490,39 @@ class simgalaxy(object):
                   magcut=999., useasts=False, sinds_cut=None, verts=None,
                   ndata_stars=None):
         '''
-        returns inds, normalization
-
-        input
+        randomly sample stars from a trilegal simulation maintaining their 
+        distribution. Sample selection is set either by specific indices of 
+        data in some stage or by a CMD polygon based on data.
+        
         assumes mag2 either self.mag2 or if useasts self.ast_mag2
-        mag2, stage: data arrays of filter2 and the tagged stage
-        stage_lab: the label of the stage, probably 'ms' or 'rgb'
+        
+        INPUT
+        stage_lab: the label of the stage, probably 'ms' or 'rgb' it will be
+        used to set attribute names
+
         by_stage:
-           mag2 (data mage) and stage (stage inds) are from observational
-           data.
-        else, by verts:
+           mag2, stage: data arrays of filter2 and the tagged stage inds
+
+        else, by verts: requires verts and ndata_stars
            don't normalize by data stage (e.g., not a tagged file)
            in this case verts should be a cmd polygon and ndata_stars should be
            the number of data stars in that cmd polygon.
         
         magcut: flat mag2 cut to apply (return brighter than)
-
+        useasts: use artificial star test corrections.
+        sinds_cut: use a slice of simgalaxy mag2 instead of all (currently 
+                   overridden if useasts=True)
+        
         RETURNS
-        normalization: N_i/N_j
+        normalization: N_i/N_j -- the lower the fraction the better. Consider
+        a larger simulation if normalization is less than 0.75.
             N_i = number of stars in stage or verts
             N_j = number of simulated stars in stage or verts
 
-        inds: random sample of simulated stars < normalization
+        inds: random sample of simulated stars < normalization (to slice
+        simgalaxy array)
+        
+        creates attributes: [stage]_norm and [stage]_norm_inds
         '''
         smag2 = self.mag2
         scolor = self.mag1 - self.mag2
@@ -538,7 +576,6 @@ def get_mix_modelname(model):
 
 
 def stage_inds(stage, label):
-    import TrilegalUtils
     return np.nonzero(stage == get_stage_label(label))[0]
 
 
@@ -575,26 +612,6 @@ def galaxy_metallicity(gal, target, **kwargs):
     return z
 
 
-def spread_cmd(gal, ast_file, hess_kw = {}, **kwargs):
-    '''
-    not finished...
-    '''
-    mag1lim = kwargs.get('mag1lim', self.comp50mag1)
-    mag2lim = kwargs.get('mag2lim', self.comp50mag2)
-    colorlimits = kwargs.get('colorlimits')
-
-    # default input mags, will be corrected if star is not recovered
-    amag1, amag2, dmag1, dmag2 = np.loadtxt(ast_file, unpack=True)
-    ast_mag1 = amag1 + dmag1
-    ast_mag2 = amag2 + dmag2
-
-    # unrecovered stars: stores only input mags
-    if dmag1 > 9.98:
-        ast_mag1 = amag1
-    if dmag2 > 9.98:
-        ast_mag2 = amag2
-
-
 def get_fake(target, fake_loc='.'):
     return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
@@ -603,7 +620,7 @@ def ast_correct_trileagl_sim(sgal, fake_file, outfile=None, overwrite=False,
                              spread_too=False, spread_outfile=None, 
                              savefile=False):
     '''
-    convolve trilegal simulation with artificial star tests.
+    correct trilegal simulation with artificial star tests.
     options to write the a copy of the trilegal simulation with the corrected
     mag columns, and also just the color, mag into a file (spread_too). 
     
@@ -761,7 +778,6 @@ class artificial_star_tests(object):
             binsize = kwargs.get('binsize', 0.2)
             bins = kwargs.get('bins')
             self.bin_asts(binsize=binsize, bins=bins)
-
 
         om1_inds = np.digitize(obs_mag1, self.ast_bins)
 
