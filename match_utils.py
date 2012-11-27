@@ -1,6 +1,6 @@
 import ResolvedStellarPops as rsp
 import numpy as np
-from BRparams import *
+#from BRparams import *
 import logging
 from subprocess import PIPE, Popen
 import matplotlib.pyplot as plt
@@ -367,6 +367,9 @@ def calcsfh_dict():
             'match_bg': None}
 
 class calcsfh_params(object):
+    '''
+    someday, this will be a generic parameter house... someday. someday.
+    '''
     def __init__(self, default_dict=None):
         if default_dict is None:
             default_dict = calcsfh_dict()
@@ -398,7 +401,6 @@ def make_calcsfh_param_file(galaxy=None, calcsfh_par_dict=None, **kwargs):
     '''    
     to search over range of av: set Av Av2 dAv as kwargs.
     to search over range of dmod: set dmod dmod2 ddmod in kwargs
-    
 
     NOTE:
     can only handle 1 exclude gate and 1 combine gate.

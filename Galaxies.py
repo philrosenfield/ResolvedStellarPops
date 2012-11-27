@@ -252,7 +252,7 @@ class simgalaxy(object):
         self.filter2 = filter2
         self.count_offset = count_offset
         if photsys is None:
-            # assume it's the last _item before extension.
+            # assume it's the last _item before extension and it's HST baby!!
             self.photsys = self.name.split('_')[-1].split('.')[0]
             if self.photsys != 'wfpc2':
                 self.photsys = 'acs_wfc'
@@ -623,7 +623,7 @@ def get_fake(target, fake_loc='.'):
     return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
 
-def ast_correct_trileagl_sim(sgal, fake_file, outfile=None, overwrite=False, 
+def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False, 
                              spread_too=False, spread_outfile=None, 
                              savefile=False):
     '''
