@@ -3,7 +3,6 @@ import numpy as np
 import os
 
 
-    
 class IsotrackSets(object):
     '''
     finds all isochrone sets for use in trilegal.

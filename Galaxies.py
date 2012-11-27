@@ -156,7 +156,6 @@ class galaxy(object):
 
     def AbsMag(self):
         mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
-        print mag2Mag_kwargs
         self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
                                                 self.photsys, **mag2Mag_kwargs)
         self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
@@ -197,7 +196,15 @@ class galaxy(object):
         return
 
     def stage_inds(self, stage_name):
-        return get_stage_inds(self.data, stage_name)
+        '''
+        not so useful on its own, use all_stages to add the inds as attribues.
+        '''
+        if not hasattr(self, 'stage'):
+            print 'no stages marked in this file'
+            return
+        else:
+            inds, = np.nonzero(self.stage == get_stage_label(stage_name))
+        return inds
 
     def delete_data(self):
         data_names = ['data', 'mag1', 'mag2', 'color', 'stage']
@@ -581,14 +588,14 @@ def stage_inds(stage, label):
 
 def read_galtable(**kwargs):
     fname = kwargs.get('filename')
-    br = kwargs.get('br')
+    br = kwargs.get('br', True)
     tpagb = kwargs.get('tpagb')
     if not fname:
-        if br:
+        if br is not None:
             fname = '/Users/phil/research/BRratio/tables/brratio_galtable.dat'
             dtype = [('Target', '|S10'), ('O/H', '<f8'), ('Z', '<f8')]
             kwargs = {'autostrip': 1, 'delimiter': ',', 'dtype': dtype}
-        if tpagb:
+        if tpagb is not None:
             pass
     return np.genfromtxt(fname, **kwargs)
 
@@ -638,6 +645,7 @@ def ast_correct_trileagl_sim(sgal, fake_file, outfile=None, overwrite=False,
 
     if type(fake_file) is str:
         asts = artificial_star_tests(fake_file)
+        sgal.fake_file = fake_file
     else:
         asts = fake_file
 
