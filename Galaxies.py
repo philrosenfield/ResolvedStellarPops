@@ -1,9 +1,11 @@
 import ResolvedStellarPops as rsp
+import ResolvedStellarPops.graphics.GraphicsUtils as rspgraph
 import matplotlib.nxutils as nxutils
-from TrilegalUtils import get_stage_label
+from TrilegalUtils import get_stage_label, get_label_stage
 import os
 import sys
 import numpy as np
+import brewer2mpl
 
 angst_data = rsp.angst_tables.AngstTables()
 
@@ -393,6 +395,7 @@ class simgalaxy(object):
         shift to given dmod. mag or Mag attributes are set in __init__.
         '''
         if target is not None:
+            print 'converting distance and Av to match %s' % target
             self.target = target
             filters = ','.join((self.filter1, self.filter2))
             tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
@@ -509,6 +512,7 @@ class simgalaxy(object):
 
         by_stage:
            mag2, stage: data arrays of filter2 and the tagged stage inds
+           if using galaxy object, mag2 = gal.mag2, stage = gal.stage.
 
         else, by verts: requires verts and ndata_stars
            don't normalize by data stage (e.g., not a tagged file)
@@ -530,6 +534,10 @@ class simgalaxy(object):
         simgalaxy array)
         
         creates attributes: [stage]_norm and [stage]_norm_inds
+
+        Note:
+        if there are no simulated stars in the normalization region, will
+        return inds = [-1] and norm = 999.
         '''
         smag2 = self.mag2
         scolor = self.mag1 - self.mag2
@@ -541,7 +549,7 @@ class simgalaxy(object):
             # data
             sinds_cut, = np.nonzero(np.isfinite(smag2) & np.isfinite(smag1))
 
-        new_attr = '%s_norm' % stage_lab
+        new_attr = '%s_norm' % stage_lab.lower()
         
         stage_lab = get_stage_label(stage_lab)
         sinds, = np.nonzero((self.stage == stage_lab) & (smag2 < magcut))
@@ -558,6 +566,9 @@ class simgalaxy(object):
 
         if len(sinds) == 0:
             print 'no stars with %s < %.2f' % (new_attr, magcut)
+            self.__setattr__('%s_inds' % new_attr, [-1])
+            self.__setattr__('%s' % new_attr, 999.)
+            return [-1], 999.
     
         if by_stage is True:
             dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
@@ -571,6 +582,96 @@ class simgalaxy(object):
         self.__setattr__('%s_inds' % new_attr, ind)
         self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
+        
+    def diagnostic_cmd(self, trgb=None, figname=None, inds=None, **kwargs):
+        '''
+        make a cmd of both simulated cmd and ast corrected cmd by stage.
+        input
+        sgal with ast corrections (will die without TODO!)
+
+        optional input
+        trgb 
+            plot a line at the trgb mag2 with the number of stars brighter
+            than trgb.
+        
+        figname
+            save the plot as figname and figname_spread
+        
+        inds
+            only use some subset of indices
+            
+        kwargs:
+        xlim tuple of plot xlimits
+        ylim tuple of plot ylimits
+        '''
+        if inds is not None:
+            ustage = np.unique(self.stage[inds])
+        else:
+            ustage = np.unique(self.stage)
+    
+        nplots = ustage.size + 1.
+        bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
+        cols = bcols.mpl_colors
+        subplots_kwargs = {'sharex': 1, 'sharey': 1, 'figsize': (12, 8)}
+        j = 0
+        # loop for both simulation and spread simulation
+        for color, mag2 in zip((self.color, self.ast_color),
+                               (self.mag2, self.ast_mag2)):
+            if inds is not None:
+                stage = self.stage[inds]
+            else:
+                stage = self.stage
+
+            fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
+
+            for ax in axs.ravel():
+                xlim = kwargs.get('xlim', (self.color.min(), self.color.max()))
+                ylim = kwargs.get('ylim', (self.mag2.max(), self.mag2.min()))
+                ax.set_xlim(xlim)
+                ax.set_ylim(ylim)
+
+            # first plot is all stars.
+            ax0, cols = rspgraph.colorplot_by_stage(axs.ravel()[0],
+                                                    color, mag2, '.', stage,
+                                                    cols=cols)
+            i = 0
+            # go through each existing evolutionary phase and plot those stars.
+            for ax, st in zip(axs.ravel()[1:], ustage): 
+                label = get_label_stage(int(st))
+                ind = self.stage_inds(label)
+                if inds is not None:
+                    ind = list(set(ind) & set(inds))
+                if len(ind) == 0:
+                    continue
+                ax.plot(color[ind], mag2[ind], '.', color=cols[i], mew=0,
+                        label='N=%i' % len(ind))
+                kwargs['color'] = 'black'
+                ax.set_title(label, **{'color': cols[i]})
+                i += 1
+                ax.legend(loc=1, numpoints=1, frameon=False)
+                # add another line and set of numbers brighter than trgb
+                if trgb is not None:
+                    rspgraph.plot_lines([ax], ax.get_xlim(), trgb)
+                    text_offset = 0.02
+                    xpos = ax.get_xlim()[0] + 2 * text_offset
+                    ypos = trgb - text_offset
+                    num = rsp.math_utils.brighter(mag2, trgb - self.count_offset,
+                                                  inds=ind).size
+                    rspgraph.plot_numbs(ax, num, xpos, ypos, **kwargs)
+
+            if figname:
+                import matplotlib.pyplot as plt
+                if j == 0: 
+                    extra = ''
+                else:
+                    extra = '_spread'
+                plt.savefig(figname.replace('.png', '%s.png' % extra))
+                print 'wrote %s' % figname.replace('.png', '%s.png' % extra)
+                plt.close()
+            else:
+                plt.show()
+            j+=1
+        return figname.replace('.png', '%s.png' % extra)
 
 def get_mix_modelname(model):
     '''
@@ -675,6 +776,7 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
     return
 
 
+
 class artificial_star_tests(object):
     '''
     class for reading and using artificial stars. 
@@ -688,13 +790,17 @@ class artificial_star_tests(object):
     mag2diff is assumed to be mag2in-mag2out
 
     filename is assumed as matchfake:
-    PID_TARGET_FILTER1_FILTER2_....
+    PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_
     this is how attributes target, filter1, and filter2 are assigned.
     
     '''
     def __init__(self, filename):
         self.base, self.name = os.path.split(filename)
-        __, self.target, self.filter1, self.filter2, __ = self.name.split('_')
+        try:
+            __, self.target, self.filter1, self.filter2, __ = self.name.split('_')
+        except:
+            self.target, self.filter1, filter2 = self.name.split('_')
+            self.filter2 = filter2.split('.')[0]
         artificial_star_tests.load_fake(self, filename)
 
     def recovered(self, threshold=9.99):

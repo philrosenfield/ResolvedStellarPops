@@ -15,7 +15,42 @@ rcParams['xtick.labelsize'] = 'large'
 rcParams['axes.edgecolor'] = 'grey'
 rc('text',usetex=True)
 
-import math_utils
+
+def plot_lines(axs, xrange, yval, color='black'):
+    x=[ax.plot((xrange), (yval, yval), color=color) for ax in axs]
+    return
+
+
+def plot_numbs(ax, item, xpos, ypos, **kwargs):
+    x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20,
+                   **kwargs)
+    return
+
+def setup_multiplot(nplots, **subplots_kwargs):
+    nx = np.round(np.sqrt(nplots))
+    nextra = nplots-nx**2
+    ny = nx
+    if nextra > 0: ny += 1
+    nx = int(nx)
+    ny = int(ny)
+    
+    fig, axs = plt.subplots(nx, ny, **subplots_kwargs)
+    
+    return fig, axs
+
+
+def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
+    # inds from calc_LFIR are based on only resolved stars.
+    
+    if cols == None:
+        cols = discrete_colors(len(np.unique(stages)))
+    for i, s in enumerate(np.unique(stages)):
+        ind, = np.nonzero(stages == s)
+        if ind.size == 0:
+            continue
+        ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0)
+    return ax, cols
+
 
 def discrete_colors(Ncolors,colormap='gist_rainbow'):
     colors = []

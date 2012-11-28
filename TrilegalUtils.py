@@ -9,6 +9,194 @@ from subprocess import Popen, PIPE
 logger = logging.getLogger()
 
 
+def write_trilegal_sim(sgal, outfile, slice_inds=None):
+    '''
+    writes trilegal sim to outfile.
+    '''
+    header = sgal.get_header()
+
+    with open(outfile, 'w') as f:
+        if not header.endswith('\n'):
+            header += '\n'
+        f.write('%s' % header)
+        np.savetxt(f, sgal.data.data_array, fmt='%10.5f')
+    return
+
+
+def write_spread(sgal, outfile=None, overwrite=False, slice_inds=None):
+    if not outfile:
+        outfile_name = sgal.name.replace('out', 'spread')
+        outfile_base = os.path.join(TRILEGAL_RUNS, 'spread/')
+        rsp.fileIO.ensure_dir(outfile_base)
+        outfile = os.path.join(outfile_base, outfile_name)
+
+    if overwrite or not os.path.isfile(outfile):    
+        # ast corrected filters are filter_cor, this may be changed... anyway
+        # need someway to check if ast corrections were made.
+        cors = [c for c in sgal.data.key_dict.keys() if '_cor' in c]
+        if len(cors) == 0:
+            print 'can not make spread file without ast_corrections'
+            return -1
+
+        filt1, filt2 = np.sort(cors)
+        if hasattr(sgal, 'ast_mag1'):
+            # this isn't only a trilegal catalog, it's already been corrected
+            # with asts, and sliced for only recovered asts. see simgalaxy.
+            cor_mag1 = sgal.ast_mag1
+            cor_mag2 = sgal.ast_mag2
+        else:
+            # it's a trilegal catalog, now with ast corrections, though was not
+            # loaded with them, perhaps they were just written to a new file.
+            cor_mag1_full = sgal.data.get_col(filt1)
+            cor_mag2_full = sgal.data.get_col(filt2)
+            rec1, = np.nonzero(np.abs(cor_mag1_full) < 90.)
+            rec2, = np.nonzero(np.abs(cor_mag2_full) < 90.)
+            if slice_inds is not None:
+                rec = list(set(rec1) & set(rec2) & set(slice_inds))
+            else:
+                rec = list(set(rec1) & set(rec2))
+            cor_mag1 = cor_mag1_full[rec]
+            cor_mag2 = cor_mag2_full[rec]
+
+        cor_color = cor_mag1 - cor_mag2
+        cor_cm = np.column_stack((cor_color, cor_mag2))
+
+        with open(outfile, 'w') as f:
+            f.write('# %s-%s %s \n' % (filt1, filt2, filt2))
+            np.savetxt(f, cor_cm, fmt='%10.5f')
+        print 'wrote %s' % outfile
+    else:
+        print '%s exists, send overwrite=True arg to overwrite' % outfile
+    return outfile
+
+
+def format_cut_age(cut1_age):
+    '''
+    takes the > or < out of the string, and makes it in yrs.
+    '''
+    flag = cut1_age[0]
+    yrfmt = 1.
+    possible_yrmfts = {'Gyr':1e9 , 'Myr': 1e6, 'yr': 1.}
+    for py, yrfmt in sorted(possible_yrmfts.items(),
+                            key=lambda (k, v):(v, k), reverse=True):
+        if py in str(cut1_age):
+            if matplotlib.cbook.is_numlike(flag):
+                cut1_age = float(cut1_age.replace(py, ''))
+                flag = ''
+            else:
+                cut1_age = float(cut1_age.replace(py, '').replace(flag, ''))
+            cut1_age *= yrfmt
+    return cut1_age, flag
+
+
+def split_amr_file(amr_file, cut_age):
+    '''
+    splits trilgal's age, sfr, z file by some age (in Myr).
+    doesn't mess with original file, writes young and old file as
+    *_young.dat or _old.dat...
+    '''
+    young_file = sfr_file.replace('.dat', '_young.dat')
+    old_file = sfr_file.replace('.dat', '_old.dat')
+
+    age, sfr, z = np.loadtxt(sfr_file, unpack=True)
+
+    cut_age *= 1e6 # convert from Myr to yr
+
+    young, = np.nonzero(age <= cut_age)
+    old, = np.nonzero(age > cut_age)
+
+    np.savetxt(young_file, np.array([age[young], sfr[young], z[young]]).T)
+    np.savetxt(old_file, np.array([age[old], sfr[old], z[old]]).T)
+
+    return old_file, young_file
+
+def increase_sfr(sfr_file, factor, cut_age, is_amr=False):
+    '''
+    cut_age is in Myr.
+    '''
+    lines = None
+    if is_amr is True:
+        age, sfr, z = np.loadtxt(sfr_file, unpack=True)
+    else:
+        with open(sfr_file, 'r') as f:
+            lines = f.readlines()
+        amr_file = lines[-3].split()[0]
+        the_rest = ' '.join(lines[-3].split()[1:])
+        age, sfr, z = np.loadtxt(amr_file, unpack=True)
+
+    new_file = '%s_inc%i.dat' % (sfr_file.replace('.dat',''), factor)        
+    age /= 1e6 # convert to Myr
+    inds, = np.nonzero(age <= cut_age)
+    sfr[inds] *= factor
+    np.savetxt(new_file, np.array([age * 1e6, sfr, z]).T)
+
+    if lines is not None:
+        lines[-3] = '%s %s \n' % (new_file, the_rest)
+        print 'new line: %s' % lines[-3]
+        with open(sfr_file, 'w') as out:
+            [out.write(l) for l in lines]
+        return sfr_file
+    
+    return new_file
+
+def edit_match_sfr_file(sfr_file, z, cut_age='<400Myr', new_sfr_file=None, 
+                        new_sfr=None):
+    '''
+    give a constant [median value] sfr for all ages > or < than some cut_age
+    (Gyr or Myr).
+    saves new sfr to new_sfr_file or sfr_file_csfr[cut_age].dat (without ><)
+    '''
+    sfh = np.loadtxt(sfr_file)
+    # the new sfr file will be the same as the old but with a different
+    # extension
+    if not new_sfr_file or not os.path.isfile(new_sfr_file):
+        if cut_age.startswith('>') or cut_age.startswith('<'):
+            cutname = cut_age[1:]
+        else:
+            cutname = cut_age
+        new_sfr_file = rsp.fileIO.replace_ext(sfr_file, 
+                                              '_csfr%s.dat' % cutname)
+
+    if cut_age:
+        # takes the > or < out of the string, and makes it in yrs.
+        cut_age, flag = format_cut_age(cut_age)
+    else:
+        print 'nothing to do.'
+        return -1
+
+    if flag == '<' or not flag:
+        overwrites, = np.nonzero(sfh[:, 0] < cut_age)
+        saves, = np.nonzero(sfh[:, 0] >= cut_age)
+    else:
+        overwrites, = np.nonzero(sfh[:, 0] > cut_age)
+        saves, = np.nonzero(sfh[:, 0] <= cut_age)
+
+    sfhtmp = sfh[overwrites]
+
+    # sometimes sfr = 1e-16 so I'm also rounding.
+    is_sf, = np.nonzero(np.round(sfhtmp[:, 1], 6))
+
+    # assign constant value to all sfr in this range
+    median_recent_sfr = np.median(sfhtmp[:, 1][is_sf])
+    if not new_sfr:
+        new_sfr = median_recent_sfr
+    if type(new_sfr) is int or type(new_sfr) is float:
+        new_sfr = median_recent_sfr * float(new_sfr)
+    sfhtmp[:, 1][is_sf] = new_sfr
+
+    # assign new metallicity
+    sfhtmp[:, 2] = z 
+
+    if saves[0] < overwrites[0]:
+        new_sfh = np.vstack((sfh[saves], sfhtmp))
+    else:
+        new_sfh = np.vstack((sfhtmp, sfh[saves]))
+
+    np.savetxt(new_sfr_file, new_sfh, fmt=['%.5g', '%.6f', '%.4f'])
+
+    return new_sfr_file
+
+
 def find_photsys_number(photsys, filter):
     mag_file = os.path.join(os.environ['BCDIR'],
                             'tab_mag_odfnew/tab_mag_%s.dat' % photsys)
@@ -97,7 +285,7 @@ def get_args(filename, ext='.dat'):
     except KeyError:
         pass
     return d
-
+    
 
 def get_stage_label(region):
     # see parametri.h
@@ -281,14 +469,32 @@ def change_trilegal_input_file(input_file, over_write=True, **kwargs):
         except ValueError:
             print '%s not found' % k
             continue
-        vals, info = line.strip().split('#')
-        val_ind = info.strip().index(k)
-        old_vals = map(float, vals.split())
-        if over_write is False:
-            print 'current: %s=%g:' % (k, old_vals[val_ind])
-            return old_vals[val_ind]
+        try:
+            vals, info = line.strip().split('#')
+        except ValueError:
+            # one line has more than one # in it!
+            vals, info = line.strip().split('#')[:-1]
         
-        new_vals = old_vals.copy()
+        try:
+            val_ind = info.strip().index(k)
+        except ValueError:
+            # perhaps it doesn't go name value...
+            val_ind = 0
+
+        try:
+            old_vals = map(float, vals.split())
+        except:
+            # it's cool if it's a string...
+            old_vals = vals[:]
+
+        if over_write is True:
+            print 'current: %s=%s:' % (k, str(old_vals[val_ind]))
+            if kwargs.get('new_file'):
+                input_file = kwargs.get('new_file')
+        else:
+            return old_vals[val_ind]
+
+        new_vals = old_vals[:]
         new_vals[val_ind] = v
         new_line = '%s # %s\n' % (' '.join(['%g' % x for x in new_vals]), info)
         print 'new line: %s' % new_line.strip()
@@ -379,11 +585,6 @@ def write_cmd_input_file(**kwargs):
     return cmd_input_file
 
 
-def write_trilegal_input_file(**kwargs):
-    default_file = os.path.join(os.environ['TRILEGAL_ROOT'],
-                                'input_default.dat')
-
-
 def colorplot_by_bin(x, y, marker, z, bins=None, labels=[], **kwargs):
     if bins is None:
         bins = np.linspace(min(z), max(z), 8)
@@ -406,6 +607,93 @@ def colorplot_by_bin(x, y, marker, z, bins=None, labels=[], **kwargs):
         else:
             ax.plot(x[ind], y[ind], marker, label=labels[i], color=colors[i])
     return ax
+
+
+def estimate_sfh(gal, sgal, sfr_file, metallicity, **kwargs):
+    '''
+    tagged_file: string location of tagged photometry
+    sim_cmd_name: string
+    sim_cmd_name should be a large simulation of one metallicity at constant
+    sfr.
+
+    This takes a tagged fits file (one that has PARSEC labels) and uses the
+    bright MS to estimate the relative SFR for a trilegal simulated cmd. It
+    returns a formatted sfr file to run in trilegal for a more realistic
+    simulation.
+
+    kwargs
+    z -- metallicity for the sfr file.
+    save_cmd [False] save a color, mag ascii file of normalized big sim.
+    mag_bins [np.linspace(22, 25, 5)] bins to divide up the MS.
+    target [reads from tagged_file]
+    '''
+
+    # save cmd file
+    save_cmd = kwargs.get('save_cmd', False)
+
+    # single out main sequence
+    gal.all_stages('ms')
+
+    # mag bins to divide up MS
+    mag_bins = kwargs.get('mag_bins')
+    if mag_bins is None:
+        mag_bins = np.arange(np.round(np.min(gal.mag2[gal.ims])),
+                             np.round(np.max(gal.mag2[gal.ims])))
+    # make photometry cut
+    mag2limit = gal.comp50mag2
+    mag1limit = gal.comp50mag1
+    gst50 = gal.cut_mag_inds(mag2limit, mag1cut=mag1limit)
+    gst50_ms = list(set(gst50) & set(gal.ims))
+
+    # bin up data MS
+    dhist, mag_bins = np.histogram(gal.mag2[gst50_ms], bins=5)
+    dhist = np.array(map(float, dhist))
+    print dhist
+    print mag_bins
+
+    # convert AbsMag to mag
+    sgal.convert_mag(target=gal.target)
+
+    # bin up sim MS
+    sgal.all_stages('ms')
+    shist, lixo = np.histogram(sgal.mag2[sgal.ims], bins=mag_bins)
+    shist = np.array(map(float, shist))
+
+    # calculate relative SFR
+    sfr = shist / dhist
+    if np.sum(sfr) == 0:
+        logger.error('no star formation!')
+
+    # grab indices of sim MS stars in each mag bin
+    inds = np.digitize(sgal.mag2[sgal.ims], mag_bins)
+
+    # grab upper limit age for each mag bin
+    age = sgal.data.get_col('logAge')
+    lages = [age[inds == i] for i in range(len(mag_bins) - 1)]
+
+    # write out sfr file for TRILEGAL.
+    fp_sfr = open(sfr_file, 'w')
+    fmt = ' % .3e %.3f %.4f\n'
+    for la, sf in zip(lages, sfr):
+        if sf == 0:
+            continue
+        if len(la) == 0:
+            la = np.min(age)
+        else:
+            la = np.max(la)
+        fp_sfr.write(fmt % (10 ** np.array(la - 0.01), 0, metallicity))
+        fp_sfr.write(fmt % (10 ** np.array(la), sf, metallicity))
+        fp_sfr.write(fmt % (10 ** np.array(la + 0.01), 0, metallicity))
+    fp_sfr.close()
+    logger.info(' % s write %s' % (estimate_sfh.__name__, sfr_file))
+
+    # save file
+    if save_cmd:
+        np.savetxt(sim_cmd_name, (sgal.color, sgal.mag2), delimiter=' ')
+        logger.info(' % s write %s' % estimate_sfh.__name__, sim_cmd_name)
+
+    return sfr_file
+
 
 
 def color_color_diagnostic(trilegal_output_file, filter1, filter2, filter3,

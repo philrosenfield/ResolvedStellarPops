@@ -105,7 +105,8 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
     if Av != 0.0:
         Alam_Av = parse_mag_tab(photsys, filter)
         A = Alam_Av * Av
-    
+    if dmod == 0. and A == 0.:
+        print 'Mag2mag did nothing.'
     return Mag+dmod+A
 
 def mag2Mag(mag, filter, photsys, **kwargs):

@@ -10,7 +10,7 @@ class IsotrackSets(object):
     with. picker can be set to be another string to look for, ENV or ENV0.5.
     both mix and picker are sent to get_isosets.
     '''
-    def __init__(self, locations='default', mix='CAF09', picker=''):
+    def __init__(self, locations='default', mix='', picker=''):
         self.mix = mix
         self.picker = picker
         if locations.lower() == 'default':

@@ -35,11 +35,12 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
         mh = np.log10((z / x) / 0.0207)
     
     if __name__ == "__main__":
-        print '''[O/H] = %2f\n
-                 z = %.4f\n
-                 y = %.4f\n
-                 x = %.4f\n
-                 [Fe/H] = %.4f\n
+        print '''
+                 [O/H] = %2f
+                 z = %.4f
+                 y = %.4f
+                 x = %.4f
+                 [Fe/H] = %.4f
                  [M/H] = %.4f''' % (oh, z, y, x, feh, mh)
     return oh, z, y, x, feh, mh
     

@@ -1,6 +1,14 @@
 import numpy as np
 import matplotlib.nxutils as nxutils
 
+def brighter(mag2, trgb, inds=None):
+    ''' number of stars brighter than trgb, make sure mag2 is 
+        the same filter as trgb!''' 
+    i, = np.nonzero(mag2 < trgb)
+    if inds is not None:
+        i = np.intersect1d(i, inds)
+    return i
+
 
 def bayesian_blocks(t):
     """Bayesian Blocks Implementation

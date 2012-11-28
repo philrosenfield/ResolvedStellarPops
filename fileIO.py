@@ -77,10 +77,21 @@ def load_input(filename):
     return d
 
 def replace_ext(filename, ext):
+    '''
+    input 
+    filename string with .ext
+    new_ext replace ext with new ext
+    eg:
+    $ replace_ext('data.02.SSS.v4.dat', '.log')
+    data.02.SSS.v4.log
+    '''
     return '.'.join(filename.split('.')[:-1]) + ext
 
 
 def read_fits(fits_table):
+    '''
+    returns pyfits.getdata(fits_table)
+    '''
     return pyfits.getdata(fits_table)
 
 
@@ -94,6 +105,12 @@ def read_tagged_phot(tagged_file):
 
 
 def ensure_file(f, mad=True):
+    '''
+    input 
+    f (string): if f is not a file will print "no file"
+    optional
+    mad (bool)[True]: if mad is True, will exit program.
+    '''
     if not os.path.isfile(f):
         print 'there is no file', f
         if mad:
@@ -101,6 +118,10 @@ def ensure_file(f, mad=True):
 
 
 def ensure_dir(f):
+    '''
+    will make all dirs necessary for input to be an existing directory.
+    if input does not end with '/' it will not make it a directory.
+    '''
     d = os.path.dirname(f)
     if not os.path.isdir(d):
         os.makedirs(d)

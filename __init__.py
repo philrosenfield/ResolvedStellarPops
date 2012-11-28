@@ -16,3 +16,4 @@ import annotate_cmd
 import IsochroneUtils
 import PadovAppUtils
 import TrilegalUtils
+import graphics
