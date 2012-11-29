@@ -539,8 +539,6 @@ class simgalaxy(object):
         if there are no simulated stars in the normalization region, will
         return inds = [-1] and norm = 999.
         '''
-        smag2 = self.mag2
-        scolor = self.mag1 - self.mag2
         if useasts:
             smag2 = self.data.get_col('%s_cor' % self.filter2)
             smag1 = self.data.get_col('%s_cor' % self.filter1)
@@ -548,14 +546,18 @@ class simgalaxy(object):
             # ast corrections keep nans and infs to stay the same length as
             # data
             sinds_cut, = np.nonzero(np.isfinite(smag2) & np.isfinite(smag1))
+        else:
+            smag2 = self.mag2
+            scolor = self.mag1 - self.mag2
 
         new_attr = '%s_norm' % stage_lab.lower()
-        
-        stage_lab = get_stage_label(stage_lab)
-        sinds, = np.nonzero((self.stage == stage_lab) & (smag2 < magcut))
 
+        self.all_stages(stage_lab)
+        ibright, = np.nonzero(smag2 < magcut)
+        sinds = list(set(self.__dict__['i%s' % stage_lab]) & set(ibright))
+    
         if sinds_cut is not None:
-            # inf could be less than magcut, so better keep only finite vals.
+             # inf could be less than magcut, so better keep only finite vals.
             sinds = list(set(sinds) & set(sinds_cut))
         
         if by_stage is False:
@@ -571,7 +573,9 @@ class simgalaxy(object):
             return [-1], 999.
     
         if by_stage is True:
-            dsinds, = np.nonzero((stage == stage_lab) & (mag2 < magcut))
+            dsinds, = np.nonzero((stage == get_stage_label(stage_lab)) &
+                                 (mag2 < magcut))
+            assert dsinds.size > 0, 'no data stars in stage %s' % stage_lab
             ndata_stars = float(len(dsinds))
 
         normalization = ndata_stars / nsim_stars
@@ -604,6 +608,9 @@ class simgalaxy(object):
         xlim tuple of plot xlimits
         ylim tuple of plot ylimits
         '''
+        if not hasattr(self, 'ast_mag2'):
+            print 'currently need ast corrections for diagnostic plot...'
+            return -1
         if inds is not None:
             ustage = np.unique(self.stage[inds])
         else:
@@ -625,8 +632,10 @@ class simgalaxy(object):
             fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
 
             for ax in axs.ravel():
-                xlim = kwargs.get('xlim', (self.color.min(), self.color.max()))
-                ylim = kwargs.get('ylim', (self.mag2.max(), self.mag2.min()))
+                xlim = kwargs.get('xlim', (np.min(self.ast_color[self.rec]),
+                                           np.max(self.ast_color[self.rec])))
+                ylim = kwargs.get('ylim', (np.max(self.mag2),
+                                           np.min(self.mag2)))
                 ax.set_xlim(xlim)
                 ax.set_ylim(ylim)
 
