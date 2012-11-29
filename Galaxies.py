@@ -6,6 +6,10 @@ import os
 import sys
 import numpy as np
 import brewer2mpl
+import logging
+logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
 
 angst_data = rsp.angst_tables.AngstTables()
 
@@ -126,7 +130,7 @@ class galaxy(object):
             self.photsys = kwargs.get('photsys')
             if self.photsys is None: 
                 self.photsys = 'wfc3'
-                print 'assuming this is wfc3 data'
+                logger.warning('assuming this is wfc3 data')
             self.propid, self.target, self.filter1, self.filter2 = bens_fmt_galaxy_info(fname)
 
         if filetype == 'fitstable':
@@ -142,8 +146,8 @@ class galaxy(object):
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
         else:
-            print ('filetype must be fitstable or tagged_phot,',
-                    'use simgalaxy for trilegal.')
+            logger.error('filetype must be fitstable or tagged_phot,',
+                         'use simgalaxy for trilegal.')
             sys.exit(2)
 
         self.color = self.mag1 - self.mag2
@@ -202,7 +206,7 @@ class galaxy(object):
         not so useful on its own, use all_stages to add the inds as attribues.
         '''
         if not hasattr(self, 'stage'):
-            print 'no stages marked in this file'
+            logger.warning('no stages marked in this file')
             return
         else:
             inds, = np.nonzero(self.stage == get_stage_label(stage_name))
@@ -291,7 +295,7 @@ class simgalaxy(object):
             fit_file, = rsp.fileIO.get_files(match_out_dir, fit_file_name)
             self.chi2, self.fit = MatchUtils.get_fit(fit_file)
         except ValueError:
-            print 'no match output for %s.' % fit_file_name
+            logger.warning('no match output for %s.' % fit_file_name)
         return
 
     def load_ast_corrections(self):
@@ -300,7 +304,7 @@ class simgalaxy(object):
             diff2 = self.data.get_col('%s_cor' % self.filter2)
         except KeyError:
             # there may not be AST corrections... everything is recovered
-            print 'no ast corrections.'
+            logger.warning('no ast corrections.')
             # makes self.rec all inds.
             self.rec = range(len(self.data.get_col('m-M0')))
             return 0
@@ -356,7 +360,7 @@ class simgalaxy(object):
         try:
             co = self.data.get_col('C/O')[self.rec]
         except KeyError:
-            print 'warning, no agb stars... trilegal ran w/o -a flag?'
+            logger.warning('no agb stars... trilegal ran w/o -a flag?')
             return
 
         lage = self.data.get_col('logAge')[self.rec]
@@ -395,7 +399,7 @@ class simgalaxy(object):
         shift to given dmod. mag or Mag attributes are set in __init__.
         '''
         if target is not None:
-            print 'converting distance and Av to match %s' % target
+            logger.info('converting distance and Av to match %s' % target)
             self.target = target
             filters = ','.join((self.filter1, self.filter2))
             tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
@@ -557,7 +561,7 @@ class simgalaxy(object):
         sinds = list(set(self.__dict__['i%s' % stage_lab]) & set(ibright))
     
         if sinds_cut is not None:
-             # inf could be less than magcut, so better keep only finite vals.
+        # inf could be less than magcut, so better keep only finite vals.
             sinds = list(set(sinds) & set(sinds_cut))
         
         if by_stage is False:
@@ -567,7 +571,7 @@ class simgalaxy(object):
         nsim_stars = float(len(sinds))    
 
         if len(sinds) == 0:
-            print 'no stars with %s < %.2f' % (new_attr, magcut)
+            logger.warning('no stars with %s < %.2f' % (new_attr, magcut))
             self.__setattr__('%s_inds' % new_attr, [-1])
             self.__setattr__('%s' % new_attr, 999.)
             return [-1], 999.
@@ -609,7 +613,7 @@ class simgalaxy(object):
         ylim tuple of plot ylimits
         '''
         if not hasattr(self, 'ast_mag2'):
-            print 'currently need ast corrections for diagnostic plot...'
+            logger.error('currently need ast corrections for diagnostic plot...')
             return -1
         if inds is not None:
             ustage = np.unique(self.stage[inds])
@@ -675,7 +679,7 @@ class simgalaxy(object):
                 else:
                     extra = '_spread'
                 plt.savefig(figname.replace('.png', '%s.png' % extra))
-                print 'wrote %s' % figname.replace('.png', '%s.png' % extra)
+                logger.info('wrote %s' % figname.replace('.png', '%s.png' % extra))
                 plt.close()
             else:
                 plt.show()
@@ -723,7 +727,7 @@ def galaxy_metallicity(gal, target, **kwargs):
                 print 'fuck!!!'
             got = 1
     if got == 0:
-        print target, 'not found'
+        logger.error(target, 'not found')
         z = np.nan
     gal.z = z
     return z
@@ -760,7 +764,7 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
         asts = fake_file
 
     if sgal.filter1 != asts.filter1 or sgal.filter2 != asts.filter2:
-        print 'bad filter match between sim gal and ast.'
+        logger.error('bad filter match between sim gal and ast.')
         return -1
 
     cor_mag1, cor_mag2 = asts.ast_correction(sgal.mag1, sgal.mag2, 
@@ -778,7 +782,7 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
         if overwrite or not os.path.isfile(outfile):
             write_trilegal_sim(sgal, outfile)
         else:
-            print '%s exists, send overwrite=True arg to overwrite' % outfile
+            logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
     if spread_too:
         write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
 
@@ -887,7 +891,7 @@ class artificial_star_tests(object):
         '''
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
-            print 'mag arrays of different lengths'
+            logger.error('mag arrays of different lengths')
             return -1
 
         # corrected mags are filled with nan.

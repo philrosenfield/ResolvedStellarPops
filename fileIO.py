@@ -4,6 +4,47 @@ import glob
 import pyfits
 import math_utils
 
+
+def setup_logging(logfile=None, stream=True, formatter='default', level='debug'):
+    '''
+    set up logger, if no logfile, will just set to stream handler. if logfile,
+    will do both by default.
+    '''
+    if level.upper() == 'DEBUG':
+        slevel = 10
+    elif level.upper() == 'INFO':
+        slevel = 20
+    elif level.upper() == 'WARNING':
+        slevel = 30
+    elif level.upper() == 'ERROR':
+        slevel = 40
+    elif level.upper() == 'FATAL':
+        slevel = 50
+    elif level.upper() == 'CRITICAL':
+        slevel = 50
+    else:
+        print '%s not a valid level' % level
+        return -1
+
+    if formatter == 'default':
+        fmt = '%(levelname)s: %(funcName)s(%(lineno)d): %(message)s'
+        formatter = logging.Formatter(fmt)
+    else:
+        formatter = formatter
+
+    if logfile is not None:
+        fh = logging.FileHandler(logfile)
+        logger.addHandler(fh)
+        fh.setLevel(slevel)
+        fh.setFormatter(formatter)
+        
+    if stream is True:
+        ch = logging.StreamHandler()
+        logger.addHandler(ch)
+        ch.setLevel(slevel)
+        ch.setFormatter(formatter)
+    return
+
 class input_file(object):
     '''
     a class to replace too many kwargs from the input file.

@@ -1,11 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import fileIO
 import math_utils
-import time
 import os
 import logging
-from subprocess import Popen, PIPE
 logger = logging.getLogger()
 
 
@@ -35,7 +32,7 @@ def write_spread(sgal, outfile=None, overwrite=False, slice_inds=None):
         # need someway to check if ast corrections were made.
         cors = [c for c in sgal.data.key_dict.keys() if '_cor' in c]
         if len(cors) == 0:
-            print 'can not make spread file without ast_corrections'
+            logger.error('can not make spread file without ast_corrections')
             return -1
 
         filt1, filt2 = np.sort(cors)
@@ -64,138 +61,179 @@ def write_spread(sgal, outfile=None, overwrite=False, slice_inds=None):
         with open(outfile, 'w') as f:
             f.write('# %s-%s %s \n' % (filt1, filt2, filt2))
             np.savetxt(f, cor_cm, fmt='%10.5f')
-        print 'wrote %s' % outfile
+        logger.info('wrote %s' % outfile)
     else:
-        print '%s exists, send overwrite=True arg to overwrite' % outfile
+        logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
     return outfile
 
-
-def format_cut_age(cut1_age):
-    '''
-    takes the > or < out of the string, and makes it in yrs.
-    '''
-    flag = cut1_age[0]
-    yrfmt = 1.
-    possible_yrmfts = {'Gyr':1e9 , 'Myr': 1e6, 'yr': 1.}
-    for py, yrfmt in sorted(possible_yrmfts.items(),
-                            key=lambda (k, v):(v, k), reverse=True):
-        if py in str(cut1_age):
-            if matplotlib.cbook.is_numlike(flag):
-                cut1_age = float(cut1_age.replace(py, ''))
-                flag = ''
-            else:
-                cut1_age = float(cut1_age.replace(py, '').replace(flag, ''))
-            cut1_age *= yrfmt
-    return cut1_age, flag
-
-
-def split_amr_file(amr_file, cut_age):
-    '''
-    splits trilgal's age, sfr, z file by some age (in Myr).
-    doesn't mess with original file, writes young and old file as
-    *_young.dat or _old.dat...
-    '''
-    young_file = sfr_file.replace('.dat', '_young.dat')
-    old_file = sfr_file.replace('.dat', '_old.dat')
-
-    age, sfr, z = np.loadtxt(sfr_file, unpack=True)
-
-    cut_age *= 1e6 # convert from Myr to yr
-
-    young, = np.nonzero(age <= cut_age)
-    old, = np.nonzero(age > cut_age)
-
-    np.savetxt(young_file, np.array([age[young], sfr[young], z[young]]).T)
-    np.savetxt(old_file, np.array([age[old], sfr[old], z[old]]).T)
-
-    return old_file, young_file
-
-def increase_sfr(sfr_file, factor, cut_age, is_amr=False):
-    '''
-    cut_age is in Myr.
-    '''
-    lines = None
-    if is_amr is True:
-        age, sfr, z = np.loadtxt(sfr_file, unpack=True)
-        amr_file = sfr_file
-    else:
-        with open(sfr_file, 'r') as f:
-            lines = f.readlines()
-        amr_file = lines[-3].split()[0]
-        the_rest = ' '.join(lines[-3].split()[1:])
-        age, sfr, z = np.loadtxt(amr_file, unpack=True)
-
-    new_file = '%s_inc%i.dat' % (amr_file.replace('.dat',''), factor)        
-    age /= 1e6 # convert to Myr
-    inds, = np.nonzero(age <= cut_age)
-    sfr[inds] *= factor
-    np.savetxt(new_file, np.array([age * 1e6, sfr, z]).T)
-
-    if lines is not None:
-        lines[-3] = '%s %s \n' % (new_file, the_rest)
-        print 'new line: %s' % lines[-3]
-        with open(sfr_file, 'w') as out:
-            [out.write(l) for l in lines]
-        return sfr_file
-    
-    return new_file
-
-def edit_match_sfr_file(sfr_file, z, cut_age='<400Myr', new_sfr_file=None, 
-                        new_sfr=None):
-    '''
-    give a constant [median value] sfr for all ages > or < than some cut_age
-    (Gyr or Myr).
-    saves new sfr to new_sfr_file or sfr_file_csfr[cut_age].dat (without ><)
-    '''
-    sfh = np.loadtxt(sfr_file)
-    # the new sfr file will be the same as the old but with a different
-    # extension
-    if not new_sfr_file or not os.path.isfile(new_sfr_file):
-        if cut_age.startswith('>') or cut_age.startswith('<'):
-            cutname = cut_age[1:]
+class trilegal_sfh(object):
+    def __init__(self, filename, galaxy_input=True):
+        '''
+        file can be galaxy input file for trilegal or trilegal age, sfr, z
+        file.
+        '''
+        if galaxy_input is True:
+            self.galaxy_input = filename
+            self.current_galaxy_input = filename
         else:
-            cutname = cut_age
-        new_sfr_file = rsp.fileIO.replace_ext(sfr_file, 
-                                              '_csfr%s.dat' % cutname)
+            self.sfh_file = filename
+            self.current_sfh_file = filename
+        self.load_sfh()
 
-    if cut_age:
-        # takes the > or < out of the string, and makes it in yrs.
-        cut_age, flag = format_cut_age(cut_age)
-    else:
-        print 'nothing to do.'
-        return -1
+    def load_sfh(self):
+        if not hasattr(self, 'sfh_file'):
+            with open(self.galaxy_input, 'r') as f:
+                lines = f.readlines()
+            self.sfh_file = lines[-3].split()[0]
+            self.current_sfh_file = self.sfh_file[:]
+            self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
+        self.age, self.sfr, self.z = np.loadtxt(self.sfh_file, unpack=True)
 
-    if flag == '<' or not flag:
-        overwrites, = np.nonzero(sfh[:, 0] < cut_age)
-        saves, = np.nonzero(sfh[:, 0] >= cut_age)
-    else:
-        overwrites, = np.nonzero(sfh[:, 0] > cut_age)
-        saves, = np.nonzero(sfh[:, 0] <= cut_age)
+    def __format_cut_age(self, cut1_age):
+        '''
+        takes the > or < out of the string, and makes it in yrs.
+        '''
+        flag = cut1_age[0]
+        yrfmt = 1.
+        possible_yrmfts = {'Gyr':1e9 , 'Myr': 1e6, 'yr': 1.}
+        for py, yrfmt in sorted(possible_yrmfts.items(),
+                                key=lambda (k, v):(v, k), reverse=True):
+            if py in str(cut1_age):
+                if matplotlib.cbook.is_numlike(flag):
+                    cut1_age = float(cut1_age.replace(py, ''))
+                    flag = ''
+                else:
+                    cut1_age = float(cut1_age.replace(py, '').replace(flag, ''))
+                cut1_age *= yrfmt
+        return cut1_age, flag
 
-    sfhtmp = sfh[overwrites]
 
-    # sometimes sfr = 1e-16 so I'm also rounding.
-    is_sf, = np.nonzero(np.round(sfhtmp[:, 1], 6))
+    def increase_sfr(self, factor, cut_age, over_write_galaxy_input=True):
+        '''
+        cut_age is in Myr.
+        '''
+        new_fmt = '%s_inc%i.dat'
+        new_file = new_fmt % (self.sfh_file.replace('.dat',''), factor)        
+        if over_write_galaxy_input is True:
+            galaxy_input = self.galaxy_input
+        else:
+            galaxy_input = new_fmt % (self.galaxy_input.replace('.dat',''),
+                                      factor)
 
-    # assign constant value to all sfr in this range
-    median_recent_sfr = np.median(sfhtmp[:, 1][is_sf])
-    if not new_sfr:
-        new_sfr = median_recent_sfr
-    if type(new_sfr) is int or type(new_sfr) is float:
-        new_sfr = median_recent_sfr * float(new_sfr)
-    sfhtmp[:, 1][is_sf] = new_sfr
+        # copy arrays to not overwrite attributes
+        sfr = self.sfr[:]
+        age = self.age[:]
+        z = self.z[:]
+        
+        # convert cut_age to yr
+        cut_age *= 1e6
 
-    # assign new metallicity
-    sfhtmp[:, 2] = z 
+        inds, = np.nonzero(age <= (cut_age))
+        sfr[inds] *= factor
+        np.savetxt(new_file, np.array([age, sfr, z]).T)
+        # update galaxy_input file
+        lines[-3] = '%s %s \n' % (new_file, self.galaxy_input_sfh_line)
+        logger.debug('new line: %s' % lines[-3])
+        with open(galaxy_input, 'w') as out:
+            [out.write(l) for l in lines]
 
-    if saves[0] < overwrites[0]:
-        new_sfh = np.vstack((sfh[saves], sfhtmp))
-    else:
-        new_sfh = np.vstack((sfhtmp, sfh[saves]))
+        self.current_galaxy_input = galaxy_input
+        self.current_sfh_file = new_file
+        return self.current_galaxy_input
+    
+    def edit_sfh_file(self, z, cut_age='<400Myr',
+                            over_write_sfh_file=False, 
+                            new_sfh_file=None):
+        '''
+        give a constant [median value] sfr for all ages > or < than some cut_age
+        (Gyr or Myr).
+        saves new sfr to new_sfr_file or sfr_file_csfr[cut_age].dat (without ><)
+        '''
+        # the new sfr file will be the same as the old but with a different
+        # extension
+        if not over_write_sfh_file or new_sfh_file is None:
+            if cut_age.startswith('>') or cut_age.startswith('<'):
+                cutname = cut_age[1:]
+            else:
+                cutname = cut_age
+            new_sfh_file = rsp.fileIO.replace_ext(self.sfh_file, 
+                                                  '_csfr%s.dat' % cutname)
+        else:
+            new_sfh_file = self.sfh_file[:]
+    
+        if cut_age:
+            # takes the > or < out of the string, and makes it in yrs.
+            cut_age, flag = format_cut_age(cut_age)
+        else:
+            logger.error('nothing to do.')
+            return -1
+    
+        if flag == '<' or not flag:
+            overwrites, = np.nonzero(sfh[:, 0] < cut_age)
+            saves, = np.nonzero(sfh[:, 0] >= cut_age)
+        else:
+            overwrites, = np.nonzero(sfh[:, 0] > cut_age)
+            saves, = np.nonzero(sfh[:, 0] <= cut_age)
+        # this line should break the program... go ahead and fix it if you 
+        # still use it.
+        sfhtmp = sfh[overwrites]
+    
+        # sometimes sfr = 1e-16 so I'm also rounding.
+        is_sf, = np.nonzero(np.round(sfhtmp[:, 1], 6))
+    
+        # assign constant value to all sfr in this range
+        median_recent_sfr = np.median(sfhtmp[:, 1][is_sf])
+        if not new_sfr:
+            new_sfr = median_recent_sfr
+        if type(new_sfr) is int or type(new_sfr) is float:
+            new_sfr = median_recent_sfr * float(new_sfr)
+        sfhtmp[:, 1][is_sf] = new_sfr
+    
+        # assign new metallicity
+        sfhtmp[:, 2] = z 
+    
+        if saves[0] < overwrites[0]:
+            new_sfh = np.vstack((sfh[saves], sfhtmp))
+        else:
+            new_sfh = np.vstack((sfhtmp, sfh[saves]))
+    
+        np.savetxt(new_sfr_file, new_sfh, fmt=['%.5g', '%.6f', '%.4f'])
+    
+        return new_sfr_file
 
-    np.savetxt(new_sfr_file, new_sfh, fmt=['%.5g', '%.6f', '%.4f'])
+    def change_galaxy_input_file(self, over_write=True, **kwargs):
+        '''
+        this doesn't work for everything. only tested on object_mass.
+        what's needed is a parser for the galaxy_input file, and then
+        replace by dict key...
+        
+        also do we keep track of every new gal input?
+        '''
+        with open(self.current_galaxy_input, 'r') as f:
+            lines = f.readlines()
+        for k, v in kwargs.items():
+            try:
+                (i, line), = [(i, l) for i, l in enumerate(lines) if k in l]
+            except ValueError:
+                logger.error('%s not found' % k)
+                continue
+            vals, info = line.strip().split('#')
+            val_ind = info.strip().index(k)
+            old_vals = map(float, vals.split())
+            if over_write is False:
+                logger.debug('current galaxy input value: %s=%g:' % (k, old_vals[val_ind]))
+                return old_vals[val_ind]
+            
+            new_vals = old_vals.copy()
+            new_vals[val_ind] = v
+            new_line = '%s # %s\n' % (' '.join(['%g' % x for x in new_vals]), info)
+            logger.debug('new line: %s' % new_line.strip())
+            lines[i] = new_line
 
-    return new_sfr_file
+        with open(self.current_galaxy_input, 'w') as o:
+            [o.write(l) for l in lines]
+
+        return self.current_galaxy_input
 
 
 def find_photsys_number(photsys, filter):
@@ -275,6 +313,7 @@ def run_pytrilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
     '''
     This is to run Marco's python trilegal implementation.
     '''
+    from subprocess import Popen, PIPE
     cmd = "/Users/phil/research/PyTRILEGAL/run_trilegal.py  -e code/main"
     cmd += "%s" % parfile
     if agb is True:
@@ -494,51 +533,6 @@ def read_cmd_input_file(filename):
     return d
 
 
-def change_trilegal_input_file(input_file, over_write=True, **kwargs):
-    with open(input_file, 'r') as f:
-        lines = f.readlines()
-    for k, v in kwargs.items():
-        try:
-            (i, line), = [(i, l) for i, l in enumerate(lines) if k in l]
-        except ValueError:
-            print '%s not found' % k
-            continue
-        try:
-            vals, info = line.strip().split('#')
-        except ValueError:
-            # one line has more than one # in it!
-            vals, info = line.strip().split('#')[:-1]
-        
-        try:
-            val_ind = info.strip().index(k)
-        except ValueError:
-            # perhaps it doesn't go name value...
-            val_ind = 0
-
-        try:
-            old_vals = map(float, vals.split())
-        except:
-            # it's cool if it's a string...
-            old_vals = vals[:]
-
-        if over_write is True:
-            print 'current: %s=%s:' % (k, str(old_vals[val_ind]))
-            if kwargs.get('new_file'):
-                input_file = kwargs.get('new_file')
-        else:
-            return old_vals[val_ind]
-
-        new_vals = old_vals[:]
-        new_vals[val_ind] = v
-        new_line = '%s # %s\n' % (' '.join(['%g' % x for x in new_vals]), info)
-        print 'new line: %s' % new_line.strip()
-        lines[i] = new_line
-
-    with open(input_file, 'w') as o:
-        [o.write(l) for l in lines]
-
-    return
-
 def write_cmd_input_file(**kwargs):
     '''
     make a TRILEGAL cmd_input file based on default.
@@ -732,6 +726,8 @@ def estimate_sfh(gal, sgal, sfr_file, metallicity, **kwargs):
 
 def color_color_diagnostic(trilegal_output_file, filter1, filter2, filter3,
                            filter4, ax=None, **pltkwargs):
+    import time
+    import fileIO
     logger.info('reading %s' % trilegal_output_file)
     tstart = time.time()
     t = fileIO.read_table(trilegal_output_file)
@@ -762,7 +758,8 @@ def mc_tests(ID, dir_name, outdir="MC_TESTS", bestfit_loc="MODELS/"):
     dir_name is PropID_GalaxyName
     Will put mc tests in MC_TESTS/*/dirname
     '''
-
+    from subprocess import Popen, PIPE
+    import fileIO
     # Make new folders
     folders = ['PARS/', 'INPUT/', 'OUTPUT/']
     outdir = fileIO.ensure_dir(outdir)
