@@ -1,6 +1,5 @@
 import ResolvedStellarPops as rsp
 import numpy as np
-#from BRparams import *
 import logging
 from subprocess import PIPE, Popen
 import matplotlib.pyplot as plt
@@ -252,6 +251,7 @@ def check_for_bg_file(param):
 
 def write_match_bg(color, mag2, filename):
     mag1 = color + mag2
+    assert len(mag1) > 0 and len(mag2) > 0, 'match_bg is empty.'
     np.savetxt(filename, np.column_stack((mag1, mag2)), fmt='%.4f')
     print 'wrote match_bg as %s' % filename
     return
@@ -397,7 +397,8 @@ class calcsfh_params(object):
         '''
         [self.__setattr__(k, v) for k, v in new_dict.items()]
     
-def make_calcsfh_param_file(galaxy=None, calcsfh_par_dict=None, **kwargs):
+def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
+                            inputs=None, **kwargs):
     '''    
     to search over range of av: set Av Av2 dAv as kwargs.
     to search over range of dmod: set dmod dmod2 ddmod in kwargs
@@ -412,24 +413,8 @@ def make_calcsfh_param_file(galaxy=None, calcsfh_par_dict=None, **kwargs):
     kwargs:
     all parameters can be kwargs, technically, they aren't really kwargs since
     they aren't optional. Sorry python gods.
-    kwargs of interest:
-    pmfile
-        full path to param file (will build it otherwise, see below)
 
-        will build these three from match_bg name and MODELS_LOC
-    param_dir
-        place to put the param file
-    pmfilename
-        name of the param file
     '''
-    param_dir = kwargs.get('param_dir',
-                           os.path.join(MODELS_LOC, 'MATCH', 'params'))
-    pmfilename = kwargs.get('pmfilename',
-                            rsp.fileIO.replace_ext(os.path.split(match_bg)[1],
-                                                   '.par'))
-    pmfile = kwargs.get('pmfile',
-                        os.path.join(param_dir, pmfilename))
-
     calcsfh_pars = calcsfh_params(default_dict=calcsfh_par_dict)
     if galaxy is not None:
         gal = galaxy

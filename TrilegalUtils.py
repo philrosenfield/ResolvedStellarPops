@@ -117,6 +117,7 @@ def increase_sfr(sfr_file, factor, cut_age, is_amr=False):
     lines = None
     if is_amr is True:
         age, sfr, z = np.loadtxt(sfr_file, unpack=True)
+        amr_file = sfr_file
     else:
         with open(sfr_file, 'r') as f:
             lines = f.readlines()
@@ -124,7 +125,7 @@ def increase_sfr(sfr_file, factor, cut_age, is_amr=False):
         the_rest = ' '.join(lines[-3].split()[1:])
         age, sfr, z = np.loadtxt(amr_file, unpack=True)
 
-    new_file = '%s_inc%i.dat' % (sfr_file.replace('.dat',''), factor)        
+    new_file = '%s_inc%i.dat' % (amr_file.replace('.dat',''), factor)        
     age /= 1e6 # convert to Myr
     inds, = np.nonzero(age <= cut_age)
     sfr[inds] *= factor
@@ -240,7 +241,40 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
     return
 
 
-def run_trilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
+def run_trilegal(cmd_input, galaxy_input, output):
+    '''
+    runs trilegal with os.system. might be better with subprocess? Also 
+    changes directory to trilegal root, if that's not in a .cshrc need to 
+    somehow tell it where to go.
+    
+    to do:
+    add -a or any other flag options
+    possibly add the stream output to the end of the output file.
+    '''
+    here = os.getcwd()
+    os.chdir(os.environ['TRILEGAL_ROOT'])
+
+    logger.info('running trilegal...')
+    cmd = 'code/main -f %s -l %s %s > trilegal.msg\n' % (cmd_input,
+                                                         galaxy_input, output)
+    logger.debug(cmd)
+    t = os.system(cmd)
+    logger.info('done.')
+
+    if t != 0:
+        for l in open('trilegal.msg').readlines():
+            logger.debug(l.strip())
+    else:
+        os.remove('trilegal.msg')
+    os.chdir(here)
+    return
+
+
+
+def run_pytrilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
+    '''
+    This is to run Marco's python trilegal implementation.
+    '''
     cmd = "/Users/phil/research/PyTRILEGAL/run_trilegal.py  -e code/main"
     cmd += "%s" % parfile
     if agb is True:
