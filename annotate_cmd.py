@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.nxutils as nxutils
 import numpy as np
 import os
-import logging
 import pdb
 import scipy.interpolate
 
@@ -12,7 +11,10 @@ import Galaxies
 from TrilegalUtils import get_stage_label
 from scatter_contour import scatter_contour
 
+import logging
 logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
 
 def poly_fmt(polygon_str):
     polygon_str = polygon_str.replace(')', '').replace('(', '').strip()

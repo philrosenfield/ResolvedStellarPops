@@ -3,6 +3,10 @@ import os
 import glob
 import pyfits
 import math_utils
+import logging
+import logging
+logger = logging.getLogger()
+
 
 
 def setup_logging(logfile=None, stream=True, formatter='default', level='debug'):

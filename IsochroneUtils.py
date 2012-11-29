@@ -4,6 +4,9 @@ import os
 import math_utils
 import logging
 logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
+
 
 
 class Isochrone(object):

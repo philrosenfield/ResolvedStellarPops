@@ -1,6 +1,10 @@
 import ResolvedStellarPops as rsp
 import numpy as np
 import os
+import logging
+logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
 
 
 class IsotrackSets(object):

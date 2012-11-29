@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm,rc,rcParams
 from matplotlib.patches import FancyArrow
 from matplotlib.ticker import NullFormatter, MultipleLocator
+import logging
+logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
+
 
 nullfmt   = NullFormatter() # no labels
 rcParams['text.usetex']=True

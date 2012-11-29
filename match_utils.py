@@ -1,11 +1,13 @@
 import ResolvedStellarPops as rsp
 import numpy as np
-import logging
 from subprocess import PIPE, Popen
 import matplotlib.pyplot as plt
-logger = logging.getLogger()
 import re
 import os
+import logging
+logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
 
 def make_exclude_gates(gal, outfile=None):
     if outfile is None:

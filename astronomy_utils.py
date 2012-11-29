@@ -2,6 +2,10 @@ import fileIO
 from angst_tables import AngstTables
 import os
 import numpy as np
+import logging
+logger = logging.getLogger()
+if logger.name == 'root':
+    rsp.fileIO.setup_logging()
 
 
 def hess(color, mag, binsize, **kw):
