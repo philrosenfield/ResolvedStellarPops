@@ -36,8 +36,8 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
     if bgfile is True:
         footer += 2
 
-    out = open(outfile, 'w')
-    fmt = ' % g %g %g\n'
+    
+    fmt = '%g %g %g\n'
     to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=2,
                                                      skip_footer=footer,
                                                      unpack=True)
@@ -45,27 +45,27 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
     half_bin = np.diff(dlogz[0: 2])[0] / 2.
     # correct age for trilegal isochrones.
     tf[tf == 10.15] = 10.13
-    for i in range(len(to)):
-        if sfr[i] == 0.:
-            continue
-        sfr[i] = sfr[i] * 1e3  # sfr is normalized in trilegal
-        z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
-        z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
-        age1a = 1.0 * 10 ** to[i]
-        age1p = 1.0 * 10 ** (to[i] + 0.0001)
-        age2a = 1.0 * 10 ** tf[i]
-        age2p = 1.0 * 10 ** (tf[i] + 0.0001)
+    with open(outfile, 'w') as out:
+        for i in range(len(to)):
+            if sfr[i] == 0.:
+                continue
+            sfr[i] = sfr[i] * 1e3  # sfr is normalized in trilegal
+            z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
+            z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
+            age1a = 1.0 * 10 ** to[i]
+            age1p = 1.0 * 10 ** (to[i] + 0.0001)
+            age2a = 1.0 * 10 ** tf[i]
+            age2p = 1.0 * 10 ** (tf[i] + 0.0001)
+    
+            out.write(fmt % (age1a, 0.0, z1))
+            out.write(fmt % (age1p, sfr[i], z1))
+            out.write(fmt % (age2a, sfr[i], z2))
+            out.write(fmt % (age2p, 0.0, z2))
+            out.write(fmt % (age1a, 0.0, z2))
+            out.write(fmt % (age1p, sfr[i], z2))
+            out.write(fmt % (age2a, sfr[i], z1))
+            out.write(fmt % (age2p, 0.0, z1))
 
-        out.write(fmt % (age1a, 0.0, z1))
-        out.write(fmt % (age1p, sfr[i], z1))
-        out.write(fmt % (age2a, sfr[i], z2))
-        out.write(fmt % (age2p, 0.0, z2))
-        out.write(fmt % (age1a, 0.0, z2))
-        out.write(fmt % (age1p, sfr[i], z2))
-        out.write(fmt % (age2a, sfr[i], z1))
-        out.write(fmt % (age2p, 0.0, z1))
-
-    out.close()
     print 'wrote', outfile
     return outfile
 

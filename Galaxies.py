@@ -143,9 +143,12 @@ class galaxy(object):
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
+        elif filetype == 'match_phot':
+            self.data = np.genfromtxt(fname, names=['mag1', 'mag2'])
+            self.mag1 = self.data['mag1']
+            self.mag2 = self.data['mag2']
         else:
-            logger.error('filetype must be fitstable or tagged_phot,',
-                         'use simgalaxy for trilegal.')
+            logger.error('filetype must be fitstable, tagged_phot or match_phot use simgalaxy for trilegal')
             sys.exit(2)
 
         self.color = self.mag1 - self.mag2
