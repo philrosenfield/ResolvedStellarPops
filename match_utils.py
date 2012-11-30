@@ -6,8 +6,8 @@ import re
 import os
 import logging
 logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
+#if logger.name == 'root':
+#    rsp.fileIO.setup_logging()
 
 def make_exclude_gates(gal, outfile=None):
     if outfile is None:

@@ -11,10 +11,6 @@ import Galaxies
 from TrilegalUtils import get_stage_label
 from scatter_contour import scatter_contour
 
-import logging
-logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
 
 def poly_fmt(polygon_str):
     polygon_str = polygon_str.replace(')', '').replace('(', '').strip()
@@ -339,8 +335,10 @@ def define_color_mag_region(fitsfiles, region_names, **kwargs):
     '''
     cmd_regions_loc = kwargs.get('cmd_regions_loc')
     if not cmd_regions_loc:
-        from BRparams import *
-        cmd_regions_loc = os.path.join(BRFOLDER, 'data', 'cmd_regions')
+        #from BRparams import *
+        #cmd_regions_loc = os.path.join(BRFOLDER, 'data', 'cmd_regions')
+        print 'need cmd_regions_loc!'
+        return -1
     tagged_data_loc = os.path.join(cmd_regions_loc, 'tagged_photometry')
     plot_dir = os.path.join(cmd_regions_loc, 'plots')
 
@@ -454,11 +452,11 @@ def define_color_mag_region(fitsfiles, region_names, **kwargs):
 def test(regions):
     Regions = [CMDregion(r) for r in regions]
     for R in Regions:
-        print R.target, R.filter1, R.filter2
+        logger.info(R.target, R.filter1, R.filter2)
         try:
             R.join_regions('BHeB', 'RHeB')
         except:
-            print 'nope!'
+            logger.warning('nope!')
             continue
         R.split_regions_on_mean('BHeB_RHeB')
         plt.figure()

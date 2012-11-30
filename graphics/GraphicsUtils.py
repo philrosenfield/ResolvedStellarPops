@@ -5,10 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib import cm,rc,rcParams
 from matplotlib.patches import FancyArrow
 from matplotlib.ticker import NullFormatter, MultipleLocator
-import logging
-logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
 
 
 nullfmt   = NullFormatter() # no labels
@@ -178,7 +174,7 @@ def plot_cmd(fitsfile,yaxis='I',upper_contour=False,**kwargs):
     if save_plot==True:
         outfile = kwargs.get('outfile',fitsfile+'.cmd.png')
         plt.savefig(outfile)
-        print 'wrote',outfile
+        logger.info('wrote %s' % outfile)
         plt.close()
     return ax
 

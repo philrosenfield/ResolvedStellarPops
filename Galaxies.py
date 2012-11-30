@@ -8,8 +8,6 @@ import numpy as np
 import brewer2mpl
 import logging
 logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
 
 angst_data = rsp.angst_tables.AngstTables()
 

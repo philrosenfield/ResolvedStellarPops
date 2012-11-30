@@ -3,8 +3,7 @@ import os
 import traceback
 import re
 import difflib
-import logging
-logger = logging.getLogger()
+
 
 TABLE_DIR = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'tables')
 

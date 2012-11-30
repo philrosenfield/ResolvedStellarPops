@@ -2,10 +2,6 @@ import fileIO
 from angst_tables import AngstTables
 import os
 import numpy as np
-import logging
-logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
 
 
 def hess(color, mag, binsize, **kw):
@@ -67,7 +63,7 @@ def parse_mag_tab(photsys, filter, bcdir=None):
         try:
             bcdir = os.environ['BCDIR']
         except KeyError:
-            print 'need bcdir environmental variable, or to pass it to parse_mag_tab' 
+            logger.error('need bcdir environmental variable, or to pass it to parse_mag_tab')
 
     photsys = photsys.lower()
 
@@ -80,8 +76,8 @@ def parse_mag_tab(photsys, filter, bcdir=None):
     try:
         Alam_Av[mags.index(filter)]
     except ValueError:
-        print '%s not in list' % filter
-        print tab_mag, mags
+        logger.error('%s not in list' % filter)
+        logger.errot(tab_mag, mags)
     return Alam_Av[mags.index(filter)]
     
 def Mag2mag(Mag, filter, photsys, **kwargs):
@@ -110,7 +106,7 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
         Alam_Av = parse_mag_tab(photsys, filter)
         A = Alam_Av * Av
     if dmod == 0. and A == 0.:
-        print 'Mag2mag did nothing.'
+        logger.warning('Mag2mag did nothing.')
     return Mag+dmod+A
 
 def mag2Mag(mag, filter, photsys, **kwargs):

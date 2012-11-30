@@ -3,8 +3,9 @@ import numpy as np
 from mpfit import mpfit
 import logging
 logger = logging.getLogger()
-if logger.name == 'root':
-    rsp.fileIO.setup_logging()
+#if logger.name == 'root':
+#    import fileIO
+#    fileIO.setup_logging()
 
 
 class StellarPop(object):
