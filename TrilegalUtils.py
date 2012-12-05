@@ -66,6 +66,141 @@ def write_spread(sgal, outfile=None, overwrite=False, slice_inds=None):
         logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
     return outfile
 
+def change_galaxy_input(galaxy_input, **kwargs):
+    '''
+    if no kwargs are given, will write None as object_mass and object_sfr_file.
+    see galaxy_input_dict()- 
+    '''
+    input_pars = fileIO.input_parameters(galaxy_input_dict())
+    input_pars.add_params(kwargs)
+    input_pars.write_params(galaxy_input, galaxy_imput_fmt())
+    
+
+def galaxy_input_dict():
+    return {'coord_kind': 1,
+            'coord1': 0.0,
+            'coord2': 0.0,
+            'field_area': 1.0,
+            'file_mag': 'tab_mag_odfnew/tab_mag_wfpc2.dat',
+            'mag_num': 16,
+            'mag_limit_val': 5,
+            'mag_resolution': 0.1,
+            'r_sun': 8500.0,
+            'z_sun': 24.2,
+            'file_imf': 'tab_imf/imf_chabrier_lognormal.dat',
+            'binary_kind': 0,
+            'binary_frac': 0.0,
+            'binary_mrinf': 0.7,
+            'binary_mrsup': 1.0,
+            'extinction_kind': 0,
+            'extinction_rho_sun': 0.00015,
+            'extinction_infty': 0.045756,
+            'extinction_infty_disp': 0.0,
+            'extinction_h_r': 100000.0,
+            'extinction_h_z': 110.0,
+            'thindisk_kind': 0,
+            'thindisk_rho_sun': 59.0,
+            'thindisk_h_r': 2800.0,
+            'thindisk_r_min': 0.0,
+            'thindisk_r_max': 15000.0,
+            'thindisk_h_z0': 95.0,
+            'thindisk_hz_tau0': 4400000000.0,
+            'thindisk_hz_alpha': 1.6666,
+            'thindisk_sfr_file': 'tab_sfr/file_sfr_thindisk_mod.dat',
+            'thindisk_sfr_mult_factorA': 0.8,
+            'thindisk_sfr_mult_factorB': 0.0,
+            'thickdisk_kind': 0,
+            'rho_thickdisk_sun': 0.0015,
+            'thickdisk_h_r': 2800.0 ,
+            'thickdisk_r_min': 0.0,
+            'thickdisk_r_max': 15000.0,
+            'thickdisk_h_z': 800.0,
+            'thickdisk_sfr_file': 'tab_sfr/file_sfr_thickdisk.dat',
+            'thickdisk_sfr_mult_factorA': 1.0,
+            'thickdisk_sfr_mult_factorB': 0.0,
+            'halo_kind': 0,
+            'halo_rho_sun': 0.00015,
+            'halo_r_eff': 2800.0,
+            'halo_q': 0.65,
+            'halo_sfr_file': 'tab_sfr/file_sfr_halo.dat',
+            'halo_sfr_mult_factorA': 1.0,
+            'halo_sfr_mult_factorB': 0.0,
+            'bulge_kind': 0,
+            'bulge_rho_central': 76.0,
+            'bulge_am': 1900.0,
+            'bulge_a0': 100.0,
+            'bulge_eta': 0.5,
+            'bulge_csi': 0.6,
+            'bulge_phi': 20.0,
+            'bulge_cutoffmass': 0.8,
+            'bulge_sfr_file': 'tab_sfr/file_sfr_bulge.dat',
+            'bulge_sfr_mult_factorA': 1.0,
+            'bulge_sfr_mult_factorB': 0.0,
+            'object_kind': 1,
+            'object_mass': None,
+            'object_dist': 10.,
+            'object_avkind':1,
+            'object_av': 0.0,
+            'object_cutoffmass': 0.8,
+            'object_sfr_file': None,
+            'object_sfr_mult_factorA': 1.0 ,
+            'object_sfr_mult_factorB': 0.0,
+            'output_file_type': 1}
+
+
+def galaxy_input_fmt():
+    fmt = \
+        """%(coord_kind)i %(coord1).1f %(coord2).1f %(field_area).1f # 1: galactic l, b (deg), field_area (deg2) # 2: ra dec in ore ( gradi 0..24)
+
+%(file_mag)s  # kind_mag, file_mag
+%(mag_num)i %(mag_limit_val)i %(mag_resolution).1f # Magnitude: num, limiting value, resolution
+
+%(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)
+
+%(file_imf)s # file_imf
+%(binary_kind)i # binary_kind: 0=none, 1=yes
+%(binary_frac).1f # binary_frac: binary fraction
+%(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1
+
+%(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty
+%(extinction_rho_sun)f  # extinction_rho_sun: local extinction density Av, in mag/pc
+%(extinction_infty)f %(extinction_infty_disp).1f  # extinction_infty: extinction Av at infinity in mag, dispersion
+%(extinction_h_r).1f %(extinction_h_z).1f  # extinction_h_r, extinction_h_z: radial and vertical scales
+
+%(thindisk_kind)i  # thindisk kind: 0=none, 1=z_exp, 2=z_sech, 3=z_sech2
+%(thindisk_rho_sun).1f  # thindisk_rho_sun: local thindisk surface density, in stars formed/pc2
+%(thindisk_h_r).1f %(thindisk_r_min).1f %(thindisk_r_max).1f  # thindisk_h_r, thindisk_r_min,max: radial scale, truncation radii
+%(thindisk_h_z0).1f %(thindisk_hz_tau0).1f %(thindisk_hz_alpha)%f # thindisk_h_z0, thindisk_hz_tau0, thindisk_hz_alpha: height now, increase time, exponent
+%(thindisk_sfr_file)s %(thindisk_sfr_mult_factorA).1f %(thindisk_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B (from A*t + B)
+
+%(thickdisk_kind)i # thickdisk kind: 0=none, 1=z_exp, 2=z_sech2, 3=z_sech2
+%(rho_thickdisk_sun)f  # rho_thickdisk_sun: local thickdisk volume density, in stars formed/pc3
+%(thickdisk_h_r).1f %(thickdisk_r_min).1f %(thickdisk_r_max).1f # thickdisk_h_r, thickdisk_r_min,max: radial scale, truncation radii
+%(thickdisk_h_z).1f # thickdisk_h_z: scale heigth (a single value)
+%(thickdisk_sfr_file)s %(thickdisk_sfr_mult_factorA).1f %(thickdisk_sfr_mult_factorB).1f  # File with (t, SFR, Z), factors A, B
+
+%(halo_kind)i # halo kind: 0=none, 1=1/r^4 cf Young 76, 2=oblate cf Gilmore
+%(halo_rho_sun)f # 0.0001731 0.0001154 halo_rho_sun: local halo volume density, to be done later: 0.001 for 1
+%(halo_r_eff).1f %(halo_q).2f #  halo_r_eff, halo_q: effective radius on plane (about r_sun/3.0), and oblateness
+%(halo_sfr_file)s %(halo_sfr_mult_factorA).1f %(halo_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
+
+%(bulge_kind)i  # bulge kind: 0=none, 1=cf. Bahcall 86, 2=cf. Binney et al. 97
+%(bulge_rho_central).1f # bulge_rho_central: central bulge volume density, unrelated to solar position
+%(bulge_am).1f %(bulge_a0).1f #  bulge_am, bulge_a0: scale length and truncation scale length
+%(bulge_eta).1f %(bulge_csi).1f %(bulge_phi).1f #  bulge_eta, bulge_csi, bulge_phi0: y/x and z/x axial ratios, angle major-axis sun-centre-line (deg)
+%(bulge_cutoffmass).1f # bulge_cutoffmass: (Msun) masses lower than this will be ignored
+%(bulge_sfr_file)s %(bulge_sfr_mult_factorA).1f %(bulge_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
+
+%(object_kind)i # object kind: 0=none, 1=at fixed distance
+%(object_mass)g %(object_dist).1f # object_mass, object_dist: total mass inside field, distance
+%(object_avkind)i %(object_av).1f # object_avkind, object_av: Av added to foregroud if =0, not added if =1
+%(object_cutoffmass).1f # object_cutoffmass: (Msun) masses lower than this will be ignored
+%(object_sfr_file)s %(object_sfr_mult_factorA).1f %(object_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B # la vera eta' e' t_OK=A*(t+B)
+
+%(output_file_type)i # output file: 1=data points"""
+    return fmt
+
+
 class trilegal_sfh(object):
     def __init__(self, filename, galaxy_input=True):
         '''
@@ -203,12 +338,18 @@ class trilegal_sfh(object):
 
     def change_galaxy_input_file(self, over_write=True, **kwargs):
         '''
+        
+        This should go away! Use fileIO.input_parameters class
+        and change galaxy_input
+        
         this doesn't work for everything. only tested on object_mass.
         what's needed is a parser for the galaxy_input file, and then
         replace by dict key...
         
         also do we keep track of every new gal input?
         '''
+        print 'stop using change_galaxy_input_file!'
+        
         with open(self.current_galaxy_input, 'r') as f:
             lines = f.readlines()
         for k, v in kwargs.items():
@@ -242,11 +383,11 @@ def find_photsys_number(photsys, filter):
     mf = open(mag_file, 'r')
     nmags = mf.readline()
     magline = mf.readline().strip().split()
-    return magline.index(filter)
+    return magline.index(filter), mag_file
 
 
 def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
-    mag_num = find_photsys_number(photsys, filter)
+    mag_num = find_photsys_number(photsys, filter)[0]
     lines = (
             "photosys           %s" % photsys,
             "mag_num            %s" % mag_num,

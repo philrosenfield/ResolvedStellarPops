@@ -1,7 +1,10 @@
 import ResolvedStellarPops as rsp
 import ResolvedStellarPops.graphics.GraphicsUtils as rspgraph
 import matplotlib.nxutils as nxutils
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from TrilegalUtils import get_stage_label, get_label_stage
+from scatter_contour import scatter_contour
 import os
 import sys
 import numpy as np
@@ -10,6 +13,7 @@ import logging
 logger = logging.getLogger()
 
 angst_data = rsp.angst_tables.AngstTables()
+
 
 class galaxies(object):
     '''
@@ -103,17 +107,188 @@ def bens_fmt_galaxy_info(filename):
     return propid, target, filter1, filter2
 
 
+class star_pop(object):
+    def __init__(self):
+        pass
 
-class galaxy(object):
+    def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None, yfilter=None,
+                 contour_args={}, scatter_args={}, plot_args={}, scatter_off=False):
+        if fig is None:
+            fig = plt.figure(figsize=(8, 8))
+        if ax is None:
+            ax = plt.axes()
+        if xlim is None:
+            ax.set_xlim(color.min(), color.max())
+        if ylim is None:
+            ax.set_ylim(mag.max(), mag.min())
+        if yfilter is None:
+            yfilter = self.filter2
+        if scatter_off is False:
+            if len(contour_args) == 0:
+                contour_args = {'cmap': cm.gray_r, 'zorder': 100}
+            if len(scatter_args) == 0:
+                scatter_args = {'marker': '.', 'color': 'black', 'alpha': 0.2,
+                                'edgecolors': None, 'zorder': 1}
+    
+            ncolbin = int(np.diff((np.min(color), np.max(color))) / 0.05)
+            nmagbin = int(np.diff((np.min(mag), np.max(mag))) / 0.05)
+
+            plt_pts, cs = scatter_contour(color, mag,
+                                          threshold=10, levels=20,
+                                          hist_bins=[ncolbin, nmagbin],
+                                          contour_args=contour_args,
+                                          scatter_args=scatter_args,
+                                          ax=ax)
+            self.plt_pts = plt_pts
+            self.cs = cs
+        else:
+            ax.plot(color, mag, '.', **plot_args)
+
+        ax.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
+        ax.set_ylabel('$%s$' % yfilter, fontsize=20)
+
+        self.ax = ax
+        self.fig = fig
+        return
+
+    def all_stages(self, *stages):
+        '''
+        adds the indices of some stage as an attribute.
+        '''
+        for stage in stages:
+            i = stage_inds(self.stage, stage)
+            self.__setattr__('i%s' % stage.lower(), i)
+        return
+
+    def stage_inds(self, stage_name):
+        '''
+        not so useful on its own, use all_stages to add the inds as attribues.
+        '''
+        if not hasattr(self, 'stage'):
+            logger.warning('no stages marked in this file')
+            return
+        else:
+            inds, = np.nonzero(self.stage == get_stage_label(stage_name))
+        return inds
+    
+    def make_hess(self, binsize, absmag=False, hess_kw = {}):
+        '''
+        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
+        doc for more information.
+        '''
+        if absmag:
+            if not hasattr(self, 'Color'):
+                self.Color = self.Mag1 - self.Mag2
+            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
+                                            **hess_kw)
+            self.Hess = hess
+        else:
+            if not hasattr(self, 'color'):
+                self.color = self.mag1 - self.mag2
+            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
+                                            **hess_kw)
+            self.hess = hess
+        return hess
+
+    def get_header(self):
+        '''
+        utility for writing data files, sets header attribute and returns
+        header string.
+        '''
+        key_dict = self.data.key_dict
+        names = [k[0] for k in sorted(key_dict.items(),
+                                      key=lambda (k, v): (v, k))]
+        self.header = '# %s' % ' '.join(names)
+        return self.header
+
+    def delete_data(self):
+        '''
+        for wrapper functions, I don't want gigs of data stored when they
+        are no longer needed.
+        '''
+        data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
+                      'ast_mag2', 'ast_color', 'rec']
+        for data_name in data_names:
+            if hasattr(data_name):
+                self.__delattr__(data_name)
+            if hasattr(data_name.title()):
+                self.__delattr__(data_name.title())
+
+    def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False):
+        '''
+        convert from mag to Mag or from Mag to mag or just shift distance.
+
+        pass dmod, Av, or use AngstTables to look it up from target.
+        shift_distance: for the possibility of doing dmod, Av fitting of model
+        to data the key here is that we re-read the mag from the original data
+        array.
+
+        Without shift_distance: Just for common usage. If trilegal was given a
+        dmod, it will swap it back to Mag, if it was done at dmod=10., will
+        shift to given dmod. mag or Mag attributes are set in __init__.
+        '''
+        if target is not None or hasattr(self, 'target'):
+            logger.info('converting distance and Av to match %s' % target)
+            self.target = target
+            filters = ','.join((self.filter1, self.filter2))
+            tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
+            __, self.Av, self.dmod = tad
+        else:
+            self.dmod = dmod
+            self.Av = Av
+        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
+
+        if shift_distance is True:
+            m1 = self.data.get_col(self.filter1)
+            m2 = self.data.get_col(self.filter2)
+            self.mag1 = rsp.astronomy_utils.Mag2mag(m1,
+                                                    self.filter1,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
+            self.mag2 = rsp.astronomy_utils.Mag2mag(m2,
+                                                    self.filter2,
+                                                    self.photsys,
+                                                    **mag_covert_kw)
+            self.color = self.mag1 - self.mag2
+        else:
+            if hasattr(self, 'mag1'):
+                self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1,
+                                                        self.filter1,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, 
+                                                        self.filter2,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.Color = self.Mag1 - self.Mag2
+                if hasattr(self, 'trgb'):
+                    self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb,
+                                                            self.filter2,
+                                                            self.photsys,
+                                                            **mag_covert_kw)
+
+            if hasattr(self, 'Mag1'):
+                self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, 
+                                                        self.filter1,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2,
+                                                        self.filter2,
+                                                        self.photsys,
+                                                        **mag_covert_kw)
+                self.color = self.mag1 - self.mag2
+
+class galaxy(star_pop):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
     '''
     def __init__(self, fname, filetype='tagged_phot', **kwargs):
+        self.base, self.name = os.path.split(fname)
+        star_pop.__init__(self)
         hla = kwargs.get('hla', True)
         angst = kwargs.get('angst', True)
         band = kwargs.get('band')
         # name spaces
-        self.base, self.name = os.path.split(fname)
         if hla is True:
             self.survey, self.propid, self.target, filts, psys = hla_galaxy_info(fname)
             # photometry
@@ -158,33 +333,8 @@ class galaxy(object):
             self.comp50mag2 = angst_data.get_50compmag(self.target, self.filter2)
             self.trgb, self.Av, self.dmod = galaxy.trgb_av_dmod(self)
             # Abs mag
-            self.AbsMag()
+            self.convert_mag()
             self.z = galaxy_metallicity(self, self.target, **kwargs)
-
-    def AbsMag(self):
-        mag2Mag_kwargs = {'Av': self.Av, 'dmod': self.dmod}
-        self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                                self.photsys, **mag2Mag_kwargs)
-        self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                                self.photsys, **mag2Mag_kwargs)
-        self.Color = self.Mag1 - self.Mag2
-        self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb, self.filter2,
-                                                self.photsys, **mag2Mag_kwargs)
-
-    def make_hess(self, binsize, absmag=False, hess_kw = {}):
-        '''
-        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
-        doc for more information.
-        '''
-        if absmag:
-            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
-                                            **hess_kw)
-            self.Hess = hess
-        else:
-            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
-                                            **hess_kw)
-            self.hess = hess
-        return hess
 
     def trgb_av_dmod(self):
         '''
@@ -192,30 +342,6 @@ class galaxy(object):
         '''
         filters = ','.join((self.filter1, self.filter2))
         return angst_data.get_tab5_trgb_av_dmod(self.target, filters)
-
-    def all_stages(self, *stages):
-        '''
-        adds the indices of some stage as an attribute.
-        '''
-        for stage in stages:
-            i = stage_inds(self.stage, stage)
-            self.__setattr__('i%s' % stage.lower(), i)
-        return
-
-    def stage_inds(self, stage_name):
-        '''
-        not so useful on its own, use all_stages to add the inds as attribues.
-        '''
-        if not hasattr(self, 'stage'):
-            logger.warning('no stages marked in this file')
-            return
-        else:
-            inds, = np.nonzero(self.stage == get_stage_label(stage_name))
-        return inds
-
-    def delete_data(self):
-        data_names = ['data', 'mag1', 'mag2', 'color', 'stage']
-        [self.__delattr__(data_name) for data_name in data_names]
     
     def __str__(self):
         out = (
@@ -244,8 +370,52 @@ class galaxy(object):
             cuts = mag2cut
         return cuts
 
+    def add_data(self, **new_cols):
+        '''
+        add columns to data
+        new_cols: {new_key: new_vals}
+        new_vals must have same number of rows as data.
+        Ie, be same length as self.data.shape[0]
 
-class simgalaxy(object):
+        adds new data to self.data.data_array and self.data.key_dict
+        returns new header string (or -1 if nrows != len(new_vals))
+        '''
+
+        data = self.data.data_array.copy()
+        nrows = data.shape[0]
+        ncols = data.shape[1]
+        # new arrays must be equal length as the data
+        len_test = np.array([len(v) == nrows
+                            for v in new_cols.values()]).prod()
+        if not len_test:
+            'array lengths are not the same.'
+            return -1
+
+        header = self.get_header()
+        # add new columns to the data and their names to the header.
+        for k,v in new_cols.items():
+            header += ' %s' % k
+            data = np.column_stack((data, v))
+
+        # update self.data
+        self.data.data_array = data
+        col_keys =  header.replace('#','').split()
+        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
+        return header
+
+    def slice_data(self, data_to_slice, slice_inds):
+        '''
+        slice already set attributes by some index list.
+        '''
+        for d in data_to_slice:
+            if hasattr(self, d):
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+            if hasattr(self, d.title()):
+                d = d.title()
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+
+
+class simgalaxy(star_pop):
     '''
     reads a trilegal output catalog
     there is an issue with mags being abs mag or app mag. If dmod == 0, mags
@@ -253,6 +423,7 @@ class simgalaxy(object):
     '''
     def __init__(self, trilegal_out, filter1, filter2, photsys=None,
                  count_offset=0.0):
+        star_pop.__init__(self)
         self.base, self.name = os.path.split(trilegal_out)
         self.data = rsp.fileIO.read_table(trilegal_out)
         self.filter1 = filter1
@@ -265,7 +436,7 @@ class simgalaxy(object):
                 self.photsys = 'acs_wfc'
         else:
             self.photsys = photsys
-        #self.target = self.name.split('_')[2]
+
         absmag = False
         if self.data.get_col('m-M0')[0] == 0.:
             absmag = True
@@ -318,38 +489,11 @@ class simgalaxy(object):
             self.ast_color = self.ast_mag1 - self.ast_mag2
         return 1
 
-    def slice_data(self, data_to_slice, slice_inds):
-        '''
-        slice already set attributes by some index list.
-        '''
-        for d in data_to_slice:
-            if hasattr(self, d):
-                self.__setattr__(d, self.__dict__[d][slice_inds])
-            if hasattr(self, d.title()):
-                d = d.title()
-                self.__setattr__(d, self.__dict__[d][slice_inds])
-
     def mix_modelname(self,model):
         '''
         give a model, will split into CAF09, modelname
         '''
         self.mix, self.model_name = get_mix_modelname(model)
-
-    def delete_data(self):
-        '''
-        for wrapper functions, I don't want gigs of data stored when they
-        are no longer needed.
-        '''
-        data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
-                      'ast_mag2', 'ast_color', 'rec']
-        for data_name in data_names:
-            if hasattr(data_name):
-                self.__delattr__(data_name)
-            if hasattr(data_name.title()):
-                self.__delattr__(data_name.title())
-
-    def stage_inds(self, stage_name):
-        return np.nonzero(self.stage == get_stage_label(stage_name))[0]
 
     def load_ic_mstar(self):
         '''
@@ -376,130 +520,6 @@ class simgalaxy(object):
         self.icstar, = np.nonzero((co >= 1) &
                                   (mdot <= -5) &
                                   (self.stage == get_stage_label('TPAGB')))
-
-    def all_stages(self, *stages):
-        '''
-        adds the indices of some stage as an attribute.
-        '''
-        for stage in stages:
-            i = stage_inds(self.stage, stage)
-            self.__setattr__('i%s' % stage.lower(), i)
-        return
-
-    def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False):
-        '''
-        convert from mag to Mag or from Mag to mag or just shift distance.
-
-        pass dmod, Av, or use AngstTables to look it up from target.
-        shift_distance: for the possibility of doing dmod, Av fitting of model
-        to data the key here is that we re-read the mag from the original data
-        array.
-
-        Without shift_distance: Just for common usage. If trilegal was given a
-        dmod, it will swap it back to Mag, if it was done at dmod=10., will
-        shift to given dmod. mag or Mag attributes are set in __init__.
-        '''
-        if target is not None:
-            logger.info('converting distance and Av to match %s' % target)
-            self.target = target
-            filters = ','.join((self.filter1, self.filter2))
-            tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
-            __, self.Av, self.dmod = tad
-        else:
-            self.dmod = dmod
-            self.Av = Av
-        mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
-
-        if shift_distance is True:
-            m1 = self.data.get_col(self.filter1)
-            m2 = self.data.get_col(self.filter2)
-            self.mag1 = rsp.astronomy_utils.Mag2mag(m1, self.filter1,
-                                                    self.photsys,
-                                                    **mag_covert_kw)
-            self.mag2 = rsp.astronomy_utils.Mag2mag(m2, self.filter2,
-                                                    self.photsys,
-                                                    **mag_covert_kw)
-            self.color = self.mag1 - self.mag2
-        else:
-            if hasattr(self, 'mag1'):
-                self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1, self.filter1,
-                                                        self.photsys,
-                                                        **mag_covert_kw)
-                self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, self.filter2,
-                                                        self.photsys,
-                                                        **mag_covert_kw)
-                self.Color = self.Mag1 - self.Mag2
-            if hasattr(self, 'Mag1'):
-                self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, self.filter1,
-                                                        self.photsys,
-                                                        **mag_covert_kw)
-                self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2, self.filter2,
-                                                        self.photsys,
-                                                        **mag_covert_kw)
-                self.color = self.mag1 - self.mag2
-
-    def make_hess(self, binsize, absmag=False, hess_kw = {}):
-        '''
-        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
-        doc for more information.
-        '''
-        if absmag:
-            if not hasattr(self, 'Color'):
-                self.Color = self.Mag1 - self.Mag2
-            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
-                                            **hess_kw)
-            self.Hess = hess
-        else:
-            if not hasattr(self, 'color'):
-                self.color = self.mag1 - self.mag2
-            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
-                                            **hess_kw)
-            self.hess = hess
-        return hess
-
-    def get_header(self):
-        '''
-        utility for writing data files, sets header attribute and returns
-        header string.
-        '''
-        key_dict = self.data.key_dict
-        names = [k[0] for k in sorted(key_dict.items(),
-                                      key=lambda (k, v): (v, k))]
-        self.header = '# %s' % ' '.join(names)
-        return self.header
-
-    def add_data(self, **new_cols):
-        '''
-        add columns to data
-        new_cols: {new_key: new_vals}
-        new_vals must have same number of rows as data.
-        Ie, be same length as self.data.shape[0]
-
-        adds new data to self.data.data_array and self.data.key_dict
-        returns new header string (or -1 if nrows != len(new_vals))
-        '''
-
-        data = self.data.data_array.copy()
-        nrows = data.shape[0]
-        ncols = data.shape[1]
-        # new arrays must be equal length as the data
-        len_test = np.array([len(v) == nrows
-                            for v in new_cols.values()]).prod()
-        if not len_test:
-            'array lengths are not the same.'
-            return -1
-
-        header = self.get_header()
-        # add new columns to the data and their names to the header.
-        for k,v in new_cols.items():
-            header += ' %s' % k
-            data = np.column_stack((data, v))
-
-        # update self.data
-        self.data.data_array = data
-        col_keys =  header.replace('#','').split()
-        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
-        return header
 
     def normalize(self, stage_lab, mag2=None, stage=None, by_stage=True,
                   magcut=999., useasts=False, sinds_cut=None, verts=None,
@@ -697,10 +717,6 @@ def get_mix_modelname(model):
     return mix, model_name
 
 
-def stage_inds(stage, label):
-    return np.nonzero(stage == get_stage_label(label))[0]
-
-
 def read_galtable(**kwargs):
     fname = kwargs.get('filename')
     br = kwargs.get('br', True)
@@ -788,7 +804,6 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
         write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
 
     return
-
 
 
 class artificial_star_tests(object):

@@ -2,7 +2,7 @@ import numpy as np
 
 import matplotlib.nxutils as nxutils
 import matplotlib.pyplot as plt
-from matplotlib import cm,rc,rcParams
+from matplotlib import cm, rc, rcParams
 from matplotlib.patches import FancyArrow
 from matplotlib.ticker import NullFormatter, MultipleLocator
 
@@ -14,7 +14,7 @@ rcParams['axes.linewidth'] = 2
 rcParams['ytick.labelsize'] = 'large'
 rcParams['xtick.labelsize'] = 'large'
 rcParams['axes.edgecolor'] = 'grey'
-rc('text',usetex=True)
+rc('text', usetex=True)
 
 
 def plot_lines(axs, xrange, yval, color='black'):
@@ -23,7 +23,7 @@ def plot_lines(axs, xrange, yval, color='black'):
 
 
 def plot_numbs(ax, item, xpos, ypos, **kwargs):
-    x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20,
+    x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20, 
                    **kwargs)
     return
 
@@ -53,26 +53,26 @@ def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
     return ax, cols
 
 
-def discrete_colors(Ncolors,colormap='gist_rainbow'):
+def discrete_colors(Ncolors, colormap='gist_rainbow'):
     colors = []
     cmap = cm.get_cmap(colormap)
     for i in range(Ncolors):
         colors.append( cmap(1.*i/Ncolors) ) # color will now be an RGBA tuple
     return colors
 
-def load_scatter_kwargs(color_array,cmap=cm.jet):
-    kw = {'zorder': 100,
-          'alpha': 1,
-          'edgecolor': 'k',
-          'c': color_array,
-          'cmap': cmap,
-          'vmin': np.min(color_array),
+def load_scatter_kwargs(color_array, cmap=cm.jet):
+    kw = {'zorder': 100, 
+          'alpha': 1, 
+          'edgecolor': 'k', 
+          'c': color_array, 
+          'cmap': cmap, 
+          'vmin': np.min(color_array), 
           'vmax': np.max(color_array)
           }
     
     return kw
 
-def scatter_colorbar(x,y,color_array,markersize = 20, ax = None):
+def scatter_colorbar(x, y, color_array, markersize = 20, ax = None):
     '''
     makes a scatter plot with a float array as colors.
     '''
@@ -88,7 +88,7 @@ def scatter_colorbar(x,y,color_array,markersize = 20, ax = None):
 
     # then to get the colorbar
     plt.colorbar(sc)
-    return ax,sc
+    return ax, sc
 
 
 def reverse_yaxis(ax):
@@ -105,24 +105,24 @@ def load_ann_kwargs():
 
 ann_kwargs = load_ann_kwargs()
 
-def plot_cmd(fitsfile,yaxis='I',upper_contour=False,**kwargs):
+def plot_cmd(fitsfile=None, yaxis='I', upper_contour=False, **kwargs):
     '''
     upper_contour contour only above TRGB
     kwargs: outfile, save_plot
     absmag
     '''
-    new_plot = kwargs.get('new_plot',True)
-    ax = kwargs.get('ax','')
-    save_plot = kwargs.get('save_plot',False)
-    if fitsfile==None:
-        mag1 = kwargs.get('mag1',None)
-        mag2 = kwargs.get('mag2',None)
-        filter1 = kwargs.get('filter1','')
-        filter2 = kwargs.get('filter2','')
-        title = kwargs.get('title','')
+    new_plot = kwargs.get('new_plot', True)
+    ax = kwargs.get('ax', '')
+    save_plot = kwargs.get('save_plot', False)
+    if fitsfile is None:
+        mag1 = kwargs.get('mag1', None)
+        mag2 = kwargs.get('mag2', None)
+        filter1 = kwargs.get('filter1', '')
+        filter2 = kwargs.get('filter2', '')
+        title = kwargs.get('title', '')
     else:
         fits = ReadFileUtils.read_binary_table(fitsfile)
-        filter1,filter2 = misc.get_filters(fitsfile)
+        filter1, filter2 = misc.get_filters(fitsfile)
         title = misc.get_title(fitsfile)
         trgb= Astronomy.get_tab5_trgb_Av_dmod(title)[0]
         try:
@@ -132,10 +132,10 @@ def plot_cmd(fitsfile,yaxis='I',upper_contour=False,**kwargs):
             mag1 = fits.get_col('MAG1_ACS')
             mag2 = fits.get_col('MAG2_ACS')
     
-    abs_mag = kwargs.get('abs_mag',True)
+    abs_mag = kwargs.get('abs_mag', True)
     if abs_mag == True:
-        mag1 = Astronomy.HSTmag2Mag(mag1,title,filter1)
-        mag2 = Astronomy.HSTmag2Mag(mag2,title,filter2)
+        mag1 = Astronomy.HSTmag2Mag(mag1, title, filter1)
+        mag2 = Astronomy.HSTmag2Mag(mag2, title, filter2)
     
     color = mag1-mag2
         
@@ -149,36 +149,36 @@ def plot_cmd(fitsfile,yaxis='I',upper_contour=False,**kwargs):
     dx = 0.05
     dy = 0.05
     if upper_contour == False:
-        Z,xrange,yrange = math-utils.bin_up(color,mag,dx=dx,dy=dy)
+        Z, xrange, yrange = math-utils.bin_up(color, mag, dx=dx, dy=dy)
     else:
         Trgb = trgb-dmod-Av
         inds = np.nonzero(mag<(Trgb))[0]
-        Z,xrange,yrange = math-utils.bin_up(color[inds],mag[inds],dx=dx,dy=dy)
+        Z, xrange, yrange = math-utils.bin_up(color[inds], mag[inds], dx=dx, dy=dy)
 
     if new_plot == True:
         fig = plt.figure()
         ax = plt.axes()
     
-    ax.plot(color,mag,',',color='black')
-    cs = plt.contour(Z,10,extent=[xrange[0],xrange[-1],yrange[0],yrange[-1]],zorder=10)
+    ax.plot(color, mag, ', ', color='black')
+    cs = plt.contour(Z, 10, extent=[xrange[0], xrange[-1], yrange[0], yrange[-1]], zorder=10)
     #ax.clabel(cs, cs.levels, inline=True, fmt='%r %%', fontsize=10)
     cbar = plt.colorbar(cs)
     cbar.ax.set_ylabel(r'$\rho_{*}$')
-    ax.set_xlabel(r'$%s-%s$'%(filter1,filter2))
+    ax.set_xlabel(r'$%s-%s$'%(filter1, filter2))
     ax.set_ylabel(r'$%s$'%Filter)
     if title != '':
         ax.set_title(r'$%s$'%title)
     reverse_yaxis(ax)
-    xlim = kwargs.get('xlim','None')
+    xlim = kwargs.get('xlim', 'None')
     if xlim != 'None': ax.set_xlim(xlim)
     if save_plot==True:
-        outfile = kwargs.get('outfile',fitsfile+'.cmd.png')
+        outfile = kwargs.get('outfile', fitsfile+'.cmd.png')
         plt.savefig(outfile)
         logger.info('wrote %s' % outfile)
         plt.close()
     return ax
 
-def basic_plot(xdata,ydata,**kwargs):
+def basic_plot(xdata, ydata, **kwargs):
     """ Basic 2-d plot. 
     takes arrays xdata, ydata and possible kwargs:
     
@@ -197,25 +197,25 @@ def basic_plot(xdata,ydata,**kwargs):
     linestyle = '-'
     returns ax instance
     """ 
-    ax = kwargs.get('ax',None)
+    ax = kwargs.get('ax', None)
     if ax == None:
-        xsize = kwargs.get('xsize',8)
-        ysize = kwargs.get('ysize',8)
-        fig = plt.figure(figsize=(xsize,ysize))
+        xsize = kwargs.get('xsize', 8)
+        ysize = kwargs.get('ysize', 8)
+        fig = plt.figure(figsize=(xsize, ysize))
         ax = plt.axes()
     
-    title = kwargs.get('title',None)
-    xlim = kwargs.get('xlim',None)
-    ylim = kwargs.get('ylim',None)
-    xlabel = kwargs.get(r'xlabel','')
-    ylabel = kwargs.get(r'ylabel','')
-    label = kwargs.get('label','')
-    marker = kwargs.get('marker','.')
-    color = kwargs.get('color','black')
-    lw = kwargs.get('lw',2)
-    linestyle = kwargs.get('linestyle','-')
-    ax.plot(xdata,ydata,marker,
-            color=color,lw=lw,label=label,linestyle=linestyle)
+    title = kwargs.get('title', None)
+    xlim = kwargs.get('xlim', None)
+    ylim = kwargs.get('ylim', None)
+    xlabel = kwargs.get(r'xlabel', '')
+    ylabel = kwargs.get(r'ylabel', '')
+    label = kwargs.get('label', '')
+    marker = kwargs.get('marker', '.')
+    color = kwargs.get('color', 'black')
+    lw = kwargs.get('lw', 2)
+    linestyle = kwargs.get('linestyle', '-')
+    ax.plot(xdata, ydata, marker, 
+            color=color, lw=lw, label=label, linestyle=linestyle)
     if xlim !=None: ax.set_xlim(xlim)
     if ylim !=None: ax.set_ylim(ylim)
     if title !=None: ax.set_title(title)
@@ -223,7 +223,7 @@ def basic_plot(xdata,ydata,**kwargs):
     if ylabel !=None: ax.set_ylabel(ylabel)
     return ax
 
-def basic_line_plot(xdata,ydata,**kwargs):
+def basic_line_plot(xdata, ydata, **kwargs):
     """ Basic 2-d line plot. 
     takes arrays xdata, ydata and possible kwargs:
     
@@ -241,24 +241,24 @@ def basic_line_plot(xdata,ydata,**kwargs):
     linestyle = '-'
     returns ax instance
     """ 
-    ax = kwargs.get('ax',None)
+    ax = kwargs.get('ax', None)
     if ax == None:
-        xsize = kwargs.get('xsize',8)
-        ysize = kwargs.get('ysize',8)
-        fig = plt.figure(figsize=(xsize,ysize))
+        xsize = kwargs.get('xsize', 8)
+        ysize = kwargs.get('ysize', 8)
+        fig = plt.figure(figsize=(xsize, ysize))
         ax = plt.axes()
     
-    title = kwargs.get('title',None)
-    xlim = kwargs.get('xlim',None)
-    ylim = kwargs.get('ylim',None)
-    xlabel = kwargs.get(r'xlabel','')
-    ylabel = kwargs.get(r'ylabel','')
-    label = kwargs.get(r'label','')
-    color = kwargs.get('color','black')
-    lw = kwargs.get('lw',2)
-    linestyle = kwargs.get('linestyle','-')
-    ax.plot(xdata,ydata,
-            color=color,lw=lw,label=label,linestyle=linestyle)
+    title = kwargs.get('title', None)
+    xlim = kwargs.get('xlim', None)
+    ylim = kwargs.get('ylim', None)
+    xlabel = kwargs.get(r'xlabel', '')
+    ylabel = kwargs.get(r'ylabel', '')
+    label = kwargs.get(r'label', '')
+    color = kwargs.get('color', 'black')
+    lw = kwargs.get('lw', 2)
+    linestyle = kwargs.get('linestyle', '-')
+    ax.plot(xdata, ydata, 
+            color=color, lw=lw, label=label, linestyle=linestyle)
     if xlim !=None: ax.set_xlim(xlim)
     if ylim !=None: ax.set_ylim(ylim)
     if title !=None: ax.set_title(title)
@@ -269,24 +269,24 @@ def basic_line_plot(xdata,ydata,**kwargs):
 
 
 def set_up_three_panel_plot():
-    fig = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(8, 8))
     
-    left,width= 0.1,0.4
+    left, width= 0.1, 0.4
     bottom, height = 0.1, 0.4
     d=0.01
     lefter = left+width+d
     mid = bottom+height+2*d
-    lefts = [left,lefter,left]
-    bottoms = [mid,mid,bottom]
-    widths = [width,width,2*width+d]
-    heights = [height,height,height-0.1]
+    lefts = [left, lefter, left]
+    bottoms = [mid, mid, bottom]
+    widths = [width, width, 2*width+d]
+    heights = [height, height, height-0.1]
     
-    axs = [plt.axes([l,b,w,h]) for l,b,w,h in zip(lefts,bottoms,widths,heights)]
+    axs = [plt.axes([l, b, w, h]) for l, b, w, h in zip(lefts, bottoms, widths, heights)]
     return axs
 
 
-def two_panel_plot(sizex,sizey,xlab1,xlab2,ylab,ylab2=None,ftsize=20,mag2_cut=0,mag2_max=1):
-    fig = plt.figure(2, figsize=(sizex,sizey))
+def two_panel_plot(sizex, sizey, xlab1, xlab2, ylab, ylab2=None, ftsize=20, mag2_cut=0, mag2_max=1):
+    fig = plt.figure(2, figsize=(sizex, sizey))
     left, width = 0.1, 0.4
     bottom, height = 0.12, 0.8  
     
@@ -296,20 +296,20 @@ def two_panel_plot(sizex,sizey,xlab1,xlab2,ylab,ylab2=None,ftsize=20,mag2_cut=0,
     axis2 = [left2, bottom, width, height]
     
     ax1 = plt.axes(axis1)
-    ax1.set_xlim( (mag2_cut,mag2_max) ) # set all axes limits here
+    ax1.set_xlim( (mag2_cut, mag2_max) ) # set all axes limits here
     #ax1.set_ylim( (0.0001, 10.) )
-    ax1.set_xlabel(r'%s'%xlab1,fontsize=ftsize)
-    ax1.set_ylabel(r'%s'%ylab,fontsize=ftsize)
+    ax1.set_xlabel(r'%s'%xlab1, fontsize=ftsize)
+    ax1.set_ylabel(r'%s'%ylab, fontsize=ftsize)
     
     ax2 = plt.axes(axis2)
     ax2.set_xlim( ax1.get_xlim() )
     #ax2.set_ylim( ax1.get_ylim() )
-    ax2.set_xlabel(r'%s'%xlab2,fontsize=ftsize)
-    if ylab2 !=None: ax2.set_ylabel(r'%s'%ylab2,fontsize=ftsize)
-    return ax1,ax2
+    ax2.set_xlabel(r'%s'%xlab2, fontsize=ftsize)
+    if ylab2 !=None: ax2.set_ylabel(r'%s'%ylab2, fontsize=ftsize)
+    return ax1, ax2
 
-def two_panel_plot_vert(oney=True,ftsize=20,mag2_cut=0,mag2_max=1):
-    fig = plt.figure(2, figsize=(8,8))
+def two_panel_plot_vert(oney=True, ftsize=20, mag2_cut=0, mag2_max=1):
+    fig = plt.figure(2, figsize=(8, 8))
     left, width = 0.13, 0.83
     bottom, height = 0.1, 0.41
     dh = 0.03
@@ -318,26 +318,26 @@ def two_panel_plot_vert(oney=True,ftsize=20,mag2_cut=0,mag2_max=1):
     axis2 = [left, (bottom+height+dh), width, height]
     
     ax1 = plt.axes(axis1)
-    ax1.set_xlim( (mag2_cut,mag2_max) ) # set all axes limits here
+    ax1.set_xlim( (mag2_cut, mag2_max) ) # set all axes limits here
     #ax1.set_ylim( (0.0001, 10.) )
-    if oney==True: ax1.annotate(r'$\#/ 3.6 \mu \rm{m\ Region\ Integrated\ Flux\ (Jy}^{-1}\rm{)}$',fontsize=ftsize,xy=(0.025,.5),xycoords='figure fraction',va='center',rotation='vertical')
-    ax1.set_xlabel(r'$\rm{mag}$',fontsize=ftsize)    
+    if oney==True: ax1.annotate(r'$\#/ 3.6 \mu \rm{m\ Region\ Integrated\ Flux\ (Jy}^{-1}\rm{)}$', fontsize=ftsize, xy=(0.025, .5), xycoords='figure fraction', va='center', rotation='vertical')
+    ax1.set_xlabel(r'$\rm{mag}$', fontsize=ftsize)    
     ax2 = plt.axes(axis2)
     ax2.set_xlim( ax1.get_xlim() )
     #ax2.set_ylim( ax1.get_ylim() )
     ax2.xaxis.set_major_formatter(nullfmt)
     
-    return ax1,ax2
+    return ax1, ax2
 
 def setup_four_panel(ftsize=20):
-    fig = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(8, 8))
     left, width = 0.1, 0.4
     bottom, height = 0.1, 0.4
     lefter = left+width+0.01
     higher = bottom+height+0.01
     
     # plot and fig sizes
-    fig = plt.figure(1, figsize=(8,8))
+    fig = plt.figure(1, figsize=(8, 8))
     
     ll_axis = [left, bottom, width, height]
     lr_axis = [lefter, bottom, width, height] 
@@ -345,7 +345,7 @@ def setup_four_panel(ftsize=20):
     ur_axis = [lefter, higher, width, height]
     
     ax_ll = plt.axes(ll_axis)
-    ax_ll.set_xlim( (-0.75,1)) # model and data x limits here
+    ax_ll.set_xlim( (-0.75, 1)) # model and data x limits here
     ax_ll.set_ylim( (24.8, 18)) # set all y limits here
     
     ax_lr = plt.axes(lr_axis)
@@ -366,15 +366,15 @@ def setup_four_panel(ftsize=20):
     ax_ul.xaxis.set_major_formatter(nullfmt)
     
     # titles
-    #x = fig.text(0.5,0.96,r'$\rm{%s}$' % ('Disk Field'),horizontalalignment='center',verticalalignment='top',size=20)
-    ax_ur.set_title(r'$\rm{Disk\ Field}$',color='black',fontsize=ftsize)
-    ax_ul.set_title(r'$\rm{Bulge\ Field}$',color='black',fontsize=ftsize)
-    ax_ll.set_ylabel(r'$F336W$',fontsize=ftsize)
-    ax_ll.set_xlabel(r'$F275W-F336W$',fontsize=ftsize)
-    ax_ul.set_ylabel(ax_ll.get_ylabel(),fontsize=ftsize)    
-    ax_lr.set_xlabel(ax_ll.get_xlabel(),fontsize=ftsize)
+    #x = fig.text(0.5, 0.96, r'$\rm{%s}$' % ('Disk Field'), horizontalalignment='center', verticalalignment='top', size=20)
+    ax_ur.set_title(r'$\rm{Disk\ Field}$', color='black', fontsize=ftsize)
+    ax_ul.set_title(r'$\rm{Bulge\ Field}$', color='black', fontsize=ftsize)
+    ax_ll.set_ylabel(r'$F336W$', fontsize=ftsize)
+    ax_ll.set_xlabel(r'$F275W-F336W$', fontsize=ftsize)
+    ax_ul.set_ylabel(ax_ll.get_ylabel(), fontsize=ftsize)    
+    ax_lr.set_xlabel(ax_ll.get_xlabel(), fontsize=ftsize)
     
-    return ax_ll,ax_lr,ax_ul,ax_ur
+    return ax_ll, ax_lr, ax_ul, ax_ur
 
 def setup_five_panel_plot(ftsize=20):
     nullfmt   = NullFormatter() # no labels
@@ -384,21 +384,21 @@ def setup_five_panel_plot(ftsize=20):
     lefts = [left+(width+dl)*float(i) for i in range(5)]
 
     # plot and fig sizes
-    fig = plt.figure(1, figsize=(15,4))
+    fig = plt.figure(1, figsize=(15, 4))
 
-    axiss = [[l,bottom,width,height] for l in lefts]
+    axiss = [[l, bottom, width, height] for l in lefts]
 
     axs = []
     for i in range(len(axiss)):
         axs.append( plt.axes(axiss[i]))
 
     for ax in axs:
-        ax.set_xlim( (-0.75,2)) # model and data x limits here
+        ax.set_xlim( (-0.75, 2)) # model and data x limits here
         ax.set_ylim( (24.8, 19)) # set all y limits here
         ax.xaxis.set_major_locator(MultipleLocator(0.5))
         if axs.index(ax) > 0: ax.yaxis.set_major_formatter(nullfmt)
-        ax.set_xlabel(r'$F275W-F336W$',fontsize=ftsize)
-        if axs.index(ax) ==0: ax.set_ylabel(r'$F336W$',fontsize=ftsize)
+        ax.set_xlabel(r'$F275W-F336W$', fontsize=ftsize)
+        if axs.index(ax) ==0: ax.set_ylabel(r'$F336W$', fontsize=ftsize)
         
     return axs
 
@@ -439,7 +439,7 @@ def histOutline(dataIn, *args, **kwargs):
 Stuff from Adrienne:
 I started this email because I wanted to know if you had the answer, and I found it along the way. Now I think it's useful knowledge. Basically, it's an easy way to put a legend anywhere on a figure in figure coordinates, not axis coordinates or data coordinates. Helpful if you have one legend for multiple subplots.
 
-Basically, you can do a transform in legend to tell matplotlib that you're specifying the coordinates in data units or in axis units, ie,
+Basically, you can do a transform in legend to tell matplotlib that you're specifying the coordinates in data units or in axis units, ie, 
 
 bbox_transform = ax.transAxes (0 - 1 means left to right or bottom to top of current axis)
 
@@ -450,20 +450,20 @@ bbox_transform = fig.transFigure (specify location in figure coordinates, so 0 -
 Now I am trying to figure out how to get it to use points from different subplots in one legend.. fun.
 
 proxy artists:
-    p_corr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = 'k',
+    p_corr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = 'k', 
                                      linestyle = 'None')
-    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = '0.7',
-                                       linestyle = 'None',
+    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = '0.7', 
+                                       linestyle = 'None', 
                                        markeredgecolor = '0.7')
 
-    l = plt.legend([p_corr, p_uncorr], ["Correlated", "Uncorrelated"],
-                   bbox_transform = fig.transFigure, loc = 'upper right',
-                   bbox_to_anchor = (0.9, 0.9),
-                   numpoints = 1,
-                   title = "Log scaling",
-                   borderpad = 1,
-                   handletextpad = 0.3,
-                   labelspacing = 0.5)#,
+    l = plt.legend([p_corr, p_uncorr], ["Correlated", "Uncorrelated"], 
+                   bbox_transform = fig.transFigure, loc = 'upper right', 
+                   bbox_to_anchor = (0.9, 0.9), 
+                   numpoints = 1, 
+                   title = "Log scaling", 
+                   borderpad = 1, 
+                   handletextpad = 0.3, 
+                   labelspacing = 0.5)#, 
                    #prop = matplotlib.font_manager.FontProperties(size=20))
 
 I've been looking for this for a while. I don't know how you do colors in plotting but I think it's different than me. This is good for scatterplots with color.
@@ -473,7 +473,7 @@ Easy to way go from array of float values of any range -> floats between 0 and 1
 
 import matplotlib
 
-norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array),
+norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array), 
     vmax = np.max(float_array) )
 
 normed_floats = norm_instance( float_array )
