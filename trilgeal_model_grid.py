@@ -18,7 +18,8 @@ class model_grid(object):
                  location=None,
                  sfr_pref='sfr',
                  out_pref='burst',
-                 inp_pref='input'):
+                 inp_pref='input',
+                 over_write=False):
         
         assert cmd_input is not None, 'need cmd_input file'
         assert photsys is not None, 'need photsys'
@@ -34,6 +35,7 @@ class model_grid(object):
         self.sfr_pref = sfr_pref
         self.out_pref = out_pref
         self.inp_pref = inp_pref
+        self.over_write = over_write
 
         if location is None:
             location = os.getcwd()
@@ -110,10 +112,10 @@ class model_grid(object):
         ages = np.arange(*self.logtrange, step=self.dlogt)
         zs = np.arange(*self.logzrange, step=self.dlogz)
 
-        for age, z in itertools.product(ages[:-1], zs):
+        for age, z in itertools.product(ages, zs):
             to = age
             tf = age + self.dlogt
-
+            print 'now doing %.2f-%.2f, %.4f' % (to, tf, z)
             # set up filenames TODO: make prefixes kwargs
 
             sfh_file = self.filename_fmt(self.sfr_pref,to, tf, z)
@@ -121,13 +123,15 @@ class model_grid(object):
             output =  self.filename_fmt(self.out_pref, to, tf, z)
 
             # write files
+            if self.over_write is False and os.path.isfile(output):
+                print 'not overwriting %s' % output
+            else:
+                self.write_sfh_file(sfh_file, to, tf, z)
+                self.make_galaxy_input(sfh_file, galaxy_input)
 
-            self.write_sfh_file(sfh_file, to, tf, z)
-            self.make_galaxy_input(sfh_file, galaxy_input)
+                # run trilegal
 
-            # run trilegal
-
-            TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
+                TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
         os.chdir(here)
 
     def get_grid(self, search_string):
@@ -138,18 +142,36 @@ class model_grid(object):
         self.grid = grid
         return
     
-    def filter_grid(self, younger=None, older=None, metal_rich=None, metal_poor=None):
+    def filter_grid(self, younger=None, older=None, metal_rich=None,
+                    metal_poor=None, z=None):
+        if not hasattr(self, 'grid'):
+            self.load_grid()
         sub_grid = self.grid[:]
 
+        def split_on_val(string, val):
+            return float(os.path.split(string)[1].split('_')[val])
+            
+        if older is not None and younger is not None: 
+            assert older < younger
+        if z is not None:
+            print z
+            sub_grid = filter((lambda c: split_on_val(c, 6) == z), sub_grid)
+            if len(sub_grid) == 0:
+                print 'z=%.4f not found' % z
         if older is not None:
-            sub_grid = filter((lambda c: os.path.split(c)[1].split('_')[4] > older), sub_grid)
+            sub_grid = filter((lambda c: split_on_val(c, 4) >= older), sub_grid)
+            if len(sub_grid) == 0:
+                print 'lage >= %.1f not found' % older
         if younger is not None:
-            sub_grid = filter((lambda c: os.path.split(c)[1].split('_')[5] > younger), sub_grid)
+            sub_grid = filter((lambda c: split_on_val(c, 5) <= younger), sub_grid)
+            if len(sub_grid) == 0:
+                print 'lage < %.1f not found' % younger
+        '''
         if metal_rich is not None:
-            sub_grid = filter((lambda c: os.path.split(c)[1].split('_')[6] > metal_rich), sub_grid)
+            sub_grid = filter((lambda c: split_on_val(c, 6) > metal_rich), sub_grid)
         if metal_poor is not None:
-            sub_grid = filter((lambda c: os.path.split(c)[1].split('_')[6] < metal_poor), sub_grid)    
-        
+            sub_grid = filter((lambda c: split_on_val(c, 6) < metal_poor), sub_grid)    
+        '''
         return sub_grid
 '''
 class test_grid(model_grid):
@@ -162,40 +184,63 @@ class test_grid(model_grid):
         sgal.plot_cmd(sgal.Color, sgal.Mag2)
 '''
 
+class match_sfh(object):
+    def __init__(self, sfhfile):
+        self.data = np.genfromtxt(sfhfile, skip_header=2, skip_footer=2, unpack=True)
+        (to, tf, sfr, nstars, logz, dmod) = self.data
+        self.agei = to
+        self.agef = tf
+        self.sfr = sfr
+        self.nstars = nstars
+        self.logz = logz
+        with open(sfhfile, 'r') as f:
+            header = f.readline()
+        key_val = header.replace('#','').replace(',').strip().split()
+        for kv in key_val:
+            (k, v) = kv.split('=')
+            self.__setattr__(k, v)
+  
+  
 class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
     def __init__(self, sfr_file, galaxy_input=False, indict={}):
         model_grid.__init__(self, **indict)
         TrilegalUtils.trilegal_sfh.__init__(self, sfr_file, galaxy_input=False)
-
+        
     def join_sfr(sfr_files):
         pass
 
     def build_sfh(self):
         if max(self.age) > 12.:
-            self.lage = np.log10(self.age)
+            self.lage = np.round(np.log10(self.age), 2)
         else:
-            self.lage = self.age
+            self.lage = np.round(self.age, 2)
             self.age = 10**self.lage
-        import pdb
-        pdb.set_trace()
-        
-        assert np.diff(lage) > self.dlogt, 'time steps too small in sfr_file.'
+
+        assert np.diff(self.lage[0::2][:2]) > self.dlogt, 'time steps too small in sfr_file.'
         if not hasattr(self, 'grid'):
             self.load_grid()
-        
-        sub_grid = [c for c in self.grid if float(os.path.split(c)[1].split('_')[4]) > lage[0]]
-        sub_grid = [c for c in sub_grid if float(os.path.split(c)[1].split('_')[5]) < lage[-1]]
-        sgals = [rsp.Galaxies.simgalaxy(c, filter1=filter1, filter2=filter2,
-                 photsys=self.photsys) for c in cmds]
 
-        infile_dlogt = np.round(np.diff(lage), 2)
+        sinds, = np.nonzero(self.sfr)
+        to = self.lage[sinds][0::2]
+        tf = self.lage[sinds][1::2]
+        sfr = self.sfr[sinds][0::2]
+        z = np.round([(self.z[i]+self.z[i+1])/2. for i in sinds[0::2]], 4)
+        for i in range(len(to)):
+            print to[i], tf[i], z[i], sfr[i]
+            print self.filter_grid(younger=tf[i], older=to[i], z=z[i])
+        #self.filter_grid(younger=tf, older=to, z=z)
+        #sgals = [rsp.Galaxies.simgalaxy(c, filter1=filter1, filter2=filter2,
+        #         photsys=self.photsys) for c in cmds]#
+
+        #infile_dlogt = np.round(np.diff(lage), 2)
         
-        sfr_files = [self.filename_fmt(self.out_pref, self.lage[i],
-                     self.lage[i+1], self.z[i]) for i in range(len(self.lage) - 1)]
-        [fileIO.ensure_file(s) for s in sfr_files]
+        sfr_files = [self.filename_fmt(self.out_pref, to[i],
+                     tf[i], z[i]) for i in range(len(to))]
+        #[fileIO.ensure_file(s) for s in sfr_files]
         #sfr_files = [fileIO.get_files(self.location, sfr_string) for sfr_string in sfr_strings]
         print sfr_files
-
+      
+    
 if __name__ == '__main__':
     input_file = sys.argv[1]
     indict = fileIO.load_input(input_file)

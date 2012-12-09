@@ -222,7 +222,10 @@ class trilegal_sfh(object):
             self.sfh_file = lines[-3].split()[0]
             self.current_sfh_file = self.sfh_file[:]
             self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
+        
         self.age, self.sfr, self.z = np.loadtxt(self.sfh_file, unpack=True)
+        # should I do this with dtype?
+        self.z = np.round(self.z, 4)
 
     def __format_cut_age(self, cut1_age):
         '''
