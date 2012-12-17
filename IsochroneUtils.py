@@ -17,6 +17,22 @@ class Isochrone(object):
     def get_col(self, key):
         return self.data_array[:, self.key_dict[key]]
 
+    def plot_isochrone(self, col1, col2, ax=None, plt_kw={}):
+        import matplotlib.pyplot as plt
+        if ax is None:
+            fig = plt.figure()
+            ax = plt.axes()
+        
+        x = self.get_col(col1)
+        if '-' in col2:
+            # not tested...
+            col2a, col2b = col2.split('-')
+            y = self.get_col(col2a) - self.get_col(col2b)
+        else:
+            y = self.get_col(col2)    
+        ax.plot(x, y, **plt_kw)
+
+        return ax
 
 def create_key(metallicity, age):
     '''

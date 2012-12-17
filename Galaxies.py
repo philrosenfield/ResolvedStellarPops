@@ -278,6 +278,51 @@ class star_pop(object):
                                                         **mag_covert_kw)
                 self.color = self.mag1 - self.mag2
 
+    def add_data(self, **new_cols):
+        '''
+        add columns to data
+        new_cols: {new_key: new_vals}
+        new_vals must have same number of rows as data.
+        Ie, be same length as self.data.shape[0]
+
+        adds new data to self.data.data_array and self.data.key_dict
+        returns new header string (or -1 if nrows != len(new_vals))
+        '''
+
+        data = self.data.data_array.copy()
+        nrows = data.shape[0]
+        ncols = data.shape[1]
+        # new arrays must be equal length as the data
+        len_test = np.array([len(v) == nrows
+                            for v in new_cols.values()]).prod()
+        if not len_test:
+            'array lengths are not the same.'
+            return -1
+
+        header = self.get_header()
+        # add new columns to the data and their names to the header.
+        for k,v in new_cols.items():
+            header += ' %s' % k
+            data = np.column_stack((data, v))
+
+        # update self.data
+        self.data.data_array = data
+        col_keys =  header.replace('#','').split()
+        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
+        return header
+
+    def slice_data(self, data_to_slice, slice_inds):
+        '''
+        slice already set attributes by some index list.
+        '''
+        for d in data_to_slice:
+            if hasattr(self, d):
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+            if hasattr(self, d.title()):
+                d = d.title()
+                self.__setattr__(d, self.__dict__[d][slice_inds])
+
+
 class galaxy(star_pop):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
@@ -369,51 +414,6 @@ class galaxy(star_pop):
         else:
             cuts = mag2cut
         return cuts
-
-    def add_data(self, **new_cols):
-        '''
-        add columns to data
-        new_cols: {new_key: new_vals}
-        new_vals must have same number of rows as data.
-        Ie, be same length as self.data.shape[0]
-
-        adds new data to self.data.data_array and self.data.key_dict
-        returns new header string (or -1 if nrows != len(new_vals))
-        '''
-
-        data = self.data.data_array.copy()
-        nrows = data.shape[0]
-        ncols = data.shape[1]
-        # new arrays must be equal length as the data
-        len_test = np.array([len(v) == nrows
-                            for v in new_cols.values()]).prod()
-        if not len_test:
-            'array lengths are not the same.'
-            return -1
-
-        header = self.get_header()
-        # add new columns to the data and their names to the header.
-        for k,v in new_cols.items():
-            header += ' %s' % k
-            data = np.column_stack((data, v))
-
-        # update self.data
-        self.data.data_array = data
-        col_keys =  header.replace('#','').split()
-        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
-        return header
-
-    def slice_data(self, data_to_slice, slice_inds):
-        '''
-        slice already set attributes by some index list.
-        '''
-        for d in data_to_slice:
-            if hasattr(self, d):
-                self.__setattr__(d, self.__dict__[d][slice_inds])
-            if hasattr(self, d.title()):
-                d = d.title()
-                self.__setattr__(d, self.__dict__[d][slice_inds])
-
 
 class simgalaxy(star_pop):
     '''
@@ -706,6 +706,7 @@ class simgalaxy(star_pop):
                 plt.show()
             j+=1
         return figname.replace('.png', '%s.png' % extra)
+
 
 def get_mix_modelname(model):
     '''
