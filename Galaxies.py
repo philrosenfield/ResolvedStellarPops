@@ -457,7 +457,7 @@ class simgalaxy(star_pop):
             simgalaxy.slice_data(self, data_to_slice, slice_inds)
             self.ast_color = self.ast_mag1 - self.ast_mag2
 
-        simgalaxy.load_ic_mstar(self)
+        #simgalaxy.load_ic_mstar(self)
 
     def get_fits(self):
         match_out_dir = os.path.join(os.path.split(self.base)[0], 'match',

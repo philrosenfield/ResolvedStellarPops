@@ -1,4 +1,5 @@
 import TrilegalUtils
+import Galaxies
 import fileIO
 import numpy as np
 import itertools
@@ -75,7 +76,7 @@ class model_grid(object):
 
     def filename_fmt(self, pref, to, tf, z):
         '''
-        form and content separated!
+        form and content almost separated!
         '''
         filename_fmt = '%s_%s_%s_%.2f_%.2f_%.4f_%s.dat'
         filename = filename_fmt % (pref, self.mix, self.model, to, tf, z,
@@ -139,33 +140,67 @@ class model_grid(object):
 
     def load_grid(self):
         grid = fileIO.get_files(self.location, '%s*dat' % self.out_pref)
+        '''
+        for file in grid:
+           if os.path.isfile(file):
+               if os.path.getsize(file) < 1:
+                   print 'rm',file
+        '''
         self.grid = grid
         return
-    
+
+    def split_on_val(self, string, val):
+        return float(os.path.split(string)[1].split('_')[val])    
+
+    def key_map(self, key):
+        possible_keys = ['pref', 'mix', 'model1', 'model2', 'to', 'tf', 'z', 'photsys']
+        return possible_keys.index(key)
+        
+    def grid_values(self, *keys):
+        '''
+        vals are strings like 
+        '''
+        if not hasattr(self, 'grid'):
+            self.load_grid()
+        vals = [self.key_map(key) for key in keys]
+        grid_dict = {}
+        for k,v in zip(keys, vals):
+            grid_dict[k] = [self.split_on_val(g, v) for g in self.grid]
+            self.__setattr__('grid_%ss' % k, np.unique(grid_dict[k]))
+            
     def filter_grid(self, younger=None, older=None, metal_rich=None,
                     metal_poor=None, z=None):
         if not hasattr(self, 'grid'):
             self.load_grid()
         sub_grid = self.grid[:]
 
-        def split_on_val(string, val):
-            return float(os.path.split(string)[1].split('_')[val])
-            
         if older is not None and younger is not None: 
             assert older < younger
+
         if z is not None:
-            print z
-            sub_grid = filter((lambda c: split_on_val(c, 6) == z), sub_grid)
+            sub_grid = filter((lambda c: self.split_on_val(c, 6) == z), sub_grid)
             if len(sub_grid) == 0:
                 print 'z=%.4f not found' % z
         if older is not None:
-            sub_grid = filter((lambda c: split_on_val(c, 4) >= older), sub_grid)
-            if len(sub_grid) == 0:
-                print 'lage >= %.1f not found' % older
+            s_grid = filter((lambda c: self.split_on_val(c, 4) >= older), sub_grid)
+            if len(s_grid) == 0:
+                if not hasattr(self, 'grid_tos'):
+                    self.grid_values('to')
+                    maxage = np.max(self.grid_tos)
+                    print 'lage >= %.1f not found assinging %.1f' % (older, maxage)
+                    s_grid = filter((lambda c: self.split_on_val(c, 4) == maxage), sub_grid)
+                    print s_grid
+            sub_grid = s_grid
+        
         if younger is not None:
-            sub_grid = filter((lambda c: split_on_val(c, 5) <= younger), sub_grid)
             if len(sub_grid) == 0:
+                print 'no combo'
+                return
+            sub_grid = filter((lambda c: self.split_on_val(c, 5) <= younger), sub_grid)
+            if len(sub_grid) == 0:
+                print sub_grid
                 print 'lage < %.1f not found' % younger
+
         '''
         if metal_rich is not None:
             sub_grid = filter((lambda c: split_on_val(c, 6) > metal_rich), sub_grid)
@@ -209,6 +244,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
     def join_sfr(sfr_files):
         pass
 
+
     def build_sfh(self):
         if max(self.age) > 12.:
             self.lage = np.round(np.log10(self.age), 2)
@@ -224,22 +260,30 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         to = self.lage[sinds][0::2]
         tf = self.lage[sinds][1::2]
         sfr = self.sfr[sinds][0::2]
-        z = np.round([(self.z[i]+self.z[i+1])/2. for i in sinds[0::2]], 4)
-        for i in range(len(to)):
-            print to[i], tf[i], z[i], sfr[i]
-            print self.filter_grid(younger=tf[i], older=to[i], z=z[i])
-        #self.filter_grid(younger=tf, older=to, z=z)
-        #sgals = [rsp.Galaxies.simgalaxy(c, filter1=filter1, filter2=filter2,
-        #         photsys=self.photsys) for c in cmds]#
+        z = np.round([(self.z[i]+self.z[i+1])/2. for i in sinds[0][0::2]], 4)
+        # there are quite a few repeated values...
+        # where to, tf and z are unique the multiplicative factors are arbs.
+        lixo, linds = np.unique(to*2.312+tf*32.221+z*123.111, return_index=True)
+        # checked, and all the sfrs are the same, it doesn't matter to trilegal
+        # because galaxy mass is normed, but will slow down this code if we 
+        # include them. To check:
+        # rixo, rinds = np.unique(to+tf+z, return_inverse=True)
+        to = to[linds]
+        tf = tf[linds]
+        sfr = sfr[linds]
+        z = z[linds]
 
-        #infile_dlogt = np.round(np.diff(lage), 2)
+        sub_grid_files = np.concatenate([self.filter_grid(younger=tf[i],
+                                                          older=to[i],
+                                                          z=z[i])
+                                         for i in range(len(to))])
+
+        sgals = [Galaxies.simgalaxy(sgf, self.filter1, self.filter2,
+                                    photsys=self.photsys)
+                                    for sgf in sub_grid_files]
+
+        self.grid_ages = np.concatenate([np.unique(sgal.data.get_col('logAge')) for sgal in sgals])
         
-        sfr_files = [self.filename_fmt(self.out_pref, to[i],
-                     tf[i], z[i]) for i in range(len(to))]
-        #[fileIO.ensure_file(s) for s in sfr_files]
-        #sfr_files = [fileIO.get_files(self.location, sfr_string) for sfr_string in sfr_strings]
-        print sfr_files
-      
     
 if __name__ == '__main__':
     input_file = sys.argv[1]
