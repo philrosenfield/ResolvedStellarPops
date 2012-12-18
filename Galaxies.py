@@ -14,7 +14,7 @@ logger = logging.getLogger()
 
 angst_data = rsp.angst_tables.AngstTables()
 
-
+        
 class galaxies(object):
     '''
     wrapper for lists of galaxy objects, each method returns lists, unless they
@@ -22,17 +22,13 @@ class galaxies(object):
     '''
     def __init__(self, galaxy_objects):
         self.galaxies = galaxy_objects
-        self.zs = np.unique([np.round(g.z, 4) for g in self.galaxies])
-        self.filter1s = np.unique(g.filter1 for g in self.galaxies)
-        self.filter2s = np.unique(g.filter2 for g in self.galaxies)
-        self.photsyss = np.unique(g.photsys for g in self.galaxies)
 
     def all_stages(self, *stages):
         '''
         adds the indices of any stage as attributes to galaxy.
         If the stage isn't found, -1 is returned.
         '''
-        [g.all_stages(*stages) for g in self.galaxies]
+        self.__setattr__(PPOOOOPPP) [g.all_stages(*stages) for g in self.galaxies]
         return
 
     def squish(self, *attrs):

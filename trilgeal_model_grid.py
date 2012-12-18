@@ -158,7 +158,7 @@ class model_grid(object):
         
     def grid_values(self, *keys):
         '''
-        vals are strings like 
+        vals are strings like to, tf etc. This probably won't need to be used.
         '''
         if not hasattr(self, 'grid'):
             self.load_grid()
@@ -237,15 +237,26 @@ class match_sfh(object):
   
   
 class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
+    '''
+    inherits from trilegal sfh and model_grid.
+    
+    '''
     def __init__(self, sfr_file, galaxy_input=False, indict={}):
         model_grid.__init__(self, **indict)
-        TrilegalUtils.trilegal_sfh.__init__(self, sfr_file, galaxy_input=False)
-        
-    def join_sfr(sfr_files):
-        pass
+        TrilegalUtils.trilegal_sfh.__init__(self, sfr_file,
+                                            galaxy_input=galaxy_input)
+        # put back into msun/year (see MatchUtils.process_sfh or something)
+        self.sfr = self.sfr * 1e-3
+        self.build_sfh(sfr_file)
+    
+    def build_model_cmd(self, mbinsize, cbinsize):
+        1. randomly select x number of stars from cmd in each bin
+        2. build the full cmd
+        3. profit.
 
-
-    def build_sfh(self):
+    def build_sfh(self, sfr_file):
+        '''        
+        '''
         if max(self.age) > 12.:
             self.lage = np.round(np.log10(self.age), 2)
         else:
@@ -253,36 +264,49 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             self.age = 10**self.lage
 
         assert np.diff(self.lage[0::2][:2]) > self.dlogt, 'time steps too small in sfr_file.'
+
         if not hasattr(self, 'grid'):
             self.load_grid()
 
+        # sfr is series of step functions get only values 
         sinds, = np.nonzero(self.sfr)
         to = self.lage[sinds][0::2]
         tf = self.lage[sinds][1::2]
         sfr = self.sfr[sinds][0::2]
         z = np.round([(self.z[i]+self.z[i+1])/2. for i in sinds[0][0::2]], 4)
-        # there are quite a few repeated values...
-        # where to, tf and z are unique the multiplicative factors are arbs.
+        # there are quite a few repeated values (step fns)
+        # where to, tf and z are unique (the multiplicative factors are arb)
         lixo, linds = np.unique(to*2.312+tf*32.221+z*123.111, return_index=True)
         # checked, and all the sfrs are the same, it doesn't matter to trilegal
-        # because galaxy mass is normed, but will slow down this code if we 
-        # include them. To check:
+        # because galaxy mass is normed, but will f-up this code if we 
+        # include them. To check just do
         # rixo, rinds = np.unique(to+tf+z, return_inverse=True)
         to = to[linds]
         tf = tf[linds]
         sfr = sfr[linds]
         z = z[linds]
-
+        # also need them to be within the grid calc range could check and 
+        # raise error... only when letting others use this code.
+        self.grid_values('to','tf')
+        maxagebin = np.max(self.grid_tos)
+        ainds, = np.nonzero(to < maxagebin)
+        to = to[ainds]
+        tf = tf[ainds]
+        sfr = sfr[ainds]
+        
         sub_grid_files = np.concatenate([self.filter_grid(younger=tf[i],
                                                           older=to[i],
                                                           z=z[i])
                                          for i in range(len(to))])
 
-        sgals = [Galaxies.simgalaxy(sgf, self.filter1, self.filter2,
-                                    photsys=self.photsys)
-                                    for sgf in sub_grid_files]
-
-        self.grid_ages = np.concatenate([np.unique(sgal.data.get_col('logAge')) for sgal in sgals])
+        # no joining or interpolation so must have 1:1 match for proper
+        # sfr scaling of the grid cmd.
+        assert len(sfr) == len(sub_grid_files), 'sfr and grid length is not the same'
+        
+        # load all grid files as sim galaxies.
+        self.sgals = [Galaxies.simgalaxy(sgf, self.filter1, self.filter2,
+                                         photsys=self.photsys)
+                      for sgf in sub_grid_files]
         
     
 if __name__ == '__main__':
