@@ -104,7 +104,7 @@ class model_grid(object):
         gal_inppars.write_params(galaxy_input, TrilegalUtils.galaxy_input_fmt())
         return
 
-    def make_grid(self, ages=None, zs=None, galaxy_inkw={}):
+    def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={}):
         '''
         go through each age, metallicity step and make a single age
         cmd
@@ -133,26 +133,63 @@ class model_grid(object):
             else:
                 self.write_sfh_file(sfh_file, to, tf, z)
                 self.make_galaxy_input(sfh_file, galaxy_input, galaxy_inkw=galaxy_inkw)
-
-                # run trilegal
-
-                TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
+                if run_trilegal is True:
+                    TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
         os.chdir(here)
 
     def get_grid(self, search_string):
         sub_grid = fileIO.get_file(self.location, search_string)
 
-    def load_grid(self):
+    def load_grid(self, check_empty=False):
         grid = fileIO.get_files(self.location, '%s*dat' % self.out_pref)
-        '''
-        for file in grid:
-           if os.path.isfile(file):
-               if os.path.getsize(file) < 1:
-                   print 'rm',file
-        '''
+
+        if check_empty is True:
+            # this was happening when I tried to cancel a run mid way, and
+            # it still wrote files, just empty ones.
+            for file in grid:
+                if os.path.isfile(file):
+                    if os.path.getsize(file) < 1:
+                        print 'rm', file
+                else:
+                    print file, 'does not exist'
+
         self.grid = grid
         return
+    
+    def delete_columns_from_files(self, keep_cols='default', del_cols=None, fmt='%.4f'):
+        '''
+        the idea here is to save space on the disk, and save space in memory when
+        loading many files, so I'm taking away lots of extra filters and other
+        mostly useless info. Some useless info is saved because simgalaxy uses it,
+        e.g., dmod. In case I want more filters, I'm keeping log l, te, g, and mbol.
+
+        another option is to make the files all binary too.
+
+        this will keep only columns on the keep_cols list, 
+        right now it only works if it's default.
         
+        del_cols not implemented yet, I don't know how general this should be 
+        living here.
+        '''
+        if not hasattr(self, 'grid'):
+            self.load_grid()
+        if 'acs' in self.photsys:
+            print 'must add F475W to cols list as default'
+            return
+    
+        if keep_cols == 'default':
+            cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0', 
+                    'Av', 'm2/m1', 'mbol', 'F555W', 'F606W', 'F814W', 'stage']
+            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %.3f %i'
+        
+        for file in self.grid:
+            tab = fileIO.read_table(file)
+            col_vals = [tab.key_dict[c] for c in cols if c in tab.key_dict.keys()]
+            vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
+            new_tab = np.delete(tab.data_array, vals, axis=1)
+            fileIO.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
+            
+            
     def split_on_val(self, string, val):
         return float(os.path.split(string)[1].split('_')[val])    
 
@@ -306,7 +343,9 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         galaxy_inkw = {'object_mass': new_objmass}
         here = os.getcwd()
         os.chdir(self.location)
+        i = -1
         for age, z in zip(ages,zs):
+            i += 1
             to = age
             tf = age + self.dlogt
             sfh_file = self.filename_fmt(self.sfr_pref,to, tf, z)
@@ -319,9 +358,8 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             if run_trilegal is True:
                 TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
             else:
-                print output
+                print to, tf, self.grid_sfr[i], self.match_sfr[2][i]
         os.chdir(here)
-
 
     def build_sfh(self):
         '''        
@@ -373,9 +411,15 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         # not sure why this gets unsorted, but best to be careful...
         self.sort_on_key('to')
         self.match_sfr = np.array([to[self.sort_inds], tf[self.sort_inds], sfr[self.sort_inds], z[self.sort_inds]])
+        self.check_grid()
+        
 
     def sort_on_key(self, key):
         ''' 
+        sorts on some _ split key value, key to val map is defined in key_map.
+        there should be some way to combine that with fileformat but I'm 
+        trying to go quickly...
+        ex:
         self.sort_on_key('to')
         '''
         assert hasattr(self, 'sgals'), 'need sgals initialized'
