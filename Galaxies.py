@@ -9,11 +9,11 @@ import os
 import sys
 import numpy as np
 import brewer2mpl
+import itertools
 import logging
 logger = logging.getLogger()
 
 angst_data = rsp.angst_tables.AngstTables()
-
         
 class galaxies(object):
     '''
@@ -23,12 +23,16 @@ class galaxies(object):
     def __init__(self, galaxy_objects):
         self.galaxies = galaxy_objects
 
+    def sum_attr(self, *attrs):
+        for attr, g in itertools.product(attrs, self.galaxies):
+            g.__setattr__('sum_%s' % attr, np.sum(g.data.get_col(attr)))
+    
     def all_stages(self, *stages):
         '''
         adds the indices of any stage as attributes to galaxy.
         If the stage isn't found, -1 is returned.
         '''
-        self.__setattr__(PPOOOOPPP) [g.all_stages(*stages) for g in self.galaxies]
+        [g.all_stages(*stages) for g in self.galaxies]
         return
 
     def squish(self, *attrs):
@@ -58,6 +62,8 @@ class galaxies(object):
         return gs
 
     def group_by_z(self):
+        if not hasattr(self, 'zs'):
+            return
         zsf = self.zs[np.isfinite(self.zs)]
         zsn = self.zs[np.isnan(self.zs)]
         d = {}
@@ -79,10 +85,6 @@ class galaxies(object):
             gs_tmp = list(set(gs_tmp) & set(gs[i]))
         return gs_tmp
 
-    def __str__(self):
-        for g in self.galaxies:
-            print g.__str__()
-        return ''
 
 
 def hla_galaxy_info(filename):
@@ -197,13 +199,14 @@ class star_pop(object):
         self.header = '# %s' % ' '.join(names)
         return self.header
 
-    def delete_data(self):
+    def delete_data(self, data_names=None):
         '''
         for wrapper functions, I don't want gigs of data stored when they
         are no longer needed.
         '''
-        data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
-                      'ast_mag2', 'ast_color', 'rec']
+        if data_names is None:
+            data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
+                          'ast_mag2', 'ast_color', 'rec']
         for data_name in data_names:
             if hasattr(data_name):
                 self.__delattr__(data_name)
@@ -454,6 +457,14 @@ class simgalaxy(star_pop):
             self.ast_color = self.ast_mag1 - self.ast_mag2
 
         #simgalaxy.load_ic_mstar(self)
+
+    def burst_duration(self):
+        '''
+        for calculating ages of bursts
+        '''
+        lage = self.data.get_col('logAge')
+        self.burst_length, = np.diff((10 ** np.min(lage), 10 ** np.max(lage)))
+
 
     def get_fits(self):
         match_out_dir = os.path.join(os.path.split(self.base)[0], 'match',
