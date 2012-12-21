@@ -265,6 +265,10 @@ class test_grid(model_grid):
 '''
 
 class match_sfh(object):
+    '''
+    i thought i'd use match sfh input instead of processed, but i think that's
+    just a mess of input files.
+    '''
     def __init__(self, sfhfile):
         self.data = np.genfromtxt(sfhfile, skip_header=2, skip_footer=2, unpack=True)
         (to, tf, sfr, nstars, logz, dmod) = self.data
@@ -297,14 +301,87 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         self.filter2 = indict['filter2']
         self.load_grid()
 
-    def build_model_cmd(self, mbinsize, cbinsize):
+    def build_model_cmd(self, mbinsize, cbinsize, tol=0.1):
+        import random
         if not hasattr(self, 'sgals'):
             self.build_sfh()
+        self.grid_sfr = []
+
         '''
         1. randomly select x number of stars from cmd in each bin
         2. build the full cmd - dmod, av, sfr scaling
         3. combine into one sgal?
         '''
+        # sf_frac = sfr_match [Msun/yr] / grid_sfr [Msun/yr] = the fraction of mass
+        # needed to extract from grid cmd.
+        # sf_frac * tot_mass = the fraction of total mass needed from the sim galaxy
+        # as a first guess, pull out ave mass * fraction number of stars.
+        print 'to z pre_rat fmass gmass nstar leninds'
+        for i, sgal in enumerate(sf.sgals.galaxies):
+            # had some issues with order of sgals.galaxies want to make sure
+            # we're cool.
+            for j, item in zip((0, 1, 3), ('to', 'tf', 'z')):
+                assert sf.match_sfr[j][i] == sf.split_on_key(sgal.name, item)
+
+            sgal.burst_duration()
+            mass = sgal.data.get_col('m_ini')
+            tot_mass = np.sum(mass)
+            
+            # the mass of stars formed per year in the grid
+            grid_sfr = tot_mass / sgal.burst_length
+
+            med_mass = np.median(mass)
+            
+            # the ratio of mass formed in the sfr_file to the grid per year
+            sf_frac = sf.match_sfr[2][i] / grid_sfr
+            assert sf_frac < 1., 'need more sfr in the grid, run check_grid'
+
+            frac_mass = tot_mass * sf_frac
+            if frac_mass < 1:
+                print ('less than 1 msun...', frac_mass, tot_mass, sf_frac,
+                       sf.match_sfr[2][i])
+                continue
+            nstars = sgal.data.data_array.shape[0]
+            ind_arr = range(nstars)
+
+            # the guess assumes 1. Msun is the average mass. Works ok.
+            nstars_guess = int(np.round(sf_frac * nstars))
+            predict_ratio = 99.
+            broke = 0
+            while abs(predict_ratio) > 0.25:
+                if nstars_guess < 10.:
+                    print ('fewer than 10 stars... skipping.',
+                           sf.match_sfr[2][i], sf_frac)
+                    broke = 1
+                    break
+
+                rand_inds = random.sample(ind_arr, nstars_guess)
+                guess_mass = np.sum(mass[rand_inds])
+                predict_ratio = 1. - frac_mass / guess_mass
+                '''
+                print '%.1f %.4f %.4f %.2f %.2f %i %i' % (sf.split_on_key(sgal.name, 'to'),
+                                                          sf.split_on_key(sgal.name, 'z'),
+                                                          predict_ratio,
+                                                          frac_mass,
+                                                          guess_mass,
+                                                          nstars_guess,
+                                                          sf.match_sfr[2][i])
+                '''
+                nstars_guess += (predict_ratio * nstars_guess)
+                nstars_guess = int(np.round(nstars_guess))
+
+            if broke == 0:
+                try:
+                    super_gal = np.append(super_gal, sgal.data.data_array[rand_inds])
+                except NameError:
+                    super_gal = sgal.data.data_array[rand_inds]
+            
+        ncols = sgal.data.data_array.shape[1]
+        super_gal_data = super_gal.reshape(super_gal.shape[0] / ncols, ncols)
+        col_keys = [i for (i,j) in sorted(sgal.data.key_dict.items(), key= lambda (k,v): (v,k))]
+        filename = 'super_data_from_%s' % os.path.split(sf.sfr_file)[1]
+        super_gal = fileIO.Table(super_gal_data, col_keys, filename)
+        sf.grid_sfr.append(grid_sfr)  # Msun/year
 
     def check_grid(self, object_mass=None, run_trilegal=True):
         '''
@@ -411,7 +488,6 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         # not sure why this gets unsorted, but best to be careful...
         self.sort_on_key('to')
         self.match_sfr = np.array([to[self.sort_inds], tf[self.sort_inds], sfr[self.sort_inds], z[self.sort_inds]])
-        self.check_grid()
         
 
     def sort_on_key(self, key):

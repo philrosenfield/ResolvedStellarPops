@@ -421,10 +421,15 @@ class simgalaxy(star_pop):
     are assumed to be abs mag and get title() attributes.
     '''
     def __init__(self, trilegal_out, filter1, filter2, photsys=None,
-                 count_offset=0.0):
+                 count_offset=0.0, table_data=False):
         star_pop.__init__(self)
-        self.base, self.name = os.path.split(trilegal_out)
-        self.data = rsp.fileIO.read_table(trilegal_out)
+        if table_data is True:
+            self.data = trilegal_out
+            self.base = trilegal_out.base
+            self.name = trilegal_out.name
+        else:
+            self.data = rsp.fileIO.read_table(trilegal_out)
+            self.base, self.name = os.path.split(trilegal_out)
         self.filter1 = filter1
         self.filter2 = filter2
         self.count_offset = count_offset
