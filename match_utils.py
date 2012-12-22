@@ -36,8 +36,7 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
     if bgfile is True:
         footer += 2
 
-    
-    fmt = '%g %g %g\n'
+    fmt = '%.6g %.6g %.4g \n'
     to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=2,
                                                      skip_footer=footer,
                                                      unpack=True)
@@ -56,7 +55,7 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
             age1p = 1.0 * 10 ** (to[i] + 0.0001)
             age2a = 1.0 * 10 ** tf[i]
             age2p = 1.0 * 10 ** (tf[i] + 0.0001)
-    
+
             out.write(fmt % (age1a, 0.0, z1))
             out.write(fmt % (age1p, sfr[i], z1))
             out.write(fmt % (age2a, sfr[i], z2))

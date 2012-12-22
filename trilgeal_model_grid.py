@@ -189,7 +189,6 @@ class model_grid(object):
             new_tab = np.delete(tab.data_array, vals, axis=1)
             fileIO.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
             
-            
     def split_on_val(self, string, val):
         return float(os.path.split(string)[1].split('_')[val])    
 
@@ -241,28 +240,14 @@ class model_grid(object):
             if len(sub_grid) == 0:
                 print 'no combo'
                 return
-            sub_grid = filter((lambda c: self.split_on_val(c, 5) <= younger), sub_grid)
+            sub_grid = filter((lambda c: self.split_on_val(c, 5) <= younger),
+                              sub_grid)
             if len(sub_grid) == 0:
                 print sub_grid
                 print 'lage < %.1f not found' % younger
 
-        '''
-        if metal_rich is not None:
-            sub_grid = filter((lambda c: split_on_val(c, 6) > metal_rich), sub_grid)
-        if metal_poor is not None:
-            sub_grid = filter((lambda c: split_on_val(c, 6) < metal_poor), sub_grid)    
-        '''
         return sub_grid
-'''
-class test_grid(model_grid):
-    def __init__(self, filter1, filter2, kwargs={}):
-        model_grid.__init__(self, **kwargs)
-        self.load_grid(filter1='F555W', filter2='F814W')
-        # doesn't work but could do this:
-        cmds = rsp.fileIO.get_files(os.getcwd(), 'burst*dat')
-        sgals = [rsp.Galaxies.simgalaxy(c, filter1='F555W', filter2='F814W', photsys='wfpc2') for c in cmds]
-        sgal.plot_cmd(sgal.Color, sgal.Mag2)
-'''
+
 
 class match_sfh(object):
     '''
@@ -288,40 +273,39 @@ class match_sfh(object):
 class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
     '''
     inherits from trilegal sfh and model_grid.
-    
     '''
     def __init__(self, sfr_file, galaxy_input=False, indict={}):
         model_grid.__init__(self, **indict)
         TrilegalUtils.trilegal_sfh.__init__(self, sfr_file,
                                             galaxy_input=galaxy_input)
         # put back into msun/year (see MatchUtils.process_sfh or something)
-        self.sfr = np.round(self.sfr * 1e-3, 6)
+        self.sfr = self.sfr * 1e-3
         self.sfr_file = sfr_file
         self.filter1 = indict['filter1']
         self.filter2 = indict['filter2']
         self.load_grid()
 
     def build_model_cmd(self, mbinsize, cbinsize, tol=0.1):
-        import random
-        if not hasattr(self, 'sgals'):
-            self.build_sfh()
-        self.grid_sfr = []
-
         '''
         1. randomly select x number of stars from cmd in each bin
         2. build the full cmd - dmod, av, sfr scaling
         3. combine into one sgal?
+
+        sf_frac = sfr_match [Msun/yr] / grid_sfr [Msun/yr] = the fraction of
+        mass needed to extract from grid cmd.
+        sf_frac * tot_mass = the fraction of total mass needed from the sim
+        galaxy as a first guess, pull out ave mass * fraction number of stars.
         '''
-        # sf_frac = sfr_match [Msun/yr] / grid_sfr [Msun/yr] = the fraction of mass
-        # needed to extract from grid cmd.
-        # sf_frac * tot_mass = the fraction of total mass needed from the sim galaxy
-        # as a first guess, pull out ave mass * fraction number of stars.
+        import random
+        if not hasattr(self, 'sgals'):
+            self.build_sfh()
+        self.grid_sfr = []
         print 'to z pre_rat fmass gmass nstar leninds'
-        for i, sgal in enumerate(sf.sgals.galaxies):
+        for i, sgal in enumerate(self.sgals.galaxies):
             # had some issues with order of sgals.galaxies want to make sure
             # we're cool.
             for j, item in zip((0, 1, 3), ('to', 'tf', 'z')):
-                assert sf.match_sfr[j][i] == sf.split_on_key(sgal.name, item)
+                assert self.match_sfr[j][i] == self.split_on_key(sgal.name, item)
 
             sgal.burst_duration()
             mass = sgal.data.get_col('m_ini')
@@ -331,15 +315,17 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             grid_sfr = tot_mass / sgal.burst_length
 
             med_mass = np.median(mass)
-            
+
             # the ratio of mass formed in the sfr_file to the grid per year
-            sf_frac = sf.match_sfr[2][i] / grid_sfr
-            assert sf_frac < 1., 'need more sfr in the grid, run check_grid'
+            sf_frac = self.match_sfr[2][i] / grid_sfr
+            assert self.match_sfr[2][i] < grid_sfr, \
+                'need more sfr in the grid, run check_grid'
 
             frac_mass = tot_mass * sf_frac
             if frac_mass < 1:
-                print ('less than 1 msun...', frac_mass, tot_mass, sf_frac,
-                       sf.match_sfr[2][i])
+                print 'less than 1 msun... \nfrac_mass grid_sfr match_sfr'
+                print '%.2f %.2g %.2g' % (frac_mass, grid_sfr,
+                                          self.match_sfr[2][i])
                 continue
             nstars = sgal.data.data_array.shape[0]
             ind_arr = range(nstars)
@@ -350,38 +336,32 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             broke = 0
             while abs(predict_ratio) > 0.25:
                 if nstars_guess < 10.:
-                    print ('fewer than 10 stars... skipping.',
-                           sf.match_sfr[2][i], sf_frac)
+                    print 'fewer than 10 stars... skipping.\nmatch_sfr sfr_frac
+                    print '%.4g %.4g' % (self.match_sfr[2][i], sf_frac)
                     broke = 1
                     break
 
                 rand_inds = random.sample(ind_arr, nstars_guess)
                 guess_mass = np.sum(mass[rand_inds])
                 predict_ratio = 1. - frac_mass / guess_mass
-                '''
-                print '%.1f %.4f %.4f %.2f %.2f %i %i' % (sf.split_on_key(sgal.name, 'to'),
-                                                          sf.split_on_key(sgal.name, 'z'),
-                                                          predict_ratio,
-                                                          frac_mass,
-                                                          guess_mass,
-                                                          nstars_guess,
-                                                          sf.match_sfr[2][i])
-                '''
                 nstars_guess += (predict_ratio * nstars_guess)
                 nstars_guess = int(np.round(nstars_guess))
 
             if broke == 0:
                 try:
-                    super_gal = np.append(super_gal, sgal.data.data_array[rand_inds])
+                    supgal = np.append(supgal, sgal.data.data_array[rand_inds])
                 except NameError:
-                    super_gal = sgal.data.data_array[rand_inds]
-            
+                    supgal = sgal.data.data_array[rand_inds]
+
         ncols = sgal.data.data_array.shape[1]
-        super_gal_data = super_gal.reshape(super_gal.shape[0] / ncols, ncols)
-        col_keys = [i for (i,j) in sorted(sgal.data.key_dict.items(), key= lambda (k,v): (v,k))]
-        filename = 'super_data_from_%s' % os.path.split(sf.sfr_file)[1]
-        super_gal = fileIO.Table(super_gal_data, col_keys, filename)
-        sf.grid_sfr.append(grid_sfr)  # Msun/year
+        super_gal_data = supgal.reshape(supgal.shape[0] / ncols, ncols)
+        del supgal
+        col_keys = [i for (i,j) in sorted(sgal.data.key_dict.items(),
+                    key=lambda (k,v): (v,k))]
+        filename = 'super_data_from_%s' % os.path.split(self.sfr_file)[1]
+        supgal_tab = fileIO.Table(super_gal_data, col_keys, filename)
+        super_gal = Galaxies.simgalaxy(supgal_tab, self.filter1, self.filter2,
+                                       photsys=self.photsys, table_data=True)
 
     def check_grid(self, object_mass=None, run_trilegal=True):
         '''
@@ -430,16 +410,19 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             output =  self.filename_fmt(self.out_pref, to, tf, z)
             print 'now doing %.2f-%.2f, %.4f %g' % (to, tf, z, new_objmass)
             self.write_sfh_file(sfh_file, to, tf, z)
-            self.make_galaxy_input(sfh_file, galaxy_input, galaxy_inkw=galaxy_inkw)
+            self.make_galaxy_input(sfh_file, galaxy_input, 
+                                   galaxy_inkw=galaxy_inkw)
             # run trilegal
             if run_trilegal is True:
-                TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
+                TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input,
+                                           output)
             else:
                 print to, tf, self.grid_sfr[i], self.match_sfr[2][i]
         os.chdir(here)
 
     def build_sfh(self):
-        '''        
+        '''
+        
         '''
         if max(self.age) > 12.:
             self.lage = np.round(np.log10(self.age), 2)
@@ -447,48 +430,47 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             self.lage = np.round(self.age, 2)
             self.age = 10**self.lage
 
-        assert np.diff(self.lage[0::2][:2]) > self.dlogt, 'time steps too small in sfr_file.'
+        assert np.diff(self.lage[0::2][:2]) > self.dlogt, \
+            'time steps too small in sfr_file.'
 
         # sfr is series of step functions get only values 
-        sinds, = np.nonzero(self.sfr)
-        to = self.lage[sinds][0::2]
-        tf = self.lage[sinds][1::2]
-        sfr = self.sfr[sinds][0::2]
-        z = np.round([(self.z[i]+self.z[i+1])/2. for i in sinds[0::2]], 4)
-        # there are quite a few repeated values (step fns)
-        # where to, tf and z are unique (the multiplicative factors are arb)
-        lixo, linds = np.unique(to * 2.38 + tf * 32.2 + z * 0.11,
-                                return_index=True)
-        # also need them to be within the grid calc range could check and 
-        # raise error... only when letting others use this code.
+        sinds, = np.nonzero(np.round(self.sfr, 6))
+        to = self.lage[sinds][0::4]
+        tf = self.lage[sinds][1::4]
+        sfr = self.sfr[sinds][0::4]
+        z = np.round([(self.z[i] + self.z[i + 1]) / 2. for i in sinds[0:
+                     :4]], 4)
+
         self.grid_values('to','tf')
         maxagebin = np.max(self.grid_tos)
-        ainds, = np.nonzero(to < maxagebin)
-        inds = list(set(linds) & set(ainds))
+        (ainds, ) = np.nonzero(to < maxagebin)
 
-        to = to[inds]
-        tf = tf[inds]
-        sfr = sfr[inds]
-        z = z[inds]
-
-        sub_grid_files = np.concatenate([self.filter_grid(younger=tf[i],
-                                                          older=to[i],
-                                                          z=z[i])
-                                         for i in range(len(to))])
+        to = to[ainds]
+        tf = tf[ainds]
+        sfr = sfr[ainds]
+        z = z[ainds]
+        sub_grid_files = \
+            np.concatenate([self.filter_grid(younger=tf[i],
+                            older=to[i], z=z[i]) for i in
+                            range(len(to))])
 
         # no joining or interpolation so must have 1:1 match for proper
         # sfr scaling of the grid cmd.
-        assert len(sfr) == len(sub_grid_files), 'sfr and grid length is not the same'
-        
+
+        assert len(sfr) == len(sub_grid_files), \
+            'sfr and grid length is not the same'
+
         # load all grid files as sim galaxies.
+
         sgals = [Galaxies.simgalaxy(sgf, self.filter1, self.filter2,
-                                    photsys=self.photsys)
-                 for sgf in sub_grid_files]
+                 photsys=self.photsys) for sgf in sub_grid_files]
         self.sgals = Galaxies.galaxies(sgals)
+
         # not sure why this gets unsorted, but best to be careful...
+
         self.sort_on_key('to')
-        self.match_sfr = np.array([to[self.sort_inds], tf[self.sort_inds], sfr[self.sort_inds], z[self.sort_inds]])
-        
+        self.match_sfr = np.array([to[self.sort_inds], tf[self.sort_inds],
+                                   sfr[self.sort_inds], z[self.sort_inds]])
 
     def sort_on_key(self, key):
         ''' 
@@ -498,11 +480,14 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         ex:
         self.sort_on_key('to')
         '''
+
         assert hasattr(self, 'sgals'), 'need sgals initialized'
     
-        names = [self.sgals.galaxies[i].name for i in range(len(self.sgals.galaxies))]
+        names = [self.sgals.galaxies[i].name for i in
+                 range(len(self.sgals.galaxies))]
         val = self.key_map(key)
-        sinds = [names.index(x) for x in sorted(names, key=lambda n: float(n.split('_')[val]))]
+        sinds = [names.index(x) for x in sorted(names, key=lambda n: \
+                 float(n.split('_')[val]))]
         self.sgals.galaxy_names = np.array(names)[sinds]
         self.sgals.galaxies = np.array(self.sgals.galaxies)[sinds]
         self.sort_inds = sinds
