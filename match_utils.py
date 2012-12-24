@@ -7,8 +7,6 @@ import re
 import os
 import logging
 logger = logging.getLogger()
-#if logger.name == 'root':
-#    rsp.fileIO.setup_logging()
 
 def make_exclude_gates(gal, outfile=None):
     if outfile is None:
@@ -520,7 +518,7 @@ def get_fit(filename):
     fit = float(fh[-1].split(':')[-1])
     return chi2, fit
 
-def match_light(sgal, gal, inputs, match_bg, match_kwargs={}, make_plot=False,
+def match_light(gal, inputs, match_bg, match_kwargs={}, make_plot=False,
                 **kwargs):
 
     if len(match_kwargs) == 0:

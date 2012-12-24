@@ -5,6 +5,8 @@ import numpy as np
 import itertools
 import sys
 import os
+import logging
+logger = logging.getLogger()
 
 class model_grid(object):
     def __init__(self,
@@ -136,9 +138,11 @@ class model_grid(object):
                 print 'not overwriting %s' % output
             else:
                 self.write_sfh_file(sfh_file, to, tf, z)
-                self.make_galaxy_input(sfh_file, galaxy_input, galaxy_inkw=galaxy_inkw)
+                self.make_galaxy_input(sfh_file, galaxy_input,
+                                       galaxy_inkw=galaxy_inkw)
                 if run_trilegal is True:
-                    TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, output)
+                    TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, 
+                                               output)
         os.chdir(here)
 
     def get_grid(self, search_string):
@@ -160,12 +164,14 @@ class model_grid(object):
         self.grid = grid
         return
     
-    def delete_columns_from_files(self, keep_cols='default', del_cols=None, fmt='%.4f'):
+    def delete_columns_from_files(self, keep_cols='default', del_cols=None,
+                                  fmt='%.4f'):
         '''
-        the idea here is to save space on the disk, and save space in memory when
-        loading many files, so I'm taking away lots of extra filters and other
-        mostly useless info. Some useless info is saved because simgalaxy uses it,
-        e.g., dmod. In case I want more filters, I'm keeping log l, te, g, and mbol.
+        the idea here is to save space on the disk, and save space in memory
+        when loading many files, so I'm taking away lots of extra filters and
+        other mostly useless info. Some useless info is saved because simgalaxy
+        uses it, e.g., dmod. In case I want more filters, I'm keeping log l,
+        te, g, and mbol.
 
         another option is to make the files all binary too.
 
@@ -253,27 +259,6 @@ class model_grid(object):
         return sub_grid
 
 
-class match_sfh(object):
-    '''
-    i thought i'd use match sfh input instead of processed, but i think that's
-    just a mess of input files.
-    '''
-    def __init__(self, sfhfile):
-        self.data = np.genfromtxt(sfhfile, skip_header=2, skip_footer=2, unpack=True)
-        (to, tf, sfr, nstars, logz, dmod) = self.data
-        self.agei = to
-        self.agef = tf
-        self.sfr = sfr
-        self.nstars = nstars
-        self.logz = logz
-        with open(sfhfile, 'r') as f:
-            header = f.readline()
-        key_val = header.replace('#','').replace(',').strip().split()
-        for kv in key_val:
-            (k, v) = kv.split('=')
-            self.__setattr__(k, v)
-  
-  
 class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
     '''
     inherits from trilegal sfh and model_grid.
@@ -315,7 +300,6 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             self.sfr_arr = sfr_arr
 
         self.grid_sfr = []
-        print 'to z pre_rat fmass gmass nstar leninds'
         for i, sgal in enumerate(self.sgals.galaxies):
             # had some issues with order of sgals.galaxies want to make sure
             # we're cool.
@@ -333,15 +317,19 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
             # the ratio of mass formed in the sfr_file to the grid per year
             sf_frac = sfr_arr[i] / grid_sfr
-            assert sfr_arr[i] < grid_sfr, \
-                'need more sfr in the grid, run check_grid'
+            if sfr_arr[i] > grid_sfr:
+                logger.info('%.4f %.4f' % (sfr_arr[i], grid_sfr))
+                logger.info('running check grid!')
+                self.check_grid()
 
             # A convoluted way say sfr_arr * sgal.burst_length, it made sense
             # at the time
             frac_mass = tot_mass * sf_frac
             if frac_mass < 1:
-                print 'less than 1 msun... \n sf_mass grid_sfr match_sfr'
-                print '%.2f %.2g %.2g' % (frac_mass, grid_sfr, sfr_arr[i])
+                logging.info('less than 1 msun...')
+                logging.info('sf_mass grid_sfr match_sfr')
+                logging.info('%.2f %.2g %.2g' % (frac_mass, grid_sfr,
+                                                 sfr_arr[i]))
                 continue
             nstars = sgal.data.data_array.shape[0]
             ind_arr = range(nstars)
@@ -352,12 +340,17 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             broke = 0
             while abs(predict_ratio) > tol:
                 if nstars_guess < min_stars:
-                    print 'fewer than %i stars... skipping.' % min_stars
-                    print 'match_sfr sfr_frac'
-                    print '%.4g %.4g' % (sfr_arr[i], sf_frac)
+                    logger.debug('fewer than %i stars... skipping.' % min_stars)
+                    logger.debug('to tf sfr sfr_frac')
+                    logger.debug('%.1f %.1f %.4g %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i], sf_frac))
                     broke = 1
                     break
-
+                if nstars_guess > nstars:
+                    logger.debug('too many guess stars.')
+                    logger.debug('%.4f %i %i %.4f' % (sf_frac, nstars,
+                                                      nstars_guess,
+                                                      sf_frac * nstars))
+                    nstars_guess = int(np.round(sf_frac * nstars))/2
                 rand_inds = random.sample(ind_arr, nstars_guess)
                 guess_mass = np.sum(mass[rand_inds])
                 predict_ratio = 1. - frac_mass / guess_mass
@@ -381,7 +374,8 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                                             self.filter2, photsys=self.photsys,
                                             table_data=True)
 
-    def check_grid(self, object_mass=None, run_trilegal=True):
+    def check_grid(self, object_mass=None, run_trilegal=True,
+                   max_sfr_inc_frac=0.2, sfr_arr=None):
         '''
         why is this here, not in model grid class? Because I want it to be
         limited to a sfr file, so I don't go crazy with sim galaxies sizes.
@@ -391,10 +385,15 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         
         this should be tricked into using not only the processed sfr file
         (emcee prior) but also the new sfr array that will be passed. Yeah, 
-        it will slow down the 
+        it will slow down the works.
+        
+        if sfr_arr is None, will use initial sfr from sfr_file.
         '''
         if not hasattr(self, 'sgals'):
             self.build_sfh()
+        
+        if sfr_arr is None:
+            sfr_arr = self.match_sfr[2]
 
         self.sgals.sum_attr('m_ini')
         self.grid_sfr = []
@@ -404,7 +403,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             sgal.burst_duration()
             grid_sfr = sgal.sum_m_ini / sgal.burst_length
             self.grid_sfr.append(grid_sfr)  # Msun/year
-            if self.match_sfr[2][i] > grid_sfr:
+            if sfr_arr[i] > grid_sfr * (1 + max_sfr_inc_frac):
                 ages = np.append(ages, self.split_on_key(sgal.name, 'to'))
                 zs = np.append(zs, self.split_on_key(sgal.name, 'z'))
                 self.over_write = True
@@ -435,7 +434,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                 TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input,
                                            output)
             else:
-                print to, tf, self.grid_sfr[i], self.match_sfr[2][i]
+                print to, tf, self.grid_sfr[i], sfr_arr[i]
         os.chdir(here)
 
     def build_sfh(self):

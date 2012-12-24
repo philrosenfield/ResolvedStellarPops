@@ -228,9 +228,9 @@ class star_pop(object):
         shift to given dmod. mag or Mag attributes are set in __init__.
         '''
         if target is not None or hasattr(self, 'target'):
-            logger.info('converting distance and Av to match %s' % target)
             if not hasattr(self, 'target'):
                 self.target = target
+            logger.info('converting distance and Av to match %s' % self.target)
             filters = ','.join((self.filter1, self.filter2))
             tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
             __, self.Av, self.dmod = tad

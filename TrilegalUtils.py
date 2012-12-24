@@ -33,8 +33,8 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
         if hasattr(sgal, 'ast_mag1'):
             # this isn't only a trilegal catalog, it's already been corrected
             # with asts, and sliced for only recovered asts. see simgalaxy.
-            cor_mag1 = sgal.ast_mag1
-            cor_mag2 = sgal.ast_mag2
+            cor_mag1 = sgal.ast_mag1[sgal.rec]
+            cor_mag2 = sgal.ast_mag2[sgal.rec]
         else:
             # it's a trilegal catalog, now with ast corrections, though was not
             # loaded with them, perhaps they were just written to a new file.
@@ -49,12 +49,11 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
             cor_mag1 = cor_mag1_full[rec]
             cor_mag2 = cor_mag2_full[rec]
 
-        cor_color = cor_mag1 - cor_mag2
-        cor_cm = np.column_stack((cor_color, cor_mag2))
+        cor_mags = np.column_stack((cor_mag1, cor_mag2))
 
         with open(outfile, 'w') as f:
-            f.write('# %s-%s %s \n' % (filt1, filt2, filt2))
-            np.savetxt(f, cor_cm, fmt='%10.5f')
+            f.write('# %s %s \n' % (filt1, filt2))
+            np.savetxt(f, cor_mags, fmt='%10.5f')
         logger.info('wrote %s' % outfile)
     else:
         logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
