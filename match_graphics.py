@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
-import ResolvedStellarPops.match_utils as match_utils
+
 
 def add_inner_title(ax, title, loc, size=None, **kwargs):
     from matplotlib.offsetbox import AnchoredText
@@ -77,6 +77,7 @@ def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
     '''
     produces the image that pgcmd.pro makes
     '''
+    import match_utils
     cmd = match_utils.read_match_cmd(filename)
     if axis_labels.lower() == 'default':
         filter1 = kwargs.get('filter1')

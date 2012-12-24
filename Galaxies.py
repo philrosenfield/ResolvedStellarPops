@@ -169,24 +169,25 @@ class star_pop(object):
             inds, = np.nonzero(self.stage == get_stage_label(stage_name))
         return inds
     
-    def make_hess(self, binsize, absmag=False, hess_kw = {}):
+    def make_hess(self, binsize, absmag=False, useasts=False, hess_kw={}):
         '''
-        adds a hess diagram of color, mag2 or Color, Mag2. See astronomy_utils
-        doc for more information.
+        adds a hess diagram of color, mag2 or Color, Mag2 (if absmag is True).
+        if useasts is true will use ast_mags.
+        
+        See astronomy_utils doc for more information.
         '''
-        if absmag:
-            if not hasattr(self, 'Color'):
-                self.Color = self.Mag1 - self.Mag2
-            hess = rsp.astronomy_utils.hess(self.Color, self.Mag2, binsize,
-                                            **hess_kw)
-            self.Hess = hess
+        if absmag is True:
+            col = self.Color
+            mag = self.Mag2
+        elif useasts is True:
+            col = self.ast_color
+            mag = self.ast_mag2
         else:
-            if not hasattr(self, 'color'):
-                self.color = self.mag1 - self.mag2
-            hess = rsp.astronomy_utils.hess(self.color, self.mag2, binsize,
-                                            **hess_kw)
-            self.hess = hess
-        return hess
+            col = self.color
+            mag = self.mag2
+
+        self.hess = rsp.astronomy_utils.hess(col, mag, binsize, **hess_kw)
+        return
 
     def get_header(self):
         '''
@@ -228,7 +229,8 @@ class star_pop(object):
         '''
         if target is not None or hasattr(self, 'target'):
             logger.info('converting distance and Av to match %s' % target)
-            self.target = target
+            if not hasattr(self, 'target'):
+                self.target = target
             filters = ','.join((self.filter1, self.filter2))
             tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
             __, self.Av, self.dmod = tad
@@ -454,12 +456,13 @@ class simgalaxy(star_pop):
             self.color = self.mag1 - self.mag2
         self.stage = self.data.get_col('stage')
 
-        do_slice = simgalaxy.load_ast_corrections(self)
-        if do_slice:
-            data_to_slice = ['mag1', 'mag2', 'stage', 'ast_mag1', 'ast_mag2']
-            slice_inds = self.rec
-            simgalaxy.slice_data(self, data_to_slice, slice_inds)
-            self.ast_color = self.ast_mag1 - self.ast_mag2
+        # what do these in the init?!?
+        #do_slice = simgalaxy.load_ast_corrections(self)
+        #if do_slice:
+        #    data_to_slice = ['mag1', 'mag2', 'stage', 'ast_mag1', 'ast_mag2']
+        #    slice_inds = self.rec
+        #    simgalaxy.slice_data(self, data_to_slice, slice_inds)
+        #    self.ast_color = self.ast_mag1 - self.ast_mag2
 
         #simgalaxy.load_ic_mstar(self)
 
@@ -814,7 +817,7 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
         else:
             logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
     if spread_too:
-        write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
+        rsp.TrilegalUtils.write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
 
     return
 

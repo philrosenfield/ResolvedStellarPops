@@ -20,14 +20,8 @@ def write_trilegal_sim(sgal, outfile, slice_inds=None):
     return
 
 
-def write_spread(sgal, outfile=None, overwrite=False, slice_inds=None):
-    if not outfile:
-        outfile_name = sgal.name.replace('out', 'spread')
-        outfile_base = os.path.join(TRILEGAL_RUNS, 'spread/')
-        rsp.fileIO.ensure_dir(outfile_base)
-        outfile = os.path.join(outfile_base, outfile_name)
-
-    if overwrite or not os.path.isfile(outfile):    
+def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
+    if overwrite or not os.path.isfile(outfile):
         # ast corrected filters are filter_cor, this may be changed... anyway
         # need someway to check if ast corrections were made.
         cors = [c for c in sgal.data.key_dict.keys() if '_cor' in c]
