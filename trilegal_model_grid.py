@@ -110,7 +110,8 @@ class model_grid(object):
         gal_inppars.write_params(galaxy_input, TrilegalUtils.galaxy_input_fmt())
         return
 
-    def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={}):
+    def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
+                  over_write=False):
         '''
         go through each age, metallicity step and make a single age
         cmd
@@ -141,8 +142,11 @@ class model_grid(object):
                 self.make_galaxy_input(sfh_file, galaxy_input,
                                        galaxy_inkw=galaxy_inkw)
                 if run_trilegal is True:
-                    TrilegalUtils.run_trilegal(self.cmd_input, galaxy_input, 
-                                               output)
+                    if os.path.isfile(output) and over_write is False:
+                        print 'not over writting %s' % output
+                    else:
+                        TrilegalUtils.run_trilegal(self.cmd_input,
+                                                   galaxy_input, output)
         os.chdir(here)
 
     def get_grid(self, search_string):
@@ -301,11 +305,6 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
         self.grid_sfr = []
         for i, sgal in enumerate(self.sgals.galaxies):
-            # had some issues with order of sgals.galaxies want to make sure
-            # we're cool.
-            for j, item in zip((0, 1, 3), ('to', 'tf', 'z')):
-                assert self.match_sfr[j][i] == self.split_on_key(sgal.name, item)
-
             sgal.burst_duration()
             mass = sgal.data.get_col('m_ini')
             tot_mass = np.sum(mass)
@@ -320,7 +319,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             if sfr_arr[i] > grid_sfr:
                 logger.info('%.4f %.4f' % (sfr_arr[i], grid_sfr))
                 logger.info('running check grid!')
-                self.check_grid()
+                self.check_grid(sfr_arr=sfr_arr)
 
             # A convoluted way say sfr_arr * sgal.burst_length, it made sense
             # at the time
@@ -391,9 +390,11 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         '''
         if not hasattr(self, 'sgals'):
             self.build_sfh()
-        
+
+        extra = 1.        
         if sfr_arr is None:
             sfr_arr = self.match_sfr[2]
+            extra += max_sfr_inc_frac
 
         self.sgals.sum_attr('m_ini')
         self.grid_sfr = []
@@ -403,7 +404,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             sgal.burst_duration()
             grid_sfr = sgal.sum_m_ini / sgal.burst_length
             self.grid_sfr.append(grid_sfr)  # Msun/year
-            if sfr_arr[i] > grid_sfr * (1 + max_sfr_inc_frac):
+            if sfr_arr[i] * extra > grid_sfr:
                 ages = np.append(ages, self.split_on_key(sgal.name, 'to'))
                 zs = np.append(zs, self.split_on_key(sgal.name, 'z'))
                 self.over_write = True
