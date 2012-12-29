@@ -133,3 +133,51 @@ def mag2Mag(mag, filter, photsys, **kwargs):
         A = Alam_Av * Av
     
     return mag-dmod-A
+
+def get_dmodAv(gal=None, **kwargs):
+    '''
+    dmod and Av can be separated only if we have more than one filter to deal
+    with.
+    
+    This will take either a Galaxies.star_pop instance (galaxy, simgalaxy) or
+    a pile of kwargs.
+
+    SO:
+    mag1 - Mag1 = dmod + Alambda1/Av * Av
+    mag2 - Mag2 = dmod + Alambda2/Av * Av
+    
+    subtract:
+    ((mag1 - Mag1) - (mag2 - Mag2)) = Av * (Alambda1/Av - Alambda2/Av)
+    
+    rearrange:
+    Av = ((mag1 - Mag1) - (mag2 - Mag2)) / (Alambda1/Av - Alambda2/Av)
+    
+    plug Av into one of the first equations and solve for dmod.
+    '''
+    if gal is None:
+        photsys = kwargs.get('photsys')
+        filter1 = kwargs.get('filter1')
+        filter2 = kwargs.get('filter2')
+        mag1 = kwargs.get('mag1')
+        mag2 = kwargs.get('mag2')
+        Mag1 = kwargs.get('Mag1')
+        Mag2 = kwargs.get('Mag2')
+    else:
+        photsys = gal.photsys
+        filter1 = gal.filter1
+        filter2 = gal.filter2
+        mag1 = gal.mag1
+        mag2 = gal.mag2
+        Mag1 = gal.Mag1
+        Mag2 = gal.Mag2
+    
+    Al1 = parse_mag_tab(photsys, filter1)
+    Al2 = parse_mag_tab(photsys, filter2)
+    Av = (mag1 - Mag1 - mag2 + Mag2) / (Al1 - Al2)
+    dmod = mag1 - Mag1 - Al1 * Av
+    # could do some assert dmods and Avs  are all the same...
+    return dmod[0], Av[0]
+
+
+
+

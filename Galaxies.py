@@ -169,10 +169,15 @@ class star_pop(object):
             inds, = np.nonzero(self.stage == get_stage_label(stage_name))
         return inds
     
-    def make_hess(self, binsize, absmag=False, useasts=False, hess_kw={}):
+    def make_hess(self, binsize, absmag=False, useasts=False, slice_inds=None,
+                  hess_kw={}):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2 (if absmag is True).
         if useasts is true will use ast_mags.
+        
+        slice_inds will slice the arrays and only bin those stars, there
+        is no evidence besides the hess tuple itself that hess is not of the
+        full cmd.
         
         See astronomy_utils doc for more information.
         '''
@@ -185,6 +190,10 @@ class star_pop(object):
         else:
             col = self.color
             mag = self.mag2
+
+        if slice_inds is not None:
+            col = col[slice_inds]
+            mag = mag[slice_inds]
 
         self.hess = rsp.astronomy_utils.hess(col, mag, binsize, **hess_kw)
         return
@@ -214,7 +223,8 @@ class star_pop(object):
             if hasattr(data_name.title()):
                 self.__delattr__(data_name.title())
 
-    def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False):
+    def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False,
+                    useasts=False):
         '''
         convert from mag to Mag or from Mag to mag or just shift distance.
 
@@ -222,31 +232,59 @@ class star_pop(object):
         shift_distance: for the possibility of doing dmod, Av fitting of model
         to data the key here is that we re-read the mag from the original data
         array.
+        
+        useasts only work with shift_distance is true.
+        It will calculate the original dmod and av from self, and then shift
+        that to the new dmod av. there may be a faster way, but this is just
+        multiplicative effects. 
 
         Without shift_distance: Just for common usage. If trilegal was given a
         dmod, it will swap it back to Mag, if it was done at dmod=10., will
         shift to given dmod. mag or Mag attributes are set in __init__.
+        
         '''
-        if target is not None or hasattr(self, 'target'):
-            if not hasattr(self, 'target'):
-                self.target = target
-            logger.info('converting distance and Av to match %s' % self.target)
+        check = [(dmod + Av == 0.), (target == None)] 
+        #assert False in check, 'either supply dmod and Av or target'
+        
+        if check[0]:
             filters = ','.join((self.filter1, self.filter2))
+            if target is not None:
+                logger.info('converting mags with angst table using %s' % target)
+                self.target = target
+            elif hasattr(self, 'target'):
+                logger.info('converting mags with angst table using initialized %s' % self.target)
+
             tad = angst_data.get_tab5_trgb_av_dmod(self.target, filters)
             __, self.Av, self.dmod = tad
         else:
             self.dmod = dmod
             self.Av = Av
+        
         mag_covert_kw = {'Av': self.Av, 'dmod': self.dmod}
 
         if shift_distance is True:
-            m1 = self.data.get_col(self.filter1)
-            m2 = self.data.get_col(self.filter2)
-            self.mag1 = rsp.astronomy_utils.Mag2mag(m1,
+            if useasts is True:
+                am1 = self.ast_mag1
+                am2 = self.ast_mag2
+                old_dmod, old_Av = rsp.astronomy_utils.get_dmodAv(self)
+                old_mag_covert_kw = {'Av': old_Av, 'dmod': old_dmod}
+                M1 = rsp.astronomy_utils.mag2Mag(am1,
+                                                 self.filter1,
+                                                 self.photsys,
+                                                 **old_mag_covert_kw)
+                M2 = rsp.astronomy_utils.mag2Mag(am2,
+                                                 self.filter2,
+                                                 self.photsys,
+                                                 **old_mag_covert_kw)
+            else:
+                M1 = self.data.get_col(self.filter1)
+                M2 = self.data.get_col(self.filter2)
+
+            self.mag1 = rsp.astronomy_utils.Mag2mag(M1,
                                                     self.filter1,
                                                     self.photsys,
                                                     **mag_covert_kw)
-            self.mag2 = rsp.astronomy_utils.Mag2mag(m2,
+            self.mag2 = rsp.astronomy_utils.Mag2mag(M2,
                                                     self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
@@ -770,9 +808,8 @@ def get_fake(target, fake_loc='.'):
     return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
 
-def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False, 
-                             spread_too=False, spread_outfile=None, 
-                             savefile=False):
+def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
+                             overwrite=False, spread_outfile=None):
     '''
     correct trilegal simulation with artificial star tests.
     options to write the a copy of the trilegal simulation with the corrected
@@ -789,7 +826,9 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
     returns
     adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
     '''
-
+    assert fake_file is not None, \
+        'ast_correct_trilegal_sim: fake_file now needs to be passed'
+        
     if type(fake_file) is str:
         asts = artificial_star_tests(fake_file)
         sgal.fake_file = fake_file
@@ -800,25 +839,22 @@ def ast_correct_trilegal_sim(sgal, fake_file, outfile=None, overwrite=False,
         logger.error('bad filter match between sim gal and ast.')
         return -1
 
-    cor_mag1, cor_mag2 = asts.ast_correction(sgal.mag1, sgal.mag2, 
-                                             **{'binsize': 0.2})
+    mag1 = sgal.mag1
+    mag2 = sgal.mag2
+
+    cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2, **{'binsize': 0.2})
     new_cols = {'%s_cor' % asts.filter1: cor_mag1, 
                 '%s_cor' % asts.filter2: cor_mag2}
     sgal.add_data(**new_cols)
 
-    if savefile is True: 
-        if not outfile:
-            outfile_name = sgal.name.replace('out', 'ast')
-            outfile_base = os.path.join(os.path.split(sgal.base)[0], 'AST')
-            rsp.fileIO.ensure_dir(outfile_base)
-            outfile = os.path.join(outfile_base, outfile_name)
+    if outfile is not None: 
         if overwrite or not os.path.isfile(outfile):
             write_trilegal_sim(sgal, outfile)
         else:
-            logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
-    if spread_too:
-        rsp.TrilegalUtils.write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
-
+            logger.warning('%s exists, not overwriting' % outfile)
+    if spread_outfile is not None:
+        rsp.TrilegalUtils.write_spread(sgal, outfile=spread_outfile,
+                                       overwrite=overwrite)
     return
 
 

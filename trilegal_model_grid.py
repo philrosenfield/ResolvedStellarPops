@@ -111,7 +111,7 @@ class model_grid(object):
         return
 
     def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
-                  over_write=False):
+                  over_write=False, clean_up=True):
         '''
         go through each age, metallicity step and make a single age
         cmd
@@ -147,6 +147,10 @@ class model_grid(object):
                     else:
                         TrilegalUtils.run_trilegal(self.cmd_input,
                                                    galaxy_input, output)
+        
+        if clean_up is True:
+            print 'now cleaning up files'
+            self.delete_columns_from_files()
         os.chdir(here)
 
     def get_grid(self, search_string):
@@ -188,7 +192,7 @@ class model_grid(object):
         if not hasattr(self, 'grid'):
             self.load_grid()
         if 'acs' in self.photsys:
-            print 'must add F475W to cols list as default'
+            print 'delete_columns_from_files: must add F475W to cols list as default'
             return
     
         if keep_cols == 'default':
@@ -198,6 +202,8 @@ class model_grid(object):
         
         for file in self.grid:
             tab = fileIO.read_table(file)
+            if len(tab.key_dict.keys()) == len(cols):
+                continue
             col_vals = [tab.key_dict[c] for c in cols if c in tab.key_dict.keys()]
             vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
             new_tab = np.delete(tab.data_array, vals, axis=1)
@@ -279,11 +285,10 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         self.filter2 = filter2
         self.load_grid()
 
-    def build_model_cmd(self, sfr_arr=None, tol=0.25, min_stars=10):
+    def build_model_cmd(self, match_bg, sfr_arr=None, tol=0.25, min_stars=10):
         '''
         1. randomly select x number of stars from cmd in each bin
-        2. build the full cmd - dmod, av, sfr scaling
-        3. combine into one sgal
+        2. write to a match bg file
 
         sf_frac = sfr_match [Msun/yr] / grid_sfr [Msun/yr] = the fraction of
         mass needed to extract from grid cmd.
@@ -294,84 +299,101 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         '''
         import random
         if not hasattr(self, 'sgals'):
-            'first running build sfh'
+            # was this called before build_sfh?
+            logger.info('first running build sfh')
             self.build_sfh()
         if sfr_arr is None:
             sfr_arr = self.sfr_arr
         else:
             # over write sfr_arr with the new sfr_arr, the original sfr_arr
-            # still lives in self.match_sfr[2].
+            # will still be self.match_sfr[2] (with the rest of the sfh_file)
             self.sfr_arr = sfr_arr
 
-        self.grid_sfr = []
+        mbg = open(match_bg, 'w')
+        mbg.write('# %s %s\n' % (self.filter1, self.filter2))
         for i, sgal in enumerate(self.sgals.galaxies):
-            sgal.burst_duration()
-            mass = sgal.data.get_col('m_ini')
-            tot_mass = np.sum(mass)
-            
-            # the mass of stars formed per year in the grid
-            grid_sfr = tot_mass / sgal.burst_length
-
-            med_mass = np.median(mass)
+            logging.info('build cmd loop... %i of %i' % (i, len(self.sgals.galaxies)-1))
+            if not hasattr(sgal, 'grid_sfr'):
+                sgal.burst_duration()
+                mass = sgal.data.get_col('m_ini')[sgal.rec]        
+                tot_mass = np.sum(mass)
+                # the mass of stars formed per year in the grid
+                grid_sfr = tot_mass / sgal.burst_length
+                sgal.grid_sfr = grid_sfr  
+                sgal.mass = mass  
+            else:
+                grid_sfr = sgal.grid_sfr
 
             # the ratio of mass formed in the sfr_file to the grid per year
             sf_frac = sfr_arr[i] / grid_sfr
-            if sfr_arr[i] > grid_sfr:
-                logger.info('%.4f %.4f' % (sfr_arr[i], grid_sfr))
-                logger.info('running check grid!')
-                self.check_grid(sfr_arr=sfr_arr)
 
-            # A convoluted way say sfr_arr * sgal.burst_length, it made sense
-            # at the time
-            frac_mass = tot_mass * sf_frac
+            frac_mass = sfr_arr[i] * sgal.burst_length
+            
             if frac_mass < 1:
                 logging.info('less than 1 msun...')
                 logging.info('sf_mass grid_sfr match_sfr')
                 logging.info('%.2f %.2g %.2g' % (frac_mass, grid_sfr,
                                                  sfr_arr[i]))
                 continue
-            nstars = sgal.data.data_array.shape[0]
+            nstars = len(sgal.mass)
             ind_arr = range(nstars)
 
             # the guess assumes 1. Msun is the average mass. Works ok.
             nstars_guess = int(np.round(sf_frac * nstars))
             predict_ratio = 99.
             broke = 0
+            max_try = 0
             while abs(predict_ratio) > tol:
-                if nstars_guess < min_stars:
-                    logger.debug('fewer than %i stars... skipping.' % min_stars)
-                    logger.debug('to tf sfr sfr_frac')
-                    logger.debug('%.1f %.1f %.4g %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i], sf_frac))
+                max_try += 1
+                if max_try > 5:
+                    logger.info('too may interations... skipping')
                     broke = 1
                     break
+
+                if nstars_guess < min_stars:
+                    logger.debug('fewer than %i stars... skipping.' % min_stars)
+                    broke = 1
+                    break
+
                 if nstars_guess > nstars:
-                    logger.debug('too many guess stars.')
-                    logger.debug('%.4f %i %i %.4f' % (sf_frac, nstars,
-                                                      nstars_guess,
-                                                      sf_frac * nstars))
-                    nstars_guess = int(np.round(sf_frac * nstars))/2
-                rand_inds = random.sample(ind_arr, nstars_guess)
-                guess_mass = np.sum(mass[rand_inds])
+                    # randomly select the guess number but trick 
+                    # random sample into doing a shuffle and a sample to get
+                    # all the stars. I.e.,
+                    # nstars_guess = nstars * how_big + how_extra
+                    # this is ok*, because we bin the stars into a hess diagram
+                    # *as long as the IMF is well sampled in sgal.data
+                    how_big = nstars_guess / nstars
+                    how_extra = nstars_guess % nstars
+                    rand_inds = np.array([random.sample(ind_arr, nstars) for i in range(how_big)])
+                    rand_inds = np.squeeze(np.append(rand_inds, random.sample(ind_arr, how_extra)))
+                    rand_inds = map(int, rand_inds)
+                else:
+                    rand_inds = random.sample(ind_arr, nstars_guess)
+                guess_mass = np.sum(np.array(sgal.mass)[rand_inds])
                 predict_ratio = 1. - frac_mass / guess_mass
                 nstars_guess += (predict_ratio * nstars_guess)
                 nstars_guess = int(np.round(nstars_guess))
 
             if broke == 0:
+                '''
+                if I skip match's stats package, I could add up the bins here.
+                # bin up hess
+                mbinsize = np.diff(hess_kw['mbin'])[0]
+                sgal.make_hess(mbinsize, useasts=True, slice_inds=rand_inds,
+                               **hess_kw)
                 try:
-                    supgal = np.append(supgal, sgal.data.data_array[rand_inds])
+                    sup_hess += sgal.hess[2] 
                 except NameError:
-                    supgal = sgal.data.data_array[rand_inds]
-
-        ncols = sgal.data.data_array.shape[1]
-        super_gal_data = supgal.reshape(supgal.shape[0] / ncols, ncols)
-        del supgal
-        col_keys = [i for (i,j) in sorted(sgal.data.key_dict.items(),
-                    key=lambda (k,v): (v,k))]
-        filename = 'super_data_from_%s' % os.path.split(self.sfr_file)[1]
-        supgal_tab = fileIO.Table(super_gal_data, col_keys, filename)
-        self.super_gal = Galaxies.simgalaxy(supgal_tab, self.filter1,
-                                            self.filter2, photsys=self.photsys,
-                                            table_data=True)
+                    sup_hess = sgal.hess[2]
+                '''
+                [mbg.write('%.4f %.4f \n' % (sgal.ast_mag1[sgal.rec][i],
+                                             sgal.ast_mag2[sgal.rec][i]))
+                                             for i in rand_inds]
+            else:
+                logger.debug('to: %.1f tf: %.1f sfr: %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i]))
+        
+        mbg.close()
+        logger.info('build_model_cmd wrote %s' % match_bg)
 
     def check_grid(self, object_mass=None, run_trilegal=True,
                    max_sfr_inc_frac=0.2, sfr_arr=None):
@@ -389,9 +411,10 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         if sfr_arr is None, will use initial sfr from sfr_file.
         '''
         if not hasattr(self, 'sgals'):
+            print 'building sfh'
             self.build_sfh()
 
-        extra = 1.        
+        extra = 1.
         if sfr_arr is None:
             sfr_arr = self.match_sfr[2]
             extra += max_sfr_inc_frac
@@ -414,7 +437,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         if object_mass is None:
             object_mass = self.object_mass    
         new_objmass = object_mass * 10
-        assert new_objmass < 1e7, 'obj mass is getting out of hand'
+        assert new_objmass < 5e7, 'obj mass is getting out of hand'
         galaxy_inkw = {'object_mass': new_objmass}
         here = os.getcwd()
         os.chdir(self.location)
@@ -442,6 +465,8 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         '''
         
         '''
+        if hasattr(self, 'sgals'):
+            return
         if max(self.age) > 12.:
             self.lage = np.round(np.log10(self.age), 2)
         else:
