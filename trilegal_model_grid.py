@@ -386,9 +386,12 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                 except NameError:
                     sup_hess = sgal.hess[2]
                 '''
-                [mbg.write('%.4f %.4f \n' % (sgal.ast_mag1[sgal.rec][i],
-                                             sgal.ast_mag2[sgal.rec][i]))
-                                             for i in rand_inds]
+                #[mbg.write('%.4f %.4f \n' % (sgal.ast_mag1[sgal.rec][i],
+                #                             sgal.ast_mag2[sgal.rec][i]))
+                #                             for i in rand_inds]
+                tosave = np.column_stack((sgal.ast_mag1[sgal.rec][rand_inds],
+                                          sgal.ast_mag2[sgal.rec][rand_inds]))
+                np.savetxt(mbg, tosave, fmt='%.4f %.4f')
             else:
                 logger.debug('to: %.1f tf: %.1f sfr: %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i]))
         
