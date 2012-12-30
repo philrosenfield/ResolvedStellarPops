@@ -297,11 +297,16 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
         if sfr_arr is none, will use the sfr_file's sfr i.e, initialization.
         '''
-        import random
+        try:
+            random
+        except NameError:
+            import random
+
         if not hasattr(self, 'sgals'):
             # was this called before build_sfh?
             logger.info('first running build sfh')
             self.build_sfh()
+
         if sfr_arr is None:
             sfr_arr = self.sfr_arr
         else:
@@ -311,7 +316,16 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
         mbg = open(match_bg, 'w')
         mbg.write('# %s %s\n' % (self.filter1, self.filter2))
-        for i, sgal in enumerate(self.sgals.galaxies):
+        if hasattr(self, 'sfr_inds'):
+            these_gals = self.sgals.galaxies[self.sfr_inds]
+            logging.info('using a subset galaxy inds here')
+        else:
+            these_gals = self.sgals.galaxies
+
+        assert len(these_gals) == len(sfr_arr), \
+            'sfr bins and grid are different lengths'
+
+        for i, sgal in enumerate(these_gals):
             logging.info('build cmd loop... %i of %i' % (i, len(self.sgals.galaxies)-1))
             if not hasattr(sgal, 'grid_sfr'):
                 sgal.burst_duration()
@@ -328,7 +342,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             sf_frac = sfr_arr[i] / grid_sfr
 
             frac_mass = sfr_arr[i] * sgal.burst_length
-            
+
             if frac_mass < 1:
                 logging.info('less than 1 msun...')
                 logging.info('sf_mass grid_sfr match_sfr')
