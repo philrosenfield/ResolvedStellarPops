@@ -10,26 +10,43 @@ class Isochrone(object):
         self.age = age
         self.data_array = data_array
         self.key_dict = dict(zip(col_keys, range(len(col_keys))))
-
+        
     def get_row(self, i):
         return self.data_array[i, :]
 
     def get_col(self, key):
         return self.data_array[:, self.key_dict[key]]
 
-    def plot_isochrone(self, col1, col2, ax=None, plt_kw={}):
+    def plot_isochrone(self, col1, col2, ax=None, plt_kw={}, mag_covert_kw={},
+                       photsys=None, clean=True):
         import matplotlib.pyplot as plt
         if ax is None:
             fig = plt.figure()
             ax = plt.axes()
         
-        x = self.get_col(col1)
-        if '-' in col2:
-            # not tested...
-            col2a, col2b = col2.split('-')
-            y = self.get_col(col2a) - self.get_col(col2b)
+        y = self.get_col(col2)    
+        if len(mag_covert_kw) != 0:
+            import astronomy_utils
+            y = astronomy_utils.Mag2mag(y, col2, photsys, **mag_covert_kw)
+
+        if '-' in col1:
+            col1a, col1b = col1.split('-')
+            x1 = self.get_col(col1a)
+            x2 = self.get_col(col1b)
+            if len(mag_covert_kw) != 0:
+                x1 = astronomy_utils.Mag2mag(x1, col1a, photsys, **mag_covert_kw)
+                x2 = astronomy_utils.Mag2mag(x2, col1b, photsys, **mag_covert_kw)
+            x = x1 - x2
         else:
-            y = self.get_col(col2)    
+            x = self.get_col(col1)
+        
+        if clean is True:
+            rollit = len(x) - np.argmax(x)
+            x = np.roll(x, rollit)
+            y = np.roll(y, rollit)
+            x = x[1:]
+            y = y[1:]
+
         ax.plot(x, y, **plt_kw)
 
         return ax

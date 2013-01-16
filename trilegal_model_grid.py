@@ -130,7 +130,7 @@ class model_grid(object):
             print 'now doing %.2f-%.2f, %.4f %g' % (to, tf, z, obj_mass)
             # set up filenames TODO: make prefixes kwargs
 
-            sfh_file = self.filename_fmt(self.sfr_pref,to, tf, z)
+            sfh_file = self.filename_fmt(self.sfr_pref, to, tf, z)
             galaxy_input = self.filename_fmt(self.inp_pref, to, tf, z)
             output =  self.filename_fmt(self.out_pref, to, tf, z)
 
@@ -154,7 +154,7 @@ class model_grid(object):
         os.chdir(here)
 
     def get_grid(self, search_string):
-        sub_grid = fileIO.get_file(self.location, search_string)
+        sub_grid = fileIO.get_files(self.location, search_string)
 
     def load_grid(self, check_empty=False):
         grid = fileIO.get_files(self.location, '%s*dat' % self.out_pref)
@@ -285,7 +285,8 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         self.filter2 = filter2
         self.load_grid()
 
-    def build_model_cmd(self, match_bg, sfr_arr=None, tol=0.25, min_stars=10):
+    def build_model_cmd(self, match_bg, sfr_arr=None, tol=0.25, min_stars=10,
+                        over_write=False, spread_old_ages='', age_adjust_limit=13.):
         '''
         1. randomly select x number of stars from cmd in each bin
         2. write to a match bg file
@@ -302,6 +303,12 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         except NameError:
             import random
 
+        # hack, only the youngest sf should be adjusted by emcee.
+        (sfr_inds, ) = np.nonzero(self.match_sfr[0] <= age_adjust_limit)
+        sfr_adj = self.sfr_arr[sfr_inds]
+        # add the inds to adjust the sfr to the sf stitcher.
+        self.sfr_inds = sfr_inds
+
         if not hasattr(self, 'sgals'):
             # was this called before build_sfh?
             logger.info('first running build sfh')
@@ -314,19 +321,26 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             # will still be self.match_sfr[2] (with the rest of the sfh_file)
             self.sfr_arr = sfr_arr
 
-        mbg = open(match_bg, 'w')
-        mbg.write('# %s %s\n' % (self.filter1, self.filter2))
-        if hasattr(self, 'sfr_inds'):
-            these_gals = self.sgals.galaxies[self.sfr_inds]
-            logging.info('using a subset galaxy inds here')
-        else:
-            these_gals = self.sgals.galaxies
+        split_on_age = False
+        these_gals = self.sgals.galaxies
 
-        assert len(these_gals) == len(sfr_arr), \
-            'sfr bins and grid are different lengths'
+        if hasattr(self, 'sfr_inds'):
+            if not os.path.isfile(spread_old_ages) or over_write is True:
+                split_on_age = True
+                logging.info('writing old age bins to file %s' % spread_old_ages)
+                obg = open(spread_old_ages, 'w')
+            else:
+                logging.info('using a subset galaxy bins')
+                these_gals = self.sgals.galaxies[self.sfr_inds]
+                assert len(these_gals) == len(sfr_arr), \
+                    'sfr bins and grid are different lengths'
+
+        mbg = open(match_bg, 'w')
+        #mbg.write('# %s %s\n' % (self.filter1, self.filter2))
+        tofile = mbg
 
         for i, sgal in enumerate(these_gals):
-            logging.info('build cmd loop... %i of %i' % (i, len(self.sgals.galaxies)-1))
+            logging.debug('build cmd loop... %i of %i' % (i, len(these_gals) - 1))
             if not hasattr(sgal, 'grid_sfr'):
                 sgal.burst_duration()
                 mass = sgal.data.get_col('m_ini')[sgal.rec]        
@@ -400,16 +414,26 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                 except NameError:
                     sup_hess = sgal.hess[2]
                 '''
-                #[mbg.write('%.4f %.4f \n' % (sgal.ast_mag1[sgal.rec][i],
-                #                             sgal.ast_mag2[sgal.rec][i]))
-                #                             for i in rand_inds]
+                if split_on_age is True:
+                    if i in self.sfr_inds:
+                        tofile = mbg
+                    else:
+                        tofile = obg
+
                 tosave = np.column_stack((sgal.ast_mag1[sgal.rec][rand_inds],
                                           sgal.ast_mag2[sgal.rec][rand_inds]))
-                np.savetxt(mbg, tosave, fmt='%.4f %.4f')
+
+                np.savetxt(tofile, tosave, fmt='%.4f %.4f')
+
             else:
                 logger.debug('to: %.1f tf: %.1f sfr: %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i]))
         
         mbg.close()
+        try:
+            obg.close()
+        except NameError:
+            pass
+
         logger.info('build_model_cmd wrote %s' % match_bg)
 
     def check_grid(self, object_mass=None, run_trilegal=True,

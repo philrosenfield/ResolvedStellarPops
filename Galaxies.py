@@ -849,7 +849,7 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 
     if outfile is not None: 
         if overwrite or not os.path.isfile(outfile):
-            write_trilegal_sim(sgal, outfile)
+            rsp.TrilegalUtils.write_trilegal_sim(sgal, outfile)
         else:
             logger.warning('%s exists, not overwriting' % outfile)
     if spread_outfile is not None:

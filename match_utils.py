@@ -364,7 +364,7 @@ def calcsfh_dict():
             'combine_poly': None,
             'ntbins': 0,
             'dobg': -1,
-            'bg_hess': -1, # if it's not a hess, set to +1 see match readme
+            'bg_hess': 1, # if it's not a hess, set to +1 see match readme
             'smooth': 1,
             'ilogzmin': -2.3,
             'ilogzmax': -1.3,
@@ -519,7 +519,7 @@ def get_fit(filename):
     return chi2, fit
 
 def match_light(gal, inputs, match_bg, match_kwargs={}, make_plot=False,
-                **kwargs):
+                figname=None, **kwargs):
 
     if len(match_kwargs) == 0:
         match_kwargs = {'match_bg': match_bg}
@@ -559,7 +559,8 @@ def match_light(gal, inputs, match_bg, match_kwargs={}, make_plot=False,
 
     if make_plot is True:
         # save plot
-        figname = fileIO.replace_ext(cmdgrid, '.png')
+        if figname is None:
+            figname = fileIO.replace_ext(cmdgrid, '.png')
         if inputs.plotdir is not None:
             figname = os.path.join(inputs.plotdir, os.path.split(figname)[1])
         plt.savefig(figname)

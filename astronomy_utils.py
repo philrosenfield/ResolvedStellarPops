@@ -1,8 +1,8 @@
 import fileIO
-from angst_tables import AngstTables
 import os
 import numpy as np
-
+import angst_tables
+angst_data = angst_tables.AngstTables()
 
 def hess(color, mag, binsize, **kw):
     """
@@ -95,8 +95,8 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
     if target is not None:
         filter2 = filter
         filter1 = kwargs.get('filter1', None)
-        trgb, Av, dmod = AngstTables.get_tab5_trgb_av_dmod(target, 
-                                                           ', '.join((filter1, 
+        trgb, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target, 
+                                                          ','.join((filter1, 
                                                                      filter2)))
     else:
         Av = kwargs.get('Av', 0.0)

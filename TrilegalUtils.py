@@ -6,6 +6,24 @@ import logging
 logger = logging.getLogger()
 
 
+def read_padova_isoch(ptcri_file):
+    with open(ptcri_file, 'r') as p:
+        lines = p.readlines()
+
+    age = np.array([])
+    logl = np.array([])
+    logte = np.array([])
+    for line in lines:
+        if len(line[:35].split(' ')) == 4:
+            (a, l, t, __) = line[:35].split(' ')
+            if float(a) < 1e3:
+                continue
+            age = np.append(a, age)
+            logl = np.append(l, logl)
+            logte = np.append(t, logte)
+    return (age, logl, logte)
+
+
 def write_trilegal_sim(sgal, outfile, slice_inds=None):
     '''
     writes trilegal sim to outfile.
