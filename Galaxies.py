@@ -756,6 +756,7 @@ class simgalaxy(star_pop):
                 logger.info('wrote %s' % figname.replace('.png', '%s.png' % extra))
                 plt.close()
             else:
+                print 'provide a fig name or get an error!!!!'
                 plt.show()
             j+=1
         return figname.replace('.png', '%s.png' % extra)
