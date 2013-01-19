@@ -67,49 +67,6 @@ def savetxt(filename, data, fmt='%.4f', header=None):
     print 'wrote', filename
 
 
-def _setup_logging(logfile=None, stream=True, formatter='default', level='DEBUG'):
-    '''
-    set up logger, if no logfile, will just set to stream handler. if logfile,
-    will do both by default.
-    '''
-    if len(logger.handlers) == 2:
-        # already initialized.
-        return
-    elif len(logger.handlers) > 2:
-        logger.removeHandler(logger.handlers[2:])
-        return
-
-    level_dict = {'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 
-                  'FATAL': 50, 'CRITICAL': 50}
-
-    try:
-        slevel = level_dict[level.upper()]
-    except:
-        print '%s not a valid level' % level
-        print ' '.join(level_dict.keys())
-        return -1
-
-    if formatter == 'default':
-        fmt = '%(levelname)s - %(funcName)s (l%(lineno)d): %(message)s'
-        formatter = logging.Formatter(fmt)
-    else:
-        formatter = formatter
-
-    if logfile is not None:
-        fh = logging.FileHandler(logfile)
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-        #fh.setLevel(slevel)
-        
-    if stream is True:
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
-        #ch.setLevel(slevel)
-    return
-
 class input_file(object):
     '''
     a class to replace too many kwargs from the input file.
