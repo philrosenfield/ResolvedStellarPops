@@ -1,3 +1,5 @@
+import traceback
+import sys
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -5,14 +7,16 @@ from scipy.interpolate import splev, splrep, splprep
 import fileIO
 
 class Track(object):
-    def __init__(self, filename, ptcri=None, ptcri_file=None):
+    def __init__(self, filename, ptcri=None, ptcri_file=None, min_lage=0.2, cut_long=True):
         (self.base, self.name) = os.path.split(filename)
-        self.load_track(filename)
+        self.load_track(filename, min_lage=min_lage, cut_long=cut_long)
         self.filename_info()
-        self.mass = self.data.MASS[0]            
+        self.mass = self.data.MASS[0]
         if ptcri is not None:
             self.load_critical_points(ptcri=ptcri)
-        
+        else:
+            self.ptcri = ptcri
+
     def filename_info(self):
         (pref, __, smass) = self.name.replace('.PMS','').split('_')
         #self.__setattr__[]
@@ -41,10 +45,12 @@ class Track(object):
             lneutr = self.data.LNEUTR
             icburn, = np.nonzero((ycen == 0) & ((lc > 2) | (lc > lneutr)))
         if len(icburn) > 0:
-            # actually C-burning
-            itpagb = min(icburn) 
+            # actually C-burning            
+            print 'Cutting at C-burning'
+            itpagb = min(icburn)
         else:
             # beginning thin shell
+            print 'Cutting at thin shell burning'
             ishell, = np.nonzero((ycen == 0) & (self.data.QCAROX > self.data.QHEL*3./4.))
             if len(ishell) > 0:
                 itpagb = np.min(ishell)
@@ -53,6 +59,8 @@ class Track(object):
                 ishell, = np.nonzero((self.data.LY > 1) & (self.data.QCAROX > 0.1))
                 if len(ishell) > 0:
                     itpagb = np.min(ishell)
+        
+        itpagb = itpagb + 1
         self.data = self.data[np.arange(itpagb)]
         
     def load_track(self, filename, min_lage=0.2, cut_long=True):
@@ -75,6 +83,7 @@ class Track(object):
                                  skiprows=begin_track + 2,
                                  skip_footer = 2,
                                  names=col_keys)
+
         # cut non-physical part of the model
         ainds, = np.nonzero(data['AGE'] > min_lage)
         data = data[ainds]
@@ -85,7 +94,7 @@ class Track(object):
             self.cut_long_track()
         return
 
-    def load_critical_points(self, filename=None, ptcri=None):
+    def load_critical_points(self, filename=None, ptcri=None, loud=False):
         '''
         iptcri is the critical point index rel to self.data
         mptcri is the model number of the critical point
@@ -95,11 +104,26 @@ class Track(object):
 
         if ptcri is None:
             ptcri = critical_point(filename)
+        self.ptcri = ptcri
         self.mptcri = ptcri.data_dict['M%.3f' % self.mass]
         self.iptcri = np.concatenate([np.nonzero(self.data.MODE == m)[0] for m in self.mptcri])
         self.ptcri_keys = ptcri.key_dict
+
+        assert self.data.MODE[0] <= self.mptcri[0], \
+            'First critical point not contained in Track.data.MODE.'
+
+        mptcris, = self.mptcri.nonzero()
+
+        assert self.data.MODE[-1] >= self.mptcri[mptcris][-1], \
+            'Last critical point not contained in Track.data.MODE.'
+
         assert ptcri.Z == self.Z, 'Zs do not match between track and ptcri file'
+
         assert ptcri.Y == self.Y, 'Ys do not match between track and ptcri file'
+
+        #not_ptcri = 
+        if loud is True:
+            print '%s not found in %s' % (not_ptcri, self.name)
 
     def write_culled_track(self, columns_list, **kwargs):
         '''
@@ -129,7 +153,7 @@ class Track(object):
             self.load_critical_points(filename=ptcrifile)
 
         # add the final point of the track to the crit point array.
-        self.iptcri = np.append(self.iptcri, len(self.data)-1)
+        #self.iptcri = np.append(self.iptcri, len(self.data)-1)
 
         nknots = -1
         spline_level = 3
@@ -144,25 +168,41 @@ class Track(object):
         Age = np.array([])
         for i in range(len(self.iptcri)-1):
             inds = np.arange(self.iptcri[i], self.iptcri[i+1])
-            
-            if self.mptcri[i+1] - self.mptcri[i] < 35:
+            print self.mass, self.ptcri.get_ptcri_name(i), self.ptcri.get_ptcri_name(i+1)
+            '''
+            if self.mptcri[i+1] - self.mptcri[i] < 35: 
+                print self.mptcri[i+1], self.mptcri[i], self.mptcri[i+1] - self.mptcri[i]
                 print 'skipping! m %s' % self.mass
                 continue
             if len(inds) < 20:
                 print 'skipping! i %s' % self.mass
                 continue
+            '''
+            non_dupes = self.remove_dupes(self.data.LOG_TE[inds],
+                                          self.data.LOG_L[inds],
+                                          self.data.AGE[inds])
             
-            tckp, u = splprep([self.data.LOG_TE[inds],
-                               self.data.LOG_L[inds],
-                               self.data.AGE[inds]],
-                               s=smooth, k=spline_level,
-                               nest=nknots)
+            if len(non_dupes) <= spline_level:
+                spline_level = len(non_dupes) - 1
+                print 'only %i indices to fit...' % len(non_dupes)
 
+            try:
+                tckp, u = splprep([self.data.LOG_TE[inds][non_dupes],
+                                   self.data.LOG_L[inds][non_dupes],
+                                   np.log10(self.data.AGE[inds][non_dupes])],
+                                   s=smooth, k=spline_level,
+                                   nest=nknots)
+            except TypeError:
+                traceback.print_exc(file=sys.stdout)
+                tenew = np.repeat(self.data.LOG_TE[inds][non_dupes], nticks[i])
+                lnew = np.repeat(self.data.LOG_TE[inds][non_dupes], nticks[i])
+                agenew = np.repeat(self.data.LOG_TE[inds][non_dupes], nticks[i])
+                
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
             #plt.plot(tenew,lnew, '.', color='red')
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)
-            Age = np.append(Age, agenew)
+            Age = np.append(Age, 10**agenew)
         
         Mbol = 4.77 - 2.5 * logL
         logg = -10.616 + np.log10(self.mass) + 4.0 * logTe - logL
@@ -178,8 +218,15 @@ class Track(object):
             np.savetxt(f, to_write, fmt='%.6f')
 
         self.match_data = to_write
+    
+    def remove_dupes(self, x, y, z):
+        inds = np.arange(len(x))
+        mask, = np.nonzero(((np.diff(x) == 0) & (np.diff(y) == 0) & (np.diff(z) == 0)))
+        non_dupes = [i for i in inds if i not in mask]
         
-    def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, inds=None, plt_kw={}):
+        return non_dupes
+
+    def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, inds=None, plt_kw={}, annotate=False):
         if ax is None:
             fig = plt.figure()
             ax = plt.axes()
@@ -195,14 +242,29 @@ class Track(object):
         if reverse_y:
             ax.set_ylim(ax.get_ylim()[::-1])
 
+        if annotate:
+            labels = ['$%s$'.replace('_','') % self.ptcri.get_ptcri_name(i) for i in range(len(inds))]
+            for label, x, y in zip(labels, self.data[xcol][inds],
+                                   self.data[ycol][inds]):
+                ax.annotate(label, xy=(x, y), xytext=(-20, 20),
+                            textcoords='offset points', ha='right', va='bottom',
+                            bbox=dict(boxstyle='round, pad=0.5', fc='yellow',
+                                      alpha=0.5),
+                            arrowprops=dict(arrowstyle='->',
+                                            connectionstyle='arc3,rad=0'))
+
         return ax
     
     def check_ptcris(self):
-        ax = self.plot_track('LOG_TE', 'LOG_L', reverse_x=True, plt_kw={'color': 'black'})
-        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, inds=self.iptcri, plt_kw={'marker': 'o', 'ls': ''})
+        all_inds = np.arange(self.iptcri[0], self.iptcri[-1] + 1)
+        ax = self.plot_track('LOG_TE', 'LOG_L', inds=all_inds, reverse_x=True,
+                             plt_kw={'color': 'black'})
+        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, inds=self.iptcri,
+                             plt_kw={'marker': 'o', 'ls': ''}, annotate=True)
+                
         if hasattr(self, 'match_data'):
             logl = (4.77 - self.match_data.T[3]) / 2.5
-            ax.plot(self.match_data.T[2], logl, lw=2)
+            ax.plot(self.match_data.T[2], logl, lw=2, color='green')
         ax.set_title('M = %.3f' % self.mass)
         plt.savefig('ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
 
@@ -226,6 +288,15 @@ class critical_point(object):
         if ystr.endswith('.'):
             ystr = ystr[:-1]
         self.Y = float(ystr)
+
+    def get_ptcri_name(self, val):
+        if type(val) == int:
+            return [name for name, pval in self.key_dict.items() if pval == val][0]
+        elif type(val) == str:
+            return [pval for name, pval in self.key_dict.items() if name == val][0]
+        else:
+            'must give an integer or string that corresponds to something in ptcri_keys dict.'
+
 
     def load_ptcri(self, filename):
         '''
@@ -273,11 +344,9 @@ def track_set_for_match(prefix, **kwargs):
     ptcri = critical_point(ptcri_file)
 
     for track in track_names:
-        if 'M.6' in track or 'M.7' in track:
-            continue
-        t = Track(track, ptcri=ptcri)
-        t.check_ptcris()
+        t = Track(track, ptcri=ptcri, min_lage=0., cut_long=0)
         t.tracks_for_match()
+        t.check_ptcris()
 
 if __name__ == '__main__':
     import pdb
