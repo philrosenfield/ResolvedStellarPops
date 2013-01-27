@@ -10,6 +10,52 @@ def brighter(mag2, trgb, inds=None):
     return i
 
 
+def find_peaks(arr):
+    '''
+    from
+    http://stackoverflow.com/questions/4624970/finding-local-maxima-minima-with-numpy-in-a-1d-numpy-array
+    '''
+    gradients=np.diff(arr)
+    #print gradients
+    
+    maxima_num=0
+    minima_num=0
+    max_locations=[]
+    min_locations=[]
+    count=0
+    for i in gradients[:-1]:
+        count+=1
+        
+        if ((cmp(i,0)>0) & (cmp(gradients[count],0)<0) &
+            (i != gradients[count])):
+            maxima_num+=1
+            max_locations.append(count)     
+            
+        if ((cmp(i,0)<0) & (cmp(gradients[count],0)>0) &
+            (i != gradients[count])):
+            minima_num+=1
+            min_locations.append(count)
+            
+    
+    turning_points = {'maxima_number':maxima_num,
+                      'minima_number':minima_num,
+                      'maxima_locations':max_locations,
+                      'minima_locations':min_locations}  
+    
+    return turning_points
+
+
+
+def closest_match(num, somearray):
+    index = -1
+    somearray = np.nan_to_num(somearray)
+    difference = np.abs(num - somearray[0])
+    for i in range(len(somearray)):
+        if difference > np.abs(num - somearray[i]):
+            difference = np.abs(num - somearray[i])
+            index = i
+    return index, difference
+
 def bayesian_blocks(t):
     """Bayesian Blocks Implementation
 

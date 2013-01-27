@@ -185,8 +185,8 @@ class star_pop(object):
             col = self.Color
             mag = self.Mag2
         elif useasts is True:
-            col = self.ast_color
-            mag = self.ast_mag2
+            col = self.ast_color[self.rec]
+            mag = self.ast_mag2[self.rec]
         else:
             col = self.color
             mag = self.mag2

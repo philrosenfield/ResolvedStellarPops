@@ -26,14 +26,14 @@ def read_match_sfh(filename, bgfile=False):
     return sfh
 
     
-def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
+def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
+                      sarah_sim=False, footer=2):
     '''
     turn a match sfh output file into a sfr-z table for trilegal.
 
     check: after new isochrones, do we need to go from lage 10.15 to 10.13?
     todo: add possibility for z-dispersion.
     '''
-    footer = 2
     if bgfile is True:
         footer += 2
 
@@ -50,8 +50,12 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False):
             if sfr[i] == 0.:
                 continue
             sfr[i] = sfr[i] * 1e3  # sfr is normalized in trilegal
-            z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
-            z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
+            if sarah_sim:
+                z1 = dlogz[i] - half_bin
+                z2 = dlogz[i] + half_bin
+            else:
+                z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
+                z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
             age1a = 1.0 * 10 ** to[i]
             age1p = 1.0 * 10 ** (to[i] + 0.0001)
             age2a = 1.0 * 10 ** tf[i]

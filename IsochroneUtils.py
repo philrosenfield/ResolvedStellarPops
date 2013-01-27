@@ -18,7 +18,8 @@ class Isochrone(object):
         return self.data_array[:, self.key_dict[key]]
 
     def plot_isochrone(self, col1, col2, ax=None, plt_kw={}, mag_covert_kw={},
-                       photsys=None, clean=True):
+                       photsys=None, clean=True, inds=None, reverse_x=False,
+                       reverse_y=False):
         import matplotlib.pyplot as plt
         if ax is None:
             fig = plt.figure()
@@ -47,7 +48,16 @@ class Isochrone(object):
             x = x[1:]
             y = y[1:]
 
-        ax.plot(x, y, **plt_kw)
+        if inds is None:
+            ax.plot(x, y, **plt_kw)
+        else:
+            ax.plot(x[inds], y[inds], **plt_kw)
+
+        if reverse_x is True:
+            ax.set_xlim(ax.get_xlim()[::-1])
+
+        if reverse_y is True:
+            ax.set_ylim(ax.get_ylim()[::-1])
 
         return ax
 
