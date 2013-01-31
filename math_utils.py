@@ -15,28 +15,27 @@ def find_peaks(arr):
     from
     http://stackoverflow.com/questions/4624970/finding-local-maxima-minima-with-numpy-in-a-1d-numpy-array
     '''
-    gradients=np.diff(arr)
+    gradients = np.diff(arr)
     #print gradients
     
-    maxima_num=0
-    minima_num=0
-    max_locations=[]
-    min_locations=[]
-    count=0
+    maxima_num = 0
+    minima_num = 0
+    max_locations = []
+    min_locations = []
+    count = 0
     for i in gradients[:-1]:
-        count+=1
+        count += 1
         
-        if ((cmp(i,0)>0) & (cmp(gradients[count],0)<0) &
+        if ((cmp(i, 0) > 0) & (cmp(gradients[count], 0) < 0) &
             (i != gradients[count])):
-            maxima_num+=1
+            maxima_num += 1
             max_locations.append(count)     
             
-        if ((cmp(i,0)<0) & (cmp(gradients[count],0)>0) &
+        if ((cmp(i, 0) < 0) & (cmp(gradients[count], 0) > 0) &
             (i != gradients[count])):
-            minima_num+=1
+            minima_num += 1
             min_locations.append(count)
-            
-    
+
     turning_points = {'maxima_number':maxima_num,
                       'minima_number':minima_num,
                       'maxima_locations':max_locations,
@@ -44,6 +43,14 @@ def find_peaks(arr):
     
     return turning_points
 
+
+def closest_match2d(ind, x1, y1, x2, y2):
+    '''
+    finds closest point between x2[ind], y2[ind] and x1, y1. Just minimizes
+    the radius of a circle.
+    '''
+    dist = np.sqrt((x1/np.max(x1) - x2[ind]/np.max(x2)) ** 2 + (y1/np.max(y1) - y2[ind]/np.max(y2)) ** 2)
+    return np.argmin(dist), np.min(dist)
 
 
 def closest_match(num, somearray):

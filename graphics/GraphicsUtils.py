@@ -28,16 +28,22 @@ def plot_numbs(ax, item, xpos, ypos, **kwargs):
     return
 
 def setup_multiplot(nplots, **subplots_kwargs):
+    '''
+    fyi subplots args:
+        nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True, 
+        subplot_kw=None, **fig_kw
+    '''
     nx = np.round(np.sqrt(nplots))
-    nextra = nplots-nx**2
+    nextra = nplots - nx ** 2
     ny = nx
-    if nextra > 0: ny += 1
+    if nextra > 0: 
+        ny += 1
     nx = int(nx)
     ny = int(ny)
     
-    fig, axs = plt.subplots(nx, ny, **subplots_kwargs)
+    (fig, axs) = plt.subplots(nrows=nx, ncols=ny, **subplots_kwargs)
     
-    return fig, axs
+    return (fig, axs)
 
 
 def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
