@@ -104,7 +104,16 @@ class Track(object):
             self.cut_long_track()
         return
 
-
+    def low_mass_cut(self):
+        ims_beg, =  np.nonzero(self.data.MODE == self.ptcri.sandros_dict['MS_BEG'])
+        
+        hburn, = np.nonzero((self.data.AGE > 0.2) &
+                           (self.data.LX > 0) &
+                           (self.data.XCEN > 0) &
+                           (self.data.LOG_Tc > 7))
+        
+        hburn = hburn[ims_beg:]
+        
     def define_eep_stages(self):
         '''
         must define the stages here if not using Sandro's defaults.
@@ -135,33 +144,45 @@ class Track(object):
         x The maximum luminosity before the first Thermal Pulse
         x The AGB termination
         '''
-
+        xcen_eeps = False
         ptcri = self.ptcri
-        default_list = ['MS_TMIN', 'MS_TO', 'MAX_L', 'MIN_L', 'YCEN_0.55',
-                        'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10',
-                        'YCEN_0.00']
+        if xcen_eeps is True:
+            default_list = ['XCEN_0.55', 'XCEN_0.50', 'XCEN_0.40', 'XCEN_0.20',
+                            'XCEN_0.10', 'XCEN_0.00', 'YCEN_0.55', 'YCEN_0.50',
+                            'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00']
 
-        eep_list = ptcri.please_define
-        assert default_list == eep_list, \
-            'Can not define all EEPs. Please check lists'
+            eep_list = ptcri.please_define
+            assert default_list == eep_list, \
+                'Can not define all EEPs. Please check lists'
 
-        self.add_ms_eeps()
-        # even though ms_tmin comes first, need to bracket with ms_to
-
-        ims_to = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
-                                                             sandro=False)]
-
-        ims_tmin = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TMIN',
-                                                               sandro=False)]
-        if ims_to == 0:
-            # should now make sure all other eeps are 0.
-            [self.add_eep(cp, 0) for cp in default_list[2:]]
-        else:
-            #self.add_ms_tmin_eep()
-            self.add_max_l_eep()
-            self.add_min_l_eep()
-            self.add_ycen_eeps()
+            self.add_cen_eeps(xcen_eeps=xcen_eeps, xcen=True)
+            self.add_cen_eeps(xcen_eeps=xcen_eeps)
             self.add_cburn_eep()
+        else:
+            default_list = ['MS_TMIN', 'MS_TO', 'MAX_L', 'MIN_L', 'YCEN_0.55',
+                            'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10',
+                            'YCEN_0.00']
+            eep_list = ptcri.please_define
+            assert default_list == eep_list, \
+                'Can not define all EEPs. Please check lists'
+                           
+            self.add_ms_eeps()
+            # even though ms_tmin comes first, need to bracket with ms_to
+    
+            ims_to = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
+                                                                 sandro=False)]
+    
+            ims_tmin = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TMIN',
+                                                                   sandro=False)]
+            if ims_to == 0:
+                # should now make sure all other eeps are 0.
+                [self.add_eep(cp, 0) for cp in default_list[2:]]
+            else:
+                #self.add_ms_tmin_eep()
+                self.add_max_l_eep()
+                self.add_min_l_eep()
+                self.add_cen_eeps()
+                self.add_cburn_eep()
         
         assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >=  0), \
                 'EEPs are not monotonically increasing. M=%.3f' % self.mass
@@ -207,11 +228,11 @@ class Track(object):
                     ms_beg = i + ipms
                     break
 
-        if self.data.MODE[ms_beg] - self.ptcri.sandro_dict['MS_BEG'] != 0:
-            print self.data.MODE[ms_beg], self.ptcri.sandro_dict['MS_BEG'], self.mass
+        if self.data.MODE[ms_beg] - self.ptcri.sandros_dict['MS_BEG'] != 0:
+            print self.data.MODE[ms_beg], self.ptcri.sandros_dict['MS_BEG'], self.mass
             ms_beg, diff = math_utils.closest_match(1., self.data.LX)
             ms_beg -= 2
-            print 'OR', self.data.MODE[ms_beg], self.ptcri.sandro_dict['MS_BEG'], self.mass
+            print 'OR', self.data.MODE[ms_beg], self.ptcri.sandros_dict['MS_BEG'], self.mass
 
 
     def add_cburn_eep(self):
@@ -219,61 +240,84 @@ class Track(object):
         Just takes Sandro's, will need to expand here for TPAGB...
         '''
         eep_name = 'C_BUR'
-        c_bur = self.ptcri.sandro_dict[eep_name]
+        c_bur = self.ptcri.sandros_dict[eep_name]
         self.add_eep(eep_name, c_bur)
 
 
-    def add_ycen_eeps(self):
+    def add_cen_eeps(self, xcen_eeps=False, xcen=False):
         '''
         Add YCEN_[fraction] eeps, if YCEN=fraction found to 0.01, will add 0 as
         the iptrcri. (0.01 is hard coded)
         '''
-        inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name('MAX_L', sandro=False)], len(self.data.YCEN))
+        if xcen:
+            fcol = 'PMS_BEG'
+            col = 'XCEN'
+        else:
+            fcol = 'RG_BASE'
+            col = 'YCEN'
+        
+        if xcen_eeps is False:
+            fcol = 'MAX_L'
+        
+        inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name(fcol, sandro=xcen_eeps)], len(self.data[col]))
 
         #iheb, = np.nonzero((self.data.LY > 0.) & (self.data.XCEN == 0.))
-        ycens = [y for y in self.ptcri.please_define if y.startswith('YCEN')]
-        for ycen in ycens:
+        cens = [i for i in self.ptcri.please_define if i.startswith(col)]
+        for cen in cens:
             # e.g., YCEN_0.50
-            frac = float(ycen.split('_')[-1])
-            ind, dif = math_utils.closest_match(frac, self.data.YCEN[inds])
-            iycen = inds[0] + ind
+            frac = float(cen.split('_')[-1])
+            ind, dif = math_utils.closest_match(frac, self.data[col][inds])
+            icen = inds[0] + ind
             # some tolerance for a good match.
             if dif > 0.01:
                 #print '%s is found, but %.2f off: %.3f M=%.3f' % (ycen, dif, self.data.YCEN[iheb[ind]], self.mass)
-                iycen = 0
-            self.add_eep(ycen, iycen)
+                icen = 0
+            self.add_eep(cen, icen)
 
 
     def add_ms_eeps(self):
         '''
         Adds  MS_TMIN and MS_TO. 
-        Doing both in one method because both take same call to find_peaks.
         Note: MS_TMIN could be XCEN = 0.3 if no actual MS_TMIN (low masses)
-              (0.3 is hard coded)        
+              (0.3 is hard coded)
+        
+        If no MS_TO, assumes no MS_TMIN coming after it. 
         '''
 
-        inds, = np.nonzero(self.data.XCEN > 0.)
+        ex_inds, = np.nonzero(self.data.XCEN > 0.)
         ms_to = self.peak_finder('LOG_TE', 'MS_BEG', 'RG_BMP1', max=True,
-                    sandro=False, more_than_one='max of max', mess_err=None, extra_inds=inds)
+                                 sandro=True, more_than_one='max of max',
+                                 mess_err=None, extra_inds=ex_inds)
 
         if ms_to == -1:
             print 'no MS_TO found, and it should have been. M=%.3f' % self.mass
-            ms_to = inds[-1]  # now it's at least the last point where there is XCEN
-            
-        ms_tmin = self.peak_finder('LOG_TE', 'MS_BEG', 'RG_BMP1', max=False,
-                    sandro=False, more_than_one='first', mess_err=None, extra_inds=inds)
-    
-        if ms_tmin >= ms_to:
-            print 'low mass? bad tmin, comes after to. M=%.3f' % self.mass
-                    
-        if ms_tmin == -1 or ms_tmin >= ms_to:
-            inds = self.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1', sandro=False)
-            # low mass, no ms_tmin, use xcen = 0.3
-            if len(inds) == 0:
-                ms_tmin = 0
-            else:
-                ind, dif = math_utils.closest_match(0.3, self.data.XCEN[inds])
-                ms_tmin = ind + inds[0]
+            #ms_to = inds[-1]  # now it's at least the last point where there is XCEN
+        
+        if ms_to != 0: 
+            ms_tmin = self.peak_finder('LOG_TE', 'MS_BEG', 'MS_TO', max=False,
+                                        sandro=False, more_than_one='first',
+                                        mess_err=None, extra_inds=ex_inds)
+        
+            if ms_tmin == -1 or ms_tmin >= ms_to:
+                if ms_tmin >= ms_to:
+                    print 'low mass? bad tmin, comes after to. M=%.3f' % self.mass
+                    print ms_to, ms_tmin
+                inds = self.ptcri.inds_between_ptcris('MS_BEG', 'MS_TO', sandro=False)
+                inds = list(set(ex_inds) & set(inds))
+                # low mass, no ms_tmin, use xcen = 0.3
+                if len(inds) == 0:
+                    ms_tmin = 0
+                else:
+                    ind, dif = math_utils.closest_match(0.3, self.data.XCEN[inds])
+                    ms_tmin = inds[ind]
+                    if ind == -1:
+                        print 'no ms_tmin!'
+                        ms_tmin = 0
+                    if dif > 0.01:
+                        print 'bad match for xcen here.'
+
+        else:
+            ms_tmin = 0
 
         self.add_eep('MS_TMIN', ms_tmin)
         self.add_eep('MS_TO', ms_to)
@@ -285,19 +329,21 @@ class Track(object):
         The MIN L before the RGB for high mass or the base of the 
         RGB for low mass.
         '''
+        if self.low_mass is True:
+            min_l = self.peak_finder('LOG_L', 'MAX_L', 'RG_BMP1', max=False, 
+                                    sandro=False, more_than_one='min of min',
+                                    mess_err='MIN_L not found, low mass? M=%.3f' % self.mass)
 
-        min_l = self.peak_finder('LOG_L', 'MAX_L', 'RG_BMP1', max=True, 
-                                sandro=False, more_than_one='max of max')
-
-        if min_l == -1:
+        else:
             # no max found, need to get base of RGB.
             # I'm calling the RG_BASE to be when H fus starts to 
             # happen in a thin shell.
             # QH2 is the outer mass fraction of the H-fusing region.
+
             inds = self.ptcri.inds_between_ptcris('MAX_L', 'RG_BMP1', sandro=False)            
             tckp = self.interpolate_vs_age('QH2', inds)
             qh2new, agenew = splev(np.linspace(0, 1, 100), tckp)
-            print 'MIN_L not found, using base of RG. M=%.3f' % self.mass
+
             peak_dict = math_utils.find_peaks(qh2new)
             if peak_dict['minima_number'] > 0:
                 # take the final minima location
@@ -308,33 +354,7 @@ class Track(object):
                                                        qh2new, agenew)
                 
             min_l = ind + inds[0]
-            print min_l
         self.add_eep('MIN_L', min_l)
-
-    def add_ms_tmin_eep(self):
-        # don't think I need this anymore.
-        inds = self.ptcri.inds_between_ptcris('MS_BEG', 'MS_TO', sandro=False)
-        if self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)] == 0:
-            if self.mass > 0.5:
-                print 'there is no MS_TO! M=%.3f' % self.mass
-            ms_tmin = 0          
-        else:
-            peak_dict = math_utils.find_peaks(self.data.LOG_TE[inds])
-
-            if peak_dict['minima_number'] == 1:
-                # Fount MS_TMIN
-                ind, = peak_dict['minima_locations']
-                ms_tmin = ind + inds[0]
-            elif peak_dict['minima_number'] == 0:
-                # low mass, no ms_tmin, use xcen = 0.3
-                ind, dif = math_utils.closest_match(0.3, self.data.XCEN[inds])
-                ms_tmin = ind + inds[0]
-            elif peak_dict['minima_number'] > 1:
-                # take the first min
-                min_inds = peak_dict['minima_locations']
-                ind = min_inds[0]
-                ms_tmin = ind + inds[0]
-        self.add_eep('MS_TMIN', ms_tmin)
 
     
     def add_max_l_eep(self):
@@ -342,11 +362,12 @@ class Track(object):
         Adds MAX_L between MS_TO and RG_BASE. For low mass, there will be no MAX_L
         and will add XCEN = 0.0 (0.0 is hard coded)
         '''
-        max_l = self.peak_finder('LOG_L', 'MS_TO', 'RG_BMP1', max=True,
-                                 sandro=False, more_than_one='max of max',
-                                 mess_err='no MAX L, doing XCEN == 0. M=%.3f' % self.mass)
+        if self.low_mass is True:
+            max_l = self.peak_finder('LOG_L', 'MS_TO', 'RG_BMP1', max=True,
+                                     sandro=False, more_than_one='max of max',
+                                     mess_err='no MAX L, is this low mass? M=%.3f' % self.mass)
 
-        if max_l == -1:                   
+        else:                   
             inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_BMP1', sandro=False)
             ind, dif = math_utils.closest_match(0.0, self.data.XCEN[inds])
             max_l = ind + inds[0]
@@ -363,11 +384,11 @@ class Track(object):
         if no eep (ind == 0), mptcri will get -1. 
         '''
         self.ptcri.iptcri[self.ptcri.key_dict[eep_name]] = ind
-        print eep_name, ind
+        #print eep_name, ind
         if ind != 0:
             #print 'No %s found M=%.3f' % (eep_name, self.mass)
             mind, = np.nonzero(self.data.MODE == ind)
-            self.ptcri.mptcri[self.ptcri.key_dict[eep_name]] = mind
+            #self.ptcri.mptcri[self.ptcri.key_dict[eep_name]] = mind
 
     
     def peak_finder(self, col, eep1, eep2, max=False, diff_err=None,
@@ -375,15 +396,17 @@ class Track(object):
                     ind_tol=3, dif_tol=0.01, extra_inds=None):
 
         inds = self.ptcri.inds_between_ptcris(eep1, eep2, sandro=sandro)
+
         if extra_inds is not None:
             inds = list(set(inds) & set(extra_inds))
 
         if len(inds) < ind_tol:
-            print 'less than %i points. Returning.' % ind_tol
+            if self.mass > 0.6:
+                print 'less than %i points. Returning.' % ind_tol
             return 0
         else:
             tckp = self.interpolate_te_l_age(inds)
-            tenew, lnew, agenew = splev(np.linspace(0, 1, 100), tckp)
+            tenew, lnew, agenew = splev(np.linspace(0, 1, 200), tckp)
 
         if col == 'LOG_L':
             intp_col = lnew
@@ -412,8 +435,8 @@ class Track(object):
             if peak_dict['minima_number'] > 0:
                 if more_than_one == 'first':
                     almost_ind = np.min(peak_dict['minima_locations'])
-                else:
-                    print 'not ready for more options yet.'
+                elif more_than_one == 'min of min':
+                    almost_ind = np.argmin(intp_col[peak_dict['minima_locations']])
             else:
                 if mess_err is not None:
                     print mess_err
@@ -427,7 +450,7 @@ class Track(object):
         if ind == -1:
             return ind
 
-        if dif < dif_tol:
+        if dif > dif_tol:
             if diff_err is not None:
                 print diff_err
             else:
@@ -448,19 +471,37 @@ class Track(object):
             ptcri = critical_point(filename, eep_obj=eep_obj)
         
         self.ptcri = ptcri
-        self.ptcri.mptcri = ptcri.data_dict['M%.3f' % self.mass]
-        self.ptcri.iptcri = np.concatenate([np.nonzero(self.data.MODE == m)[0] for m in self.ptcri.mptcri])
-        self.ptcri.sandro_dict = dict(zip(ptcri.sandro_eeps, ptcri.data_dict['M%.3f' % self.mass]))
+
+        # Sandro's definitions.
+        mptcri = ptcri.data_dict['M%.3f' % self.mass]
+        self.ptcri.iptcri = np.concatenate([np.nonzero(self.data.MODE == m)[0]
+                                            for m in mptcri])
+        assert len(self.ptcri.iptcri) == len(self.ptcri.sandros_dict.keys()), \
+            'Sandro\'s crit dict does not match iptcri...'
 
         if len(ptcri.please_define) > 0:
             if hasattr(self.ptcri, 'eep'):
                 # already loaded eep
                 eep_obj = self.ptcri.eep
+
             if len(self.ptcri.iptcri) != len(eep_obj.eep_list):
                 eep_diff = len(eep_obj.eep_list) - len(self.ptcri.iptcri)
                 space_for_new = np.zeros(eep_diff, dtype='int') #- 1
                 self.ptcri.iptcri = np.concatenate((self.ptcri.iptcri, space_for_new))
-                self.ptcri.mptcri = np.concatenate((self.ptcri.mptcri, space_for_new))
+            
+            # Get the values that we won't be replacing.
+            for eep_name in self.ptcri.sandro_eeps:
+                if eep_name in self.ptcri.eep.eep_list:
+                    # model number in track
+                    mode_num = mptcri[self.ptcri.sandros_dict[eep_name]]
+                    # which eep index would this replace
+                    ieep =  self.ptcri.eep.eep_list.index(eep_name)
+                    # new ptcri
+                    iorig, = np.nonzero(self.data.MODE == mode_num)
+                    self.ptcri.iptcri[ieep] = iorig
+
+            if self.mass < 2.:
+                self.low_mass = True
             self.define_eep_stages()
 
         #assert self.data.MODE[0] <= self.ptcri.mptcri[0], \
@@ -543,17 +584,18 @@ class Track(object):
             outfile = os.path.join('%s' % self.base, 'match_%s.dat' % self.name.replace('.PMS',''))
             print 'writing %s' % outfile
 
-        if not hasattr(self.ptcri, 'eep'):
-            nticks = np.repeat(200, len(self.ptcri.iptcri) - 1)
-        else:
+        if hasattr(self.ptcri, 'eep') and self.ptcri.eep.nticks is not None:
             nticks = self.ptcri.eep.nticks
+        else:
+            nticks = np.repeat(200, len(self.ptcri.iptcri) - 1)
+
 
         logTe = np.array([])
         logL = np.array([])
         Age = np.array([])
 
         for i in range(len(np.nonzero(self.ptcri.iptcri > 0)[0]) - 1):
-            print '%.3f %s=%i %s=%i' % (self.mass,
+            mess = '%.3f %s=%i %s=%i' % (self.mass,
                                         self.ptcri.get_ptcri_name(i, sandro=False),
                                         self.ptcri.iptcri[i],
                                         self.ptcri.get_ptcri_name(i+1, sandro=False),
@@ -561,11 +603,13 @@ class Track(object):
 
             if i != 0 and self.ptcri.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
+                print mess
                 print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
                 continue
             inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1])
             if len(inds) < 2:
+                print mess
                 print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
                 continue                        
@@ -740,7 +784,14 @@ class Track(object):
                  ['MS_BEG', 'MS_TMIN', 'MS_TO', 'MAX_L'],
                  ['MIN_L', 'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
                  ['YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20', 
-                  'YCEN_0.10', 'YCEN_0.00', 'C_BUR']] # C_BUR??
+                 'YCEN_0.10', 'YCEN_0.00', 'C_BUR']]
+               
+        #plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END'],
+        #         ['XCEN_0.55', 'XCEN_0.50', 'XCEN_0.40', 'XCEN_0.20',
+        #          'XCEN_0.10', 'XCEN_0.00'],
+        #         ['RG_BMP1', 'RG_BMP2', 'RG_TIP'],
+        #         ['YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20',
+        #          'YCEN_0.10', 'YCEN_0.00']]
 
         for i, plot in enumerate(plots):
             if last in plot:
@@ -829,22 +880,17 @@ class critical_point(object):
 
     def get_ptcri_name(self, val, sandro=True):
     
-        if sandro == True:      
-            sandros_dict = dict(zip(self.sandro_eeps,
-                                    range(len(self.sandro_eeps))))
-            if type(val) == int:
-                return [name for name, pval in sandros_dict.items()
-                        if pval == val][0]
-            elif type(val) == str:
-                return [pval for name, pval in sandros_dict.items()
-                        if name == val][0]
-        else:        
-            if type(val) == int:
-                return [name for name, pval in self.key_dict.items()
-                        if pval == val][0]
-            elif type(val) == str:
-                return [pval for name, pval in self.key_dict.items()
-                        if name == val][0]
+        if sandro is True:      
+            search_dict = self.sandros_dict
+        else:
+            search_dict = self.key_dict
+
+        if type(val) == int:
+            return [name for name, pval in search_dict.items() 
+                    if pval == val][0]
+        elif type(val) == str:
+            return [pval for name, pval in search_dict.items()
+                    if name == val][0]
 
     def inds_between_ptcris(self, name1, name2, sandro=True):
         '''
@@ -866,22 +912,19 @@ class critical_point(object):
         with open(filename, 'r') as f:
             lines = f.readlines()
         
-        begin, = [i for i in range(len(lines)) if lines[i].startswith('#') and 'F7' in lines[i]]
+        # the lines have the path name, and the path has F7.
+        begin, = [i for i in range(len(lines)) if lines[i].startswith('#')
+                    and 'F7' in lines[i]]
+
         # the final column is a filename.
         col_keys = lines[begin + 1].replace('#', '').strip().split()[3:-1]
 
         # useful to save what Sandro defined
         self.sandro_eeps = col_keys
-        
+        self.sandros_dict = dict(zip(col_keys, range(len(col_keys))))
+
         # ptcri file has filename as col #19 so skip the last column
         usecols = range(0, 18)
-        please_define = []
-        if eep_obj is not None:
-            #skip_cols = [c for c in col_keys if c not in eep_obj.eep_list]
-            #iskips = [col_keys.index(i) for i in skip_cols]
-            #usecols = [u for u in usecols if u not in iskips]
-            please_define = [c for c in eep_obj.eep_list if c not in col_keys]
-
         data = np.genfromtxt(filename, usecols=usecols, skip_header=begin + 2)
         self.data = data
         self.masses = data[:, 1]
@@ -891,11 +934,18 @@ class critical_point(object):
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
             data_dict[str_mass] = data[i][3:].astype('int')
-        
-        self.eep = eep_obj
+
+        please_define = []        
+        if eep_obj is not None:
+            please_define = [c for c in eep_obj.eep_list if c not in col_keys]
+
         self.data_dict = data_dict
-        self.key_dict = dict(zip(eep_obj.eep_list, range(len(eep_obj.eep_list))))
-        self.please_define = please_define
+        if eep_obj is not None:
+            self.eep = eep_obj
+            self.key_dict = dict(zip(eep_obj.eep_list,
+                                     range(len(eep_obj.eep_list))))
+            self.please_define = please_define
+        
   
 class eep(object):
     '''
@@ -903,8 +953,12 @@ class eep(object):
     '''
     def __init__(self, inputobj):
         self.eep_list = inputobj.eep_list
-        self.nticks = inputobj.eep_lengths
-    
+        if hasattr(inputobj, 'eep_lengths'):
+            self.nticks = inputobj.eep_lengths
+        else:
+            self.nticks = None
+
+        self.low_mass_cut = inputobj.low_mass_cut    
 
 def track_set_for_match(input_obj):
     
