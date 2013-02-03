@@ -147,13 +147,13 @@ class Track(object):
         xcen_eeps = False
         ptcri = self.ptcri
         if xcen_eeps is True:
-            default_list = ['XCEN_0.55', 'XCEN_0.50', 'XCEN_0.40', 'XCEN_0.20',
-                            'XCEN_0.10', 'XCEN_0.00', 'YCEN_0.55', 'YCEN_0.50',
-                            'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00']
+            default_list = ['XCEN_%.2f' % frac for
+                             frac in np.linspace(0., 1, 21)][::-1]
 
+            default_list.extend(['YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40',
+                                 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00'])
+            
             eep_list = ptcri.please_define
-            assert default_list == eep_list, \
-                'Can not define all EEPs. Please check lists'
 
             self.add_cen_eeps(xcen_eeps=xcen_eeps, xcen=True)
             self.add_cen_eeps(xcen_eeps=xcen_eeps)
@@ -179,10 +179,10 @@ class Track(object):
                 [self.add_eep(cp, 0) for cp in default_list[2:]]
             else:
                 #self.add_ms_tmin_eep()
-                self.add_max_l_eep()
                 self.add_min_l_eep()
+                self.add_max_l_eep()
                 self.add_cen_eeps()
-                self.add_cburn_eep()
+                #self.add_cburn_eep()
         
         assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >=  0), \
                 'EEPs are not monotonically increasing. M=%.3f' % self.mass
@@ -257,7 +257,7 @@ class Track(object):
             col = 'YCEN'
         
         if xcen_eeps is False:
-            fcol = 'MAX_L'
+            fcol = 'RG_BMP2'
         
         inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name(fcol, sandro=xcen_eeps)], len(self.data[col]))
 
@@ -285,41 +285,63 @@ class Track(object):
         '''
 
         ex_inds, = np.nonzero(self.data.XCEN > 0.)
-        ms_to = self.peak_finder('LOG_TE', 'MS_BEG', 'RG_BMP1', max=True,
-                                 sandro=True, more_than_one='max of max',
-                                 mess_err=None, extra_inds=ex_inds)
 
-        if ms_to == -1:
-            print 'no MS_TO found, and it should have been. M=%.3f' % self.mass
-            #ms_to = inds[-1]  # now it's at least the last point where there is XCEN
-        
-        if ms_to != 0: 
-            ms_tmin = self.peak_finder('LOG_TE', 'MS_BEG', 'MS_TO', max=False,
-                                        sandro=False, more_than_one='first',
-                                        mess_err=None, extra_inds=ex_inds)
-        
-            if ms_tmin == -1 or ms_tmin >= ms_to:
-                if ms_tmin >= ms_to:
-                    print 'low mass? bad tmin, comes after to. M=%.3f' % self.mass
-                    print ms_to, ms_tmin
-                inds = self.ptcri.inds_between_ptcris('MS_BEG', 'MS_TO', sandro=False)
-                inds = list(set(ex_inds) & set(inds))
-                # low mass, no ms_tmin, use xcen = 0.3
-                if len(inds) == 0:
+        ms_tmin = self.peak_finder('LOG_TE', 'MS_BEG', 'RG_BMP1', max=False,
+                                    sandro=False, more_than_one='min of min',
+                                    mess_err=None, extra_inds=ex_inds)       
+        if ms_tmin == -1 or self.mass < 99.:
+            print 'Using XCEN=0.3 for T_MIN: M=%.3f' % self.mass
+            inds = self.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1', sandro=False)
+            inds = list(set(ex_inds) & set(inds))
+            # low mass, no ms_tmin, use xcen = 0.3
+            if len(inds) == 0:
+                ms_tmin = 0
+            else:
+                ind, dif = math_utils.closest_match(0.3, self.data.XCEN[inds])
+                ms_tmin = inds[ind]
+                if ind == -1:
+                    print 'no ms_tmin!'
                     ms_tmin = 0
-                else:
-                    ind, dif = math_utils.closest_match(0.3, self.data.XCEN[inds])
-                    ms_tmin = inds[ind]
-                    if ind == -1:
-                        print 'no ms_tmin!'
-                        ms_tmin = 0
-                    if dif > 0.01:
-                        print 'bad match for xcen here.'
-
-        else:
-            ms_tmin = 0
+                if dif > 0.01:
+                    print 'bad match for xcen here.'
 
         self.add_eep('MS_TMIN', ms_tmin)
+
+        if ms_tmin == 0:
+            ms_to = 0
+        else:
+            ms_to = self.peak_finder('LOG_TE', 'MS_TMIN', 'RG_BMP1', max=True,
+                                     sandro=False, more_than_one='max of max',
+                                     extra_inds=ex_inds)
+
+            if ms_to == -1 or ms_to == ms_tmin:
+                print 'Finding MS_TO (%i) by inflections in the HRD slope. M=%.3f' % (ms_to, self.mass)
+                #ms_to = inds[-1]  # now it's at least the last point where there is XCEN
+                inds = self.ptcri.inds_between_ptcris('MS_TMIN', 'RG_BMP1', sandro=False)
+                inds = list(set(ex_inds) & set(inds))
+                non_dupes = self.remove_dupes(self.data.LOG_TE[inds], self.data.LOG_L[inds], 0, just_two=True)
+                tckp, u = splprep([self.data.LOG_TE[inds][non_dupes],
+                                   self.data.LOG_L[inds][non_dupes]],s=0)
+                tenew, lnew = splev(np.linspace(0, 1, 100), tckp)
+                # subtract off a straight line fit to get more contrast...
+                slope, intercept = np.polyfit(tenew, lnew, 1)
+                highc_lnew = lnew - (slope * tenew + intercept)
+                peak_dict = math_utils.find_peaks(highc_lnew)
+                # if more than one max is found, take the max of the maxes.
+                imax = peak_dict['maxima_locations']
+                # this index refers to interpolation
+                almost_ind = imax[np.argmax(highc_lnew[imax])]
+                # find equiv point on track grid
+                ind, diff = math_utils.closest_match2d(almost_ind,
+                                                       self.data.LOG_TE[inds],
+                                                       self.data.LOG_L[inds],
+                                                       tenew, lnew)
+                ms_to = inds[ind]
+
+                #rg_bmp1 = self.ptcri.iptcri[self.ptcri.get_ptcri_name('RG_BMP1', sandro=False)]
+                #print 'XCEN of MS_TMIN: %i and RG_BMP1:%i' % (ms_tmin, rg_bmp1) 
+                #print self.data.XCEN[ms_tmin], self.data.XCEN[rg_bmp1]
+                
         self.add_eep('MS_TO', ms_to)
         return
 
@@ -329,31 +351,57 @@ class Track(object):
         The MIN L before the RGB for high mass or the base of the 
         RGB for low mass.
         '''
-        if self.low_mass is True:
-            min_l = self.peak_finder('LOG_L', 'MAX_L', 'RG_BMP1', max=False, 
-                                    sandro=False, more_than_one='min of min',
-                                    mess_err='MIN_L not found, low mass? M=%.3f' % self.mass)
+        min_l = self.peak_finder('LOG_L', 'MS_TO', 'RG_BMP1', max=False, 
+                                 sandro=False, more_than_one='min of min')
 
-        else:
+        if min_l == -1 or self.mass < 99.:
             # no max found, need to get base of RGB.
-            # I'm calling the RG_BASE to be when H fus starts to 
-            # happen in a thin shell.
-            # QH2 is the outer mass fraction of the H-fusing region.
+            # this will be the deflection point in HRD space between
+            # MS_TO and RG_BMP1.
+            print 'Using base of RG for MIN_L: M=%.3f' % self.mass            
+            inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_BMP1', sandro=False)
+            if inds[0] == 0:
+                print 'MIN_L finder will not work with no MS_TO (ie, MS_TO = 0)'
+            # interpolate...
+            non_dupes = self.remove_dupes(self.data.LOG_TE[inds], self.data.LOG_L[inds], 0, just_two=True)
+            tckp, u = splprep([self.data.LOG_TE[inds][non_dupes],
+                               self.data.LOG_L[inds][non_dupes]],s=0)
+            tenew, lnew = splev(np.linspace(0, 1, 200), tckp)
+            slope, intercept = np.polyfit(tenew, lnew, 1)
+            highc_lnew = lnew - (slope * tenew + intercept)
+            peak_dict = math_utils.find_peaks(highc_lnew)
+            # if more than one max is found, take the max of the maxes.
+            imin = peak_dict['minima_locations']
+            # this index refers to interpolation
+            almost_ind = imin[np.argmin(highc_lnew[imin])]
+            # find equiv point on track grid
+            ind, diff = math_utils.closest_match2d(almost_ind,
+                                                   self.data.LOG_TE[inds],
+                                                   self.data.LOG_L[inds],
+                                                   tenew, lnew)
+            min_l = inds[ind]
 
-            inds = self.ptcri.inds_between_ptcris('MAX_L', 'RG_BMP1', sandro=False)            
-            tckp = self.interpolate_vs_age('QH2', inds)
-            qh2new, agenew = splev(np.linspace(0, 1, 100), tckp)
-
-            peak_dict = math_utils.find_peaks(qh2new)
-            if peak_dict['minima_number'] > 0:
-                # take the final minima location
-                almost_ind = np.max(peak_dict['minima_locations'])
-                ind, diff = math_utils.closest_match2d(almost_ind,
-                                                       self.data.QH2[inds],
-                                                       np.log10(self.data.AGE[inds]),
-                                                       qh2new, agenew)
-                
-            min_l = ind + inds[0]
+            '''   
+            # find min of second derivative 
+            dtenew, dlnew = splev(np.linspace(0, 1, 200), tckp, der=1)
+            # find equiv point on track grid
+            almost_ind, = np.nonzero(np.diff(np.sign(dlnew)) == 2)
+            if len(almost_ind) == 0:
+                tckp, u = splprep([self.data.LOG_L[inds], self.data.LOG_TE[inds]],s=0)
+                lnew, tenew = splev(np.linspace(0, 1, 200), tckp)
+                # find min of second derivative 
+                dlnew, dtenew = splev(np.linspace(0, 1, 200), tckp, der=2)
+                # find equiv point on track grid
+                almost_ind, = np.nonzero(np.diff(np.sign(dtenew)) == 2)
+                almost_ind = almost_ind[np.argmin(tenew[almost_ind])]
+            ind, diff = math_utils.closest_match2d(almost_ind,
+                                                   self.data.LOG_TE[inds],
+                                                   self.data.LOG_L[inds],
+                                                   tenew, lnew)
+            min_l = inds[ind]
+            '''
+        if self.data.XCEN[min_l] > 0:
+            print 'XCEN at MIN_L should be zero if low mass. %f' % self.data.XCEN[min_l]
         self.add_eep('MIN_L', min_l)
 
     
@@ -362,33 +410,91 @@ class Track(object):
         Adds MAX_L between MS_TO and RG_BASE. For low mass, there will be no MAX_L
         and will add XCEN = 0.0 (0.0 is hard coded)
         '''
-        if self.low_mass is True:
-            max_l = self.peak_finder('LOG_L', 'MS_TO', 'RG_BMP1', max=True,
-                                     sandro=False, more_than_one='max of max',
-                                     mess_err='no MAX L, is this low mass? M=%.3f' % self.mass)
 
-        else:                   
-            inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_BMP1', sandro=False)
-            ind, dif = math_utils.closest_match(0.0, self.data.XCEN[inds])
-            max_l = ind + inds[0]
-            assert dif < 0.01, \
-                'MAX_L error: no XCEN value near 0.0 M=%.3f' % self.mass
+        max_l = self.peak_finder('LOG_L', 'MS_TO', 'MIN_L', max=True,
+                                 sandro=False, more_than_one='max of max')
 
-            max_l = ind + inds[0]
+        if max_l == -1 or self.mass < 99.:
+            print 'Using XCEN=0.0 for MAX_L: M=%.3f' % self.mass
+            ex_inds, = np.nonzero(self.data.XCEN == 0.)
+            inds = self.ptcri.inds_between_ptcris('MS_TO', 'MIN_L', sandro=False)
+            inds = list(set(ex_inds) & set(inds))
+            if len(inds) == 0:
+                print 'XCEN=0.0 happens after MIN_L, MIN_L is too early.'
+                max_l = 0
+            else:
+                max_l = inds[0]
+
+            msto = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
+            if max_l == msto:
+                print 'MAX_L is at MS_TO!'
+                print 'XCEN at MS_TO (%i): %.3f' % (msto, self.data.XCEN[msto])
+            '''
+            if ind == -1 or dif < 0.01:
+                print ind, dif
+                print inds
+                msto = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
+                print 'MAX_L is not at XCEN=0.0: M=%.3f' % self.mass
+                print 'XCEN at MS_TO (%i): %.3f' % (msto, self.data.XCEN[msto])
+                max_l = 0
+            else:
+            '''
+
         self.add_eep('MAX_L', max_l)
 
+    def convective_core_test(self):
+        '''
+        only uses sandro's defs, so doesn't need load_critical_points 
+        initialized.
+        '''
+        ycols = ['QSCHW', 'QH1', 'QH2']
+        age = self.data.AGE
+        lage = np.log10(age)
+        
+        morigs = [t for t in self.ptcri.data_dict['M%.3f' % self.mass] if t > 0 and t < len(self.data.LOG_L)]
+        iorigs = [np.nonzero(self.data.MODE == m)[0][0] for m in morigs]
+        try:
+            inds = self.ptcri.inds_between_ptcris('MS_BEG', 'POINT_B', sandro=True)
+        except IndexError:
+            inds, = np.nonzero(age > 0.2)
+
+        try:
+            lixo = lage[inds]
+        except IndexError:
+            inds = np.arange(len(lage))
+        fig = plt.figure()
+        ax = plt.axes()
+        for ycol in ycols:
+            ax.plot(lage[inds], self.data[ycol][inds], lw=2, label=ycol)
+            #ax.scatter(lage[iorigs], self.data[ycol][iorigs], s=20, marker='o', color='black')
+            ax.scatter(lage[iorigs[4]], self.data[ycol][iorigs[4]], s=100, marker='o', color='red')
+            if len(iorigs) >= 7:
+                ax.scatter(lage[iorigs[7]], self.data[ycol][iorigs[7]], s=100, marker='o',color='blue')
+                xmax = lage[iorigs[7]] + .4
+            else:
+                xmax = ax.get_xlim()[1]
+
+        xmin = lage[iorigs[4]] - .4
+        ax.set_xlim(xmin, xmax)
+        ax.set_title(self.mass)
+        ax.legend(loc=0)
+    
+        for t in ts:
+            inds = t.ptcri.inds_between_ptcris('MS_BEG', 'MS_TO', sandro=False)
+            if inds[-1] > len(t.data.QH1):
+                inds = np.arange(inds[0], len(t.data.QH1))
+            qhm = np.mean(t.data.QH1[inds])
+            maxqsch = np.max(t.data.QSCHW[inds])
+            gtqs = np.greater(t.data.QH1[inds], t.data.QSCHW[inds])
+            print '%.3f %.3f %i %i %.3f' % (qhm, maxqsch, np.sum(gtqs), len(inds), t.mass)
+
+        
     def add_eep(self, eep_name, ind):
         '''
-        Will add the index of Track.data to self.ptcri.iptcri
-        and will add the value of Track.data.MODE to self.ptcri.mptcri
-        if no eep (ind == 0), mptcri will get -1. 
+        Will add or replace the index of Track.data to self.ptcri.iptcri
         '''
         self.ptcri.iptcri[self.ptcri.key_dict[eep_name]] = ind
         #print eep_name, ind
-        if ind != 0:
-            #print 'No %s found M=%.3f' % (eep_name, self.mass)
-            mind, = np.nonzero(self.data.MODE == ind)
-            #self.ptcri.mptcri[self.ptcri.key_dict[eep_name]] = mind
 
     
     def peak_finder(self, col, eep1, eep2, max=False, diff_err=None,
@@ -402,7 +508,8 @@ class Track(object):
 
         if len(inds) < ind_tol:
             if self.mass > 0.6:
-                print 'less than %i points. Returning.' % ind_tol
+                print 'Peak finder %s-%s: less than %i points.' % (eep1, eep2, ind_tol)
+                print inds
             return 0
         else:
             tckp = self.interpolate_te_l_age(inds)
@@ -415,7 +522,7 @@ class Track(object):
             intp_col = tenew
 
         peak_dict = math_utils.find_peaks(intp_col)
-
+        #print 'my idea now is to use interps dl/dt to find some of these points.'
         if max is True:
             if peak_dict['maxima_number'] > 0:
                 # if more than one max is found, take the max of the maxes.
@@ -436,7 +543,8 @@ class Track(object):
                 if more_than_one == 'first':
                     almost_ind = np.min(peak_dict['minima_locations'])
                 elif more_than_one == 'min of min':
-                    almost_ind = np.argmin(intp_col[peak_dict['minima_locations']])
+                    mins = peak_dict['minima_locations']
+                    almost_ind = mins[np.argmin(intp_col[mins])]
             else:
                 if mess_err is not None:
                     print mess_err
@@ -456,7 +564,7 @@ class Track(object):
             else:
                 print 'bad match %s-%s M=%.3f' % (eep1, eep2, self.mass) 
 
-        return ind + inds[0]
+        return inds[ind]
 
         
     def load_critical_points(self, filename=None, ptcri=None, eep_obj=None):
@@ -476,19 +584,18 @@ class Track(object):
         mptcri = ptcri.data_dict['M%.3f' % self.mass]
         self.ptcri.iptcri = np.concatenate([np.nonzero(self.data.MODE == m)[0]
                                             for m in mptcri])
-        assert len(self.ptcri.iptcri) == len(self.ptcri.sandros_dict.keys()), \
-            'Sandro\'s crit dict does not match iptcri...'
+        # sometimes, the track has been cut...
+        #self.ptcri.iptcri = [p for p in self.ptcri.iptcri if p < len(self.data.LOG_L)]
+        # sandro's points, just for comparison.
+        self.sptcri = self.ptcri.iptcri
 
         if len(ptcri.please_define) > 0:
             if hasattr(self.ptcri, 'eep'):
                 # already loaded eep
-                eep_obj = self.ptcri.eep
-
-            if len(self.ptcri.iptcri) != len(eep_obj.eep_list):
-                eep_diff = len(eep_obj.eep_list) - len(self.ptcri.iptcri)
-                space_for_new = np.zeros(eep_diff, dtype='int') #- 1
-                self.ptcri.iptcri = np.concatenate((self.ptcri.iptcri, space_for_new))
-            
+                eep_obj = self.ptcri.eep                
+                space_for_new = np.zeros(len(eep_obj.eep_list), dtype='int')
+                self.ptcri.iptcri = space_for_new
+                
             # Get the values that we won't be replacing.
             for eep_name in self.ptcri.sandro_eeps:
                 if eep_name in self.ptcri.eep.eep_list:
@@ -496,21 +603,21 @@ class Track(object):
                     mode_num = mptcri[self.ptcri.sandros_dict[eep_name]]
                     # which eep index would this replace
                     ieep =  self.ptcri.eep.eep_list.index(eep_name)
-                    # new ptcri
-                    iorig, = np.nonzero(self.data.MODE == mode_num)
+                    if mode_num == 0 or mode_num > len(self.data.LOG_L):
+                        # this track doesn't have this eep either because
+                        # it just doesn't get there, or it was too long, and
+                        # cut before I got the track set.
+                        iorig = 0
+                    else:
+                        # new ptcri
+                        iorig, = np.nonzero(self.data.MODE == mode_num)
+                        #print eep_name, iorig
                     self.ptcri.iptcri[ieep] = iorig
 
+            #print self.ptcri.iptcri
             if self.mass < 2.:
                 self.low_mass = True
             self.define_eep_stages()
-
-        #assert self.data.MODE[0] <= self.ptcri.mptcri[0], \
-        #     'First critical point not contained in Track.data.MODE.'
-
-        #mptcris, = self.ptcri.mptcri.nonzero()
-
-        #assert self.data.MODE[-1] >= self.ptcri.mptcri[mptcris][-1], \
-        #    'Last critical point not contained in Track.data.MODE.'
 
         assert ptcri.Z == self.Z, 'Zs do not match between track and ptcri file'
 
@@ -606,22 +713,15 @@ class Track(object):
                 print mess
                 print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
+                print 'cause the second eep is zippo.'
                 continue
             inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1])
             if len(inds) < 2:
                 print mess
                 print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
+                print 'cause there are less than two inds between these crit pts.'
                 continue                        
-            '''
-            if self.mptcri[i+1] - self.mptcri[i] < 35: 
-                print self.mptcri[i+1], self.mptcri[i], self.mptcri[i+1] - self.mptcri[i]
-                print 'skipping! m %s' % self.mass
-                continue
-            if len(inds) < 20:
-                print 'skipping! i %s' % self.mass
-                continue
-            '''
 
             tckp = self.interpolate_te_l_age(inds)
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
@@ -633,7 +733,7 @@ class Track(object):
         Mbol = 4.77 - 2.5 * logL
         logg = -10.616 + np.log10(self.mass) + 4.0 * logTe - logL
         logAge = np.log10(Age)
-        # place holder!
+        # CO place holder!
         CO = np.zeros(len(logL))
         mass_arr = np.repeat(self.mass, len(logL))
         
@@ -684,6 +784,7 @@ class Track(object):
                            s=s, k=k, nest=nest)
         return tckp
 
+
     def remove_dupes(self, x, y, z, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
@@ -704,10 +805,12 @@ class Track(object):
 
 
     def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, 
-                   inds=None, plt_kw={}, annotate=False, clean=True, ainds=None):
+                   inds=None, plt_kw={}, annotate=False, clean=True, ainds=None,
+                   sandro=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
+        sandro = True will plot sandro's ptcris.
         '''
         if ax is None:
             fig = plt.figure()
@@ -737,19 +840,31 @@ class Track(object):
             ax.set_ylim(ax.get_ylim()[::-1])
 
         if annotate:
-            ax = self.annotate_plot(ax, xcol, ycol, inds=ainds)
+            ax = self.annotate_plot(ax, xcol, ycol, inds=ainds, sandro=sandro)
         
         return ax
 
     
-    def annotate_plot(self, ax, xcol, ycol, inds=None):
+    def annotate_plot(self, ax, xcol, ycol, inds=None, sandro=False):
+        '''
+        if a subset of ptcri inds are used, set them in inds. If you want
+        sandro's ptcri's sandro=True, will also change the face color of the
+        label bounding box so you can have both on the same plot.
+        '''
+        if sandro is False:
+            ptcri = self.ptcri.iptcri
+            fc = 'blue'
+        else:
+            ptcri = self.sptcri
+            fc = 'red'
+        
         if inds is None:
-            inds = np.array([p for p in self.ptcri.iptcri if p > 0])
-            labels = ['$%s$' % self.ptcri.get_ptcri_name(i, sandro=False).replace('_','\ ')
+            inds = np.array([p for p in ptcri if p > 0])
+            labels = ['$%s$' % self.ptcri.get_ptcri_name(i, sandro=sandro).replace('_','\ ')
                       for i in range(len(inds))]
         else:
-            iplace = np.array([np.nonzero(self.ptcri.iptcri == i)[0] for i in inds])
-            labels = ['$%s$' % self.ptcri.get_ptcri_name(int(i), sandro=False).replace('_','\ ')
+            iplace = np.array([np.nonzero(ptcri == i)[0] for i in inds])
+            labels = ['$%s$' % self.ptcri.get_ptcri_name(int(i), sandro=sandro).replace('_','\ ')
                       for i in iplace]
         
         if type(xcol) == str:
@@ -758,12 +873,13 @@ class Track(object):
             xdata = xcol
 
         # label stylings                  
-        bbox = dict(boxstyle='round, pad=0.5', fc='blue', alpha=0.5)
+        bbox = dict(boxstyle='round, pad=0.5', fc=fc, alpha=0.5)
         arrowprops = dict(arrowstyle='->', connectionstyle='arc3, rad=0')
 
         for i, (label, x, y) in enumerate(zip(labels, xdata[inds],
                                        self.data[ycol][inds])):
-            xytext = ((-1.) ** (i + 1.) * 20, (-1.) ** (i + 2.) * 20)
+            # varies the labels placement... default is 20, 20
+            xytext = ((-1.) ** (i - 1.) * 20, (-1.) ** (i + 1.) * 20)
             ax.annotate(label, xy=(x, y), xytext=xytext, fontsize=10,
                         textcoords='offset points', ha='right', va='bottom',
                         bbox=bbox, arrowprops=arrowprops)
@@ -803,8 +919,8 @@ class Track(object):
 
         for i, ax in enumerate(np.ravel(axs)):
             inds = [self.ptcri.get_ptcri_name(cp, sandro=False) for cp in plots[i]]
-            inds = self.ptcri.iptcri[inds]
-            if (np.sum(inds) == 0) or (np.sum(inds) == len(inds) * (-1)) or (0 in inds[1:]):
+            inds = self.ptcri.iptcri[inds][np.nonzero(self.ptcri.iptcri[inds])[0]]
+            if np.sum(inds) == 0:
                 continue
             #inds = self.ptcri.iptcri[3 * i: 3 * i + 3]
             ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, inds=all_inds,
@@ -837,10 +953,19 @@ class Track(object):
             #ax.set_ylim(goodlimy)
             ax.set_xlabel('$LOG\ TE$',fontsize=20)
             ax.set_ylabel('$LOG\ L$', fontsize=20)
-            
+        
+        
         fig.suptitle('M = %.3f Z = %.4f Y = %.4f' % (self.mass, self.Z, self.Y), fontsize=20)
         plt.savefig('ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
-    
+        
+        fig = plt.figure()
+        ax = plt.axes()
+        ax = self.plot_track('LOG_TE', 'LOG_L', reverse_x=1, inds=np.nonzero(self.data.AGE>0.2)[0])
+        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True)
+        #ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True, sandro=True)
+        fig.suptitle('M = %.3f Z = %.4f Y = %.4f' % (self.mass, self.Z, self.Y), fontsize=20)
+        plt.savefig('sandro_ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
+        
     def maxmin(self, col, inds=None):
         arr = self.data[col]
         if inds is not None:
@@ -940,6 +1065,7 @@ class critical_point(object):
             please_define = [c for c in eep_obj.eep_list if c not in col_keys]
 
         self.data_dict = data_dict
+        self.please_define = []
         if eep_obj is not None:
             self.eep = eep_obj
             self.key_dict = dict(zip(eep_obj.eep_list,
@@ -962,16 +1088,36 @@ class eep(object):
 
 def track_set_for_match(input_obj):
     
-    track_names = fileIO.get_files(os.path.join(input_obj.tracks_dir, input_obj.prefix), '*PMS')
+    track_names = fileIO.get_files(os.path.join(input_obj.tracks_dir, input_obj.prefix), '*F7_*PMS')
     ptcri_file, = fileIO.get_files(os.path.join(input_obj.ptcrifile_loc), '*%s*dat' % input_obj.prefix)
 
     ptcri = critical_point(ptcri_file, eep_obj=eep(input_obj))
-
+    ts = []
     for track in track_names:
         t = Track(track, ptcri=ptcri, min_lage=0., cut_long=0)
         #t.load_critical_points(ptcri_file, eep_obj=eep(input_obj))
         t.tracks_for_match()
         t.check_ptcris()
+        ts.append(t)
+
+
+    line_pltkw = {'color': 'black'}
+    point_pltkw = {'marker': 'o', 'ls': ''}
+
+    ax = None
+    for t in ts:
+        all_inds, = np.nonzero(t.data.AGE > 0.2)    
+        iptcri, = np.nonzero(t.ptcri.iptcri > 0)
+        inds = [t.ptcri.get_ptcri_name(cp, sandro=False) for cp in plots[i]]
+        inds = t.ptcri.iptcri[inds][np.nonzero(t.ptcri.iptcri[inds])[0]]
+        if np.sum(inds) == 0:
+            continue        
+        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, inds=all_inds,
+                             reverse_x=True, plt_kw=line_pltkw)
+        ax = t.plot_track('LOG_TE', 'LOG_L', ax=ax, inds=inds,
+                          plt_kw=point_pltkw, annotate=True, ainds=inds)       
+              
+        plt.savefig('%s.png' % input_obj.prefix)
 
 if __name__ == '__main__':
     import pdb
