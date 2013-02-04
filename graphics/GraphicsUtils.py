@@ -499,3 +499,57 @@ import matplotlib.ticker as poop
 ax.yaxis.set_major_formatter( poop.FormatStrFormatter('%g'))
 '''
     
+'''
+POWERLAWS
+
+http://arxiv.org/abs/0905.0474
+   fig = plt.figure(figsize = (7,3))
+    gs = gridspec.GridSpec(1, 4, left = 0.15, right = 0.9,
+                           bottom = 0.1, top = 0.9,
+                           width_ratios = [1, 1, 1, 0.05])
+    #gs.update( ) # like subplots_adjust
+
+    # data
+    ax_s1 = host_subplot(gs[0])
+    ax_s2 = host_subplot(gs[1])
+    ax_m2 = host_subplot(gs[2])
+    cax_hidden = host_subplot(gs[3])
+    cax_hidden.axis('off') # we only need its x position for later, so hide cax.
+
+    ### plot some shit
+    im_s1 = ax_s1.imshow(A)
+
+    fig.canvas.draw()
+    extents_s1 = ax_s1.figbox.extents
+    extents_cax = cax_hidden.figbox.extents
+
+    # make a new subplot axis with specified location for the colorbar.
+    poop_position = [ extents_cax[0], # left
+                     extents_s1[1], # bottom
+                     extents_cax[2] - extents_cax[0], # width
+                     extents_s1[3] - extents_s1[1] ] # height
+
+    poop_ax = plt.axes(poop_position)
+
+    # make the colorbar
+    cb = plt.colorbar(im_s1, cax = poop_ax)#, ticks = cb_ticks)
+far easier if you have only one subplot instead of 3 like my previous example
+
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+def poop():
+    fig = plt.figure(figsize = (6,4))
+    fig.subplots_adjust(left = 0.2, right = 0.8,
+                        bottom = 0.2, top = 0.8)
+    ax = host_subplot(111)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', '5%', pad = 1)
+
+
+    # ... plot something
+    mappable = plt.imshow(array)
+
+    plt.colorbar(mappable, cax = cax)
+'''

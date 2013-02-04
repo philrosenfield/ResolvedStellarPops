@@ -77,6 +77,7 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
         logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
     return outfile
 
+
 def change_galaxy_input(galaxy_input, **kwargs):
     '''
     if no kwargs are given, will write None as object_mass and object_sfr_file.
@@ -210,6 +211,51 @@ def galaxy_input_fmt():
 
 %(output_file_type)i # output file: 1=data points"""
     return fmt
+
+
+def cmd_input_fmt():
+    fmt = \
+    """%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams
+%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb 
+%(kind_postagb)i %(file_postagb)s # kind_postagb, file_postagb DA VERIFICARE file_postagb
+%(ifmr_kind)i %(file_ifmr)s # ifmr_kind, file with ifmr
+%(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency
+################################explanation######################
+kind_tracks: 1= normal file 
+file_isotrack: tracks for low+int mass 
+file_lowzams: tracks for low-ZAMS 
+kind_tpagb: 0= none
+	    1= Girardi et al., synthetic on the flight, no dredge up 
+	    2= Marigo & Girardi 2001, from file, includes mcore and C/O
+	    3= Marigo & Girardi 2007, from file, includes period, mode and mloss  
+	    4= Marigo et al. 2011, from file, includes slope  
+file_tpagb: tracks for TP-AGB
+
+kind_postagb: 0= none
+	      1= from file
+file_postagb: PN+WD tracks
+
+kind_ifmr: 0= default
+           1= from file
+
+kind_rgbmloss: 0=off
+               1=on (with law=Reimers for the moment)"""
+    return fmt
+
+
+def cmd_input_dict():
+    return {'kind_tracks': 2,
+            'file_isotrack': 'isotrack/parsec/CAF09_S12D_NS.dat',
+            'file_lowzams': 'isotrack/bassazams_fasulla.dat',
+            'kind_tpagb': 4,
+            'file_tpagb': 'isotrack/isotrack_agb/tracce_CAF09_S_JAN13.dat',
+            'kind_postagb': 1,
+            'file_postagb': 'isotrack/final/pne_wd_test.dat',
+            'ifmr_kind': 0,
+            'file_ifmr': 'tab_ifmr/weidemann.dat',
+            'kind_rgbmloss': 1,
+            'rgbmloss_law': 'Reimers',
+            'rgbmloss_efficiency': 0.2}
 
 
 class trilegal_sfh(object):
@@ -461,7 +507,6 @@ def run_trilegal(cmd_input, galaxy_input, output):
         os.remove('trilegal.msg')
     os.chdir(here)
     return
-
 
 
 def run_pytrilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
@@ -878,7 +923,6 @@ def estimate_sfh(gal, sgal, sfr_file, metallicity, **kwargs):
     return sfr_file
 
 
-
 def color_color_diagnostic(trilegal_output_file, filter1, filter2, filter3,
                            filter4, ax=None, **pltkwargs):
     import time
@@ -906,6 +950,7 @@ def color_color_diagnostic(trilegal_output_file, filter1, filter2, filter3,
     ax.set_ylabel('$%s - %s$' % (filter1, filter2))
     ax.set_xlabel('$%s - %s$' % (filter3, filter4))
     return ax
+
 
 def mc_tests(ID, dir_name, outdir="MC_TESTS", bestfit_loc="MODELS/"):
     '''

@@ -4,7 +4,7 @@ import glob
 import pyfits
 import math_utils
 import sys
-
+from pprint import pprint
 
 class input_parameters(object):
     '''
@@ -20,6 +20,7 @@ class input_parameters(object):
     inp.write_params('test', rsp.TrilegalUtils.galaxy_input_fmt())
     $ cat test
 
+    use print inp to see what current values are in cmd line.
     '''
     def __init__(self, default_dict=None):
         if default_dict is None:
@@ -53,6 +54,10 @@ class input_parameters(object):
     def write_params(self, new_file, formatter):
         with open(new_file, 'w') as f:
             f.write(formatter % self.__dict__)
+    
+    def __str__(self):
+        pprint(self.__dict__)
+        return ""
 
 
 def savetxt(filename, data, fmt='%.4f', header=None):
@@ -138,6 +143,7 @@ def load_input(filename):
             # string
             d[key] = val
     return d
+
 
 def replace_ext(filename, ext):
     '''
