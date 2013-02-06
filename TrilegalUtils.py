@@ -4,25 +4,92 @@ import math_utils
 import os
 import logging
 logger = logging.getLogger()
+import fileIO
+import graphics
+
+class HRD(object):
+    def __init__(self, age, logl, logte, mass, eep_list, ieep):
+        self.age = np.array(age)
+        self.logl = np.array(logl)
+        self.logte = np.array(logte)
+        self.mass = mass
+        self.eep_dict = dict(zip(eep_list, np.array(ieep)))
+
+class PadovaIsoch(object):
+    def __init__(self, ptcri_file):
+        self.ptcri_file = ptcri_file
+        self.read_padova_isoch()
+            
+    def read_padova_isoch(self):
+        '''
+        returns age, logl, logte.
+        '''
+        with open(self.ptcri_file, 'r') as p:
+            lines = np.array(p.readlines())
+
+        # keep the space because !M exists in the files.
+        inds, masses = zip(*[(i, float(l.split(' M=')[1].split()[0])) for 
+                                 (i, l) in enumerate(lines) if ' M=' in l])
+
+        last = [i for (i, l) in enumerate(lines) if '!M' in l][0] - 2
+        inds = np.append(inds, last)
+        self.masses = np.array(masses)
+        for i in range(len(inds) - 1):
+            mass = masses[i]
+            isoc_inds = np.arange(inds[i], inds[i+1])
+            age, logl, logte = zip(*[map(float, l[:35].split())
+                                     for l in lines[isoc_inds]])
+            eep_list, ieep = zip(*[l[35:].split() for l in lines[isoc_inds] 
+                                    if len(l[35:].split()) == 2])
+            ieep = map(int, ieep)
+            self.__setattr__('iso_m%s' % self.strmass(mass),
+                             HRD(age, logl, logte, mass, eep_list, ieep))
+
+        return
 
 
-def read_padova_isoch(ptcri_file):
-    with open(ptcri_file, 'r') as p:
-        lines = p.readlines()
+    def strmass(self, mass):
+        return ('%.3f' % mass).replace('.','_')
 
-    age = np.array([])
-    logl = np.array([])
-    logte = np.array([])
-    for line in lines:
-        if len(line[:35].split(' ')) == 4:
-            (a, l, t, __) = line[:35].split(' ')
-            if float(a) < 1e3:
-                continue
-            age = np.append(a, age)
-            logl = np.append(l, logl)
-            logte = np.append(t, logte)
-    return (age, logl, logte)
 
+    def plot_padova_isoch(self, figname=None, masses=None):
+        if figname is None:
+            figname = fileIO.replace_ext(self.ptcri_file, '.png')
+        figtitle = os.path.split(self.ptcri_file)[1].replace('_','\_')
+            
+        if masses is None:
+            masses = self.masses
+
+        max = np.max([len(self.__dict__['iso_m%s' % self.strmass(m)].eep_dict.values()) for m in masses])
+        cols = graphics.GraphicsUtils.discrete_colors(max)
+        ax = plt.axes()
+        for j, mass in enumerate(masses):
+            isoch = self.__dict__['iso_m%s' % self.strmass(mass)]
+            logte = isoch.logte
+            logl = isoch.logl
+            ptinds = np.array(isoch.eep_dict.values())
+            
+            ax.plot(logte, logl, color='black', alpha=0.2)
+            if len(masses) == 1:
+                ax.plot(logte[ptinds], logl[ptinds], '.', color='blue', alpha=0.3)
+
+            sinds = np.argsort(ptinds)
+            ptinds = ptinds[sinds]
+            labels = np.array(isoch.eep_dict.keys())[sinds]
+            for i in range(len(ptinds)):
+                if j == 0:           
+                    ax.plot(logte[ptinds[i]], logl[ptinds[i]], 'o',
+                            color=cols[i], label='%s' % labels[i].replace('_', '\_'))
+                else:
+                    ax.plot(logte[ptinds[i]], logl[ptinds[i]], 'o',
+                            color=cols[i])
+
+        ax.set_xlim(4.6, 3.5)
+        ax.set_xlabel('$LOG\ TE$', fontsize=20)
+        ax.set_ylabel('$LOG\ L$', fontsize=20)
+        ax.set_title(r'$\textrm{%s}$' % figtitle, fontsize=16)
+        plt.legend()
+        plt.savefig(figname)
 
 def write_trilegal_sim(sgal, outfile, slice_inds=None):
     '''

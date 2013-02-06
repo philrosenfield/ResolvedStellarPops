@@ -55,7 +55,7 @@ def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
         ind, = np.nonzero(stages == s)
         if ind.size == 0:
             continue
-        ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0)
+        ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0, label=str(s))
     return ax, cols
 
 

@@ -733,7 +733,8 @@ class Track(object):
         
         if outfile == 'default':
             outfile = os.path.join('%s' % self.base, 'match_%s.dat' % self.name.replace('.PMS',''))
-            print 'writing %s' % outfile
+            header = '# logAge Mass logTe Mbol logg C/O \n'
+            #print 'writing %s' % outfile
 
         if hasattr(self.ptcri, 'eep') and self.ptcri.eep.nticks is not None:
             nticks = self.ptcri.eep.nticks
@@ -744,7 +745,8 @@ class Track(object):
         logTe = np.array([])
         logL = np.array([])
         Age = np.array([])
-
+        new_eep_dict = {}
+        tot_pts = 0
         for i in range(len(np.nonzero(self.ptcri.iptcri > 0)[0]) - 1):
             mess = '%.3f %s=%i %s=%i' % (self.mass,
                                         self.ptcri.get_ptcri_name(i, sandro=False),
@@ -759,20 +761,32 @@ class Track(object):
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
                 print 'cause the second eep is zippo.'
                 continue
+
             inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1])
-            if len(inds) < 2:
+            if len(inds) == 0:
                 print mess
                 print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
                                           self.ptcri.get_ptcri_name(i+1, sandro=False))
-                print 'cause there are less than two inds between these crit pts.'
-                continue                        
+                
+                print 'cause there are no inds between these crit pts.'
+                continue
+            
+            if len(inds) == 1:
+                # include the last ind.
+                inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1] + 1)
 
             tckp = self.interpolate_te_l_age(inds)
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
-
+            new_eep_dict[self.ptcri.get_ptcri_name(i)] = tot_pts
+            tot_pts += nticks[i]
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)
             Age = np.append(Age, 10**agenew)
+        #print new_eep_dict
+        self.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)
+        line = ' '.join(map(str, np.sort(new_eep_dict.values())))
+        line += '\t !M=%.6f' % self.mass
+        print line
         
         Mbol = 4.77 - 2.5 * logL
         logg = -10.616 + np.log10(self.mass) + 4.0 * logTe - logL
@@ -781,14 +795,43 @@ class Track(object):
         CO = np.zeros(len(logL))
         mass_arr = np.repeat(self.mass, len(logL))
         
-        header = '# logAge Mass logTe Mbol logg C/O \n'
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
+
+
         with open(outfile, 'w') as f:
             f.write(header)
             np.savetxt(f, to_write, fmt='%.6f')
 
         self.match_data = to_write
 
+    def write_trilegal_isotrack_ptcri(self, age, logl, logte, new_eep_dict, outfile=None):
+        if self.mass >= 1.65:
+            extra = 'INT2'
+        else:
+            return
+
+        if outfile is None:
+            outfile = 'ptcri_%s_Z%.4f_Y%.3f.dat.%s' % (os.path.split(self.base)[1],
+                                                       self.Z, self.Y, extra)
+
+        with open(outfile, 'a') as f:
+            for i in range(len(age)):
+                extra = ''
+                if i in new_eep_dict.values():
+                    key, = [k for (k,v) in new_eep_dict.items() if v == i]
+                    if key == 'PMS_BEG':
+                        start = True
+                        age[i] = 0.
+                        extra = ' M=%.6f PMS_BEG 0 \n' % self.mass
+                    else:
+                        extra += ' %s %i \n' % (key, i)
+                else:
+                    extra += ' %i \n' % i
+                isoc = '%.12e %.5f %.5f' % (age[i], logl[i], logte[i])
+
+                #print isoc
+                f.write(isoc+extra)
+        
 
     def interpolate_vs_age(self, col, inds, k=3, nest=-1, s=0.):
         '''
@@ -999,15 +1042,18 @@ class Track(object):
         
         fig.suptitle('M = %.3f Z = %.4f Y = %.4f' % (self.mass, self.Z, self.Y), fontsize=20)
         plt.savefig('ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
-        
+        self.plot_sandro_ptcri()
+
+    def plot_sandro_ptcri(self):
         fig = plt.figure()
         ax = plt.axes()
         ax = self.plot_track('LOG_TE', 'LOG_L', reverse_x=1, inds=np.nonzero(self.data.AGE>0.2)[0])
-        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True)
-        #ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True, sandro=True)
+        #ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True)
+        ax = self.plot_track('LOG_TE', 'LOG_L', ax=ax, annotate=True, sandro=True)
         fig.suptitle('M = %.3f Z = %.4f Y = %.4f' % (self.mass, self.Z, self.Y), fontsize=20)
         plt.savefig('sandro_ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
-        
+        return (fig, ax)
+
     def maxmin(self, col, inds=None):
         '''
         returns the max and min of a column in Track.data. use inds to index.
@@ -1050,8 +1096,8 @@ class critical_point(object):
         god i wish i knew regex
         '''
         zstr = filename.split('_Z')[-1]
-        self.Z = float(zstr[:5].split('_')[0])
-        ystr = filename.split('_Y')[-1][:5].split('_')[0]
+        self.Z = float(zstr.split('_')[0])
+        ystr = filename.replace('.dat','').split('_Y')[-1].split('_')[0]
         if ystr.endswith('.'):
             ystr = ystr[:-1]
         self.Y = float(ystr)
@@ -1132,13 +1178,15 @@ class critical_point(object):
             please_define = [c for c in eep_obj.eep_list if c not in col_keys]
 
         self.data_dict = data_dict
-        self.please_define = []
+
         if eep_obj is not None:
             self.eep = eep_obj
             self.key_dict = dict(zip(eep_obj.eep_list,
                                      range(len(eep_obj.eep_list))))
             self.please_define = please_define
-        
+        else:
+            self.please_define = []
+            self.key_dict = self.sandros_dict
 
 class eep(object):
     '''
@@ -1156,7 +1204,7 @@ class TrackSet(object):
     def __init__(self, input_obj):
         self.tracks_base = os.path.join(input_obj.tracks_dir, input_obj.prefix)
         self.track_names = fileIO.get_files(self.tracks_base, '*F7_*PMS')
-
+        self.prefix = input_obj.prefix
         search_term = '*%s*dat' % input_obj.prefix
         self.ptcri_file, = fileIO.get_files(input_obj.ptcrifile_loc,
                                             search_term)
@@ -1206,7 +1254,8 @@ class TrackSet(object):
         ax.set_xlim(ymin, ymax)
         ax.set_xlabel('LOG TE')
         ax.set_ylabel('LOG L')
-        plt.savefig('%s.png' % input_obj.prefix)
+        plt.savefig('%s.png' % self.prefix)
+        return ax
 
 
     def track_set_for_match(self):

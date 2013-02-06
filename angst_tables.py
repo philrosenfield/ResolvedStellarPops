@@ -13,7 +13,7 @@ class AngstTables(object):
         self.table4 = read_angst_tab4()
         self.targets = np.unique(np.concatenate((self.table4['target'],
                                                  self.table5['target'])))
-        AngstTables.load_data(self)
+        self.load_data()
 
     def load_data(self):
         '''

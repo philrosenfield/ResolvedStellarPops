@@ -154,7 +154,7 @@ class star_pop(object):
         adds the indices of some stage as an attribute.
         '''
         for stage in stages:
-            i = stage_inds(self.stage, stage)
+            i = self.stage_inds(stage)
             self.__setattr__('i%s' % stage.lower(), i)
         return
 
@@ -492,8 +492,10 @@ class simgalaxy(star_pop):
             self.mag1 = self.data.get_col(self.filter1)
             self.mag2 = self.data.get_col(self.filter2)
             self.color = self.mag1 - self.mag2
-        self.stage = self.data.get_col('stage')
-
+        try:
+            self.stage = self.data.get_col('stage')
+        except KeyError:
+            self.stage = np.zeros(len(self.data.get_col('Gc'))) - 1.
         # what do these in the init?!?
         #do_slice = simgalaxy.load_ast_corrections(self)
         #if do_slice:
@@ -523,6 +525,7 @@ class simgalaxy(star_pop):
             logger.warning('no match output for %s.' % fit_file_name)
         return
 
+
     def load_ast_corrections(self):
         try:
             diff1 = self.data.get_col('%s_cor' % self.filter1)
@@ -542,11 +545,13 @@ class simgalaxy(star_pop):
             self.ast_color = self.ast_mag1 - self.ast_mag2
         return 1
 
+
     def mix_modelname(self,model):
         '''
         give a model, will split into CAF09, modelname
         '''
         self.mix, self.model_name = get_mix_modelname(model)
+
 
     def load_ic_mstar(self):
         '''
@@ -573,6 +578,7 @@ class simgalaxy(star_pop):
         self.icstar, = np.nonzero((co >= 1) &
                                   (mdot <= -5) &
                                   (self.stage == get_stage_label('TPAGB')))
+
 
     def normalize(self, stage_lab, mag2=None, stage=None, by_stage=True,
                   magcut=999., useasts=False, sinds_cut=None, verts=None,
@@ -664,13 +670,16 @@ class simgalaxy(star_pop):
         self.__setattr__('%s_inds' % new_attr, ind)
         self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
-        
+
+
     def diagnostic_cmd(self, trgb=None, figname=None, inds=None, **kwargs):
         '''
         make a cmd of both simulated cmd and ast corrected cmd by stage.
         input
-        sgal with ast corrections (will die without TODO!)
-
+        
+        will make diagnostic plots depending on attributes available.
+        ast_mag2, mag2, Mag2. See cmd_by_stage
+        
         optional input
         trgb 
             plot a line at the trgb mag2 with the number of stars brighter
@@ -686,81 +695,116 @@ class simgalaxy(star_pop):
         xlim tuple of plot xlimits
         ylim tuple of plot ylimits
         '''
-        if not hasattr(self, 'ast_mag2'):
-            logger.error('currently need ast corrections for diagnostic plot...')
-            return -1
-        if inds is not None:
-            ustage = np.unique(self.stage[inds])
-        else:
-            ustage = np.unique(self.stage)
+        xlim = kwargs.get('xlim')
+        ylim = kwargs.get('ylim')
+
+        if hasattr(self, 'ast_mag2'):
+            extra = '_spread'
+            color = self.ast_color
+            mag2 = self.ast_mag2
+            if xlim is None:
+                xlim = (np.min(color[self.rec]), np.max(color[self.rec]))
+            if ylim is None:
+                ylim = (np.max(self.mag2), np.min(self.mag2))
+
+            self.cmd_by_stage(color, mag2, inds=inds, extra=extra, xlim=xlim,
+                              ylim=ylim, trgb=trgb)
+
+        if hasattr(self, 'mag2'):
+            extra = ''
+            color = self.color
+            mag2 = self.mag2
+            if xlim is None:
+                xlim = (np.min(color), np.max(color))
+            if ylim is None:
+                ylim = (np.max(self.mag2), np.min(self.mag2))
+
+            self.cmd_by_stage(color, mag2, inds=inds, extra=extra, xlim=xlim,
+                              ylim=ylim, trgb=trgb)
+
+        if hasattr(self, 'Mag2'):
+            extra = '_abs'
+            color = self.Color
+            mag2 = self.Mag2
+            if xlim is None:
+                xlim = (np.min(color), np.max(color))
+            if ylim is None:
+                ylim = (np.max(mag2), np.min(mag2))
+
+            self.cmd_by_stage(color, mag2, inds=inds, extra=extra, xlim=xlim,
+                              ylim=ylim, trgb=trgb)
+        return 
     
+    def setup_plot_by_stage(self, inds=None):
+        stage = self.stage
+        if inds is not None:
+            stage = self.stage[inds]
+
+        ustage = np.unique(stage)
         nplots = ustage.size + 1.
         bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
         cols = bcols.mpl_colors
         subplots_kwargs = {'sharex': 1, 'sharey': 1, 'figsize': (12, 8)}
-        j = 0
-        # loop for both simulation and spread simulation
-        for color, mag2 in zip((self.color, self.ast_color),
-                               (self.mag2, self.ast_mag2)):
+
+        fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
+        return fig, (axs), cols
+        
+    def cmd_by_stage(self, color, mag2, inds=None, xlim=None, ylim=None,
+                     extra='', figname=None, trgb=None, **kwargs):
+        '''
+        made to be called from diagnostic plots. Make a panel of plots for
+        each stage (get_label_stage)
+        '''
+        stage = self.stage
+        if inds is not None:
+            stage = self.stage[inds]
+
+        ustage = np.unique(stage)
+        fig, (axs), cols = self.setup_plot_by_stage(inds=inds)
+
+        # first plot is summary.
+        
+        ax0, cols = rspgraph.colorplot_by_stage(axs.ravel()[0],
+                                                color, mag2, '.', stage,
+                                                cols=cols)
+        # go through each existing evolutionary phase and plot those stars.
+        for i, (ax, st) in enumerate(zip(axs.ravel()[1:], ustage)):
+            label = get_label_stage(int(st))
+            ind = self.stage_inds(label)
             if inds is not None:
-                stage = self.stage[inds]
-            else:
-                stage = self.stage
-
-            fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
-
+                ind = list(set(ind) & set(inds))
+            if len(ind) == 0:
+                continue
+            ax.plot(color[ind], mag2[ind], '.', color=cols[i], mew=0,
+                    label='N=%i' % len(ind))
+            ax.set_xlabel('$%s-%s$' % (self.filter1, self.filter2))
+            ax.set_ylabel('$%s$' % (self.filter2))            
+            ax.set_title(label, **{'color': cols[i]})
+            ax.legend(loc=1, numpoints=1, frameon=False)
+            # add another line and set of numbers brighter than trgb
+            kwargs['color'] = 'black'
+            if trgb is not None:
+                rspgraph.plot_lines([ax], ax.get_xlim(), trgb)
+                text_offset = 0.02
+                xpos = ax.get_xlim()[0] + 2 * text_offset
+                ypos = trgb - text_offset
+                num = rsp.math_utils.brighter(mag2, trgb - self.count_offset,
+                                              inds=ind).size
+                rspgraph.plot_numbs(ax, num, xpos, ypos, **kwargs)
+        
+        if xlim is not None and ylim is not None:
             for ax in axs.ravel():
-                xlim = kwargs.get('xlim', (np.min(self.ast_color[self.rec]),
-                                           np.max(self.ast_color[self.rec])))
-                ylim = kwargs.get('ylim', (np.max(self.mag2),
-                                           np.min(self.mag2)))
                 ax.set_xlim(xlim)
                 ax.set_ylim(ylim)
 
-            # first plot is all stars.
-            ax0, cols = rspgraph.colorplot_by_stage(axs.ravel()[0],
-                                                    color, mag2, '.', stage,
-                                                    cols=cols)
-            i = 0
-            # go through each existing evolutionary phase and plot those stars.
-            for ax, st in zip(axs.ravel()[1:], ustage): 
-                label = get_label_stage(int(st))
-                ind = self.stage_inds(label)
-                if inds is not None:
-                    ind = list(set(ind) & set(inds))
-                if len(ind) == 0:
-                    continue
-                ax.plot(color[ind], mag2[ind], '.', color=cols[i], mew=0,
-                        label='N=%i' % len(ind))
-                kwargs['color'] = 'black'
-                ax.set_title(label, **{'color': cols[i]})
-                i += 1
-                ax.legend(loc=1, numpoints=1, frameon=False)
-                # add another line and set of numbers brighter than trgb
-                if trgb is not None:
-                    rspgraph.plot_lines([ax], ax.get_xlim(), trgb)
-                    text_offset = 0.02
-                    xpos = ax.get_xlim()[0] + 2 * text_offset
-                    ypos = trgb - text_offset
-                    num = rsp.math_utils.brighter(mag2, trgb - self.count_offset,
-                                                  inds=ind).size
-                    rspgraph.plot_numbs(ax, num, xpos, ypos, **kwargs)
+        if figname is None:
+            figname = rsp.fileIO.replace_ext(self.name, '.png')
+        
+        figname = figname.replace('.png', '%s.png' % extra)
+        plt.savefig(figname)
+        logger.info('wrote %s' % figname)
 
-            if figname:
-                import matplotlib.pyplot as plt
-                if j == 0: 
-                    extra = ''
-                else:
-                    extra = '_spread'
-                plt.savefig(figname.replace('.png', '%s.png' % extra))
-                logger.info('wrote %s' % figname.replace('.png', '%s.png' % extra))
-                plt.close()
-            else:
-                print 'provide a fig name or get an error!!!!'
-                plt.show()
-            j+=1
-        return figname.replace('.png', '%s.png' % extra)
-
+        return 
 
 def get_mix_modelname(model):
     '''
