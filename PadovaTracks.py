@@ -72,7 +72,7 @@ class Track(object):
         itpagb = itpagb + 1
         self.data = self.data[np.arange(itpagb)]
 
-        
+
     def load_track(self, filename, min_lage=0.2, cut_long=True):
         '''
         reads PMS file into a record array. Stores header as string self.header
@@ -279,6 +279,18 @@ class Track(object):
                 icen = 0
             self.add_eep(cen, icen)
 
+
+    def hb_eeps(self):
+
+ax = ts.plot_all_tracks('LOG_TE', 'LOG_L', annotate=False)
+for t in ts.tracks:
+    ycs = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]
+    inds = np.array([np.argmin(abs(t.data.YCEN-yc)) for yc in ycs])
+    ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
+    ccs = [0.45, 0.43, 0.41, 0.39, 0.37, 0.35, 0.33, 0.31]
+    inds = np.array([np.argmin(abs(t.data.XC_cen-cc)) for cc in ccs])
+    ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
+    
 
     def add_ms_eeps(self):
         '''
@@ -1203,18 +1215,21 @@ class eep(object):
 class TrackSet(object):
     def __init__(self, input_obj):
         self.tracks_base = os.path.join(input_obj.tracks_dir, input_obj.prefix)
-        self.track_names = fileIO.get_files(self.tracks_base, '*F7_*PMS')
+        self.track_names = fileIO.get_files(self.tracks_base, '*F7_*HB')
         self.prefix = input_obj.prefix
         search_term = '*%s*dat' % input_obj.prefix
         self.ptcri_file, = fileIO.get_files(input_obj.ptcrifile_loc,
                                             search_term)
-        self.eep = eep(input_obj)
+        if hasattr('input_obj', 'eep_list'):
+            self.eep = eep(input_obj)
+        else:
+            self.eep = None
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
 
         self.tracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                        for track in self.track_names]
 
-    def plot_all_tracks(self, xcol, ycol):
+    def plot_all_tracks(self, xcol, ycol, annotate=True):
         line_pltkw = {'color': 'black', 'alpha': 0.3}
         # would be nice to use color brewer here.
         point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5, 'color':'blue'}
@@ -1228,28 +1243,19 @@ class TrackSet(object):
         for t in self.tracks:
             #for t in ts:
             all_inds, = np.nonzero(t.data.AGE > 0.2)    
-            iptcri, = np.nonzero(t.ptcri.iptcri > 0)
-            inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
             ax = t.plot_track(xcol, ycol, ax=ax, inds=all_inds,
                               plt_kw=line_pltkw)
             
             np.append(lims, np.array(np.hstack((ax.get_xlim(), ax.get_ylim()))))
-            xmi, xma = ax.get_xlim()            
-            ymi, yma = ax.get_ylim()
+                    
+            if annotate is True:
+                iptcri, = np.nonzero(t.ptcri.iptcri > 0)
+                inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
+                if np.sum(inds) == 0:
+                    continue
+                ax.plot(t.data[xcol][inds], t.data[ycol][inds], **point_pltkw)  
 
-            if xmi < xmin:
-                xmin = xmi
-            if xma > xmax:
-                xmax = xma
-            if ymi < ymin:
-                ymin = ymi
-            if yma > ymax:
-                ymax = yma
-            
-            if np.sum(inds) == 0:
-                continue
-            ax.plot(t.data[xcol][inds], t.data[ycol][inds], **point_pltkw)  
-
+        print lims
         ax.set_xlim(xmax, xmin)
         ax.set_xlim(ymin, ymax)
         ax.set_xlabel('LOG TE')
@@ -1271,4 +1277,4 @@ if __name__ == '__main__':
     input_obj = fileIO.input_file(sys.argv[1])
     pdb.set_trace()
     ts = TrackSet(input_obj)
-    ts.track_set_for_match()
+    #ts.track_set_for_match()
