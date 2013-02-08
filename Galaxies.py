@@ -15,106 +15,7 @@ import logging
 logger = logging.getLogger()
 
 angst_data = rsp.angst_tables.AngstTables()
-        
-class galaxies(star_pop):
-    '''
-    wrapper for lists of galaxy objects, each method returns lists, unless they
-    are setting attributes.
-    '''
-    def __init__(self, galaxy_objects):
-        self.galaxies = galaxy_objects
-        # this will break if more than one filter1 or filter2... is that
-        # how I want it?
-        self.filter1, = np.unique([g.filter1 for g in galaxy_objects])
-        self.filter2, = np.unique([g.filter2 for g in galaxy_objects])
 
-    def sum_attr(self, *attrs):
-        for attr, g in itertools.product(attrs, self.galaxies):
-            g.__setattr__('sum_%s' % attr, np.sum(g.data.get_col(attr)))
-    
-    def all_stages(self, *stages):
-        '''
-        adds the indices of any stage as attributes to galaxy.
-        If the stage isn't found, -1 is returned.
-        '''
-        [g.all_stages(*stages) for g in self.galaxies]
-        return
-
-    def squish(self, *attrs):
-        '''
-        concatenates an attribute or many attributes and adds them to galaxies
-        instance -- with an 's' at the end to pluralize them... that might
-        be stupid.
-        ex 
-        for gal in gals:
-            gal.ra = gal.data['ra']
-            gal.dec = gal.data['dec']
-        gs = rsp.Galaxies.galaxies(gals)
-        gs.squish('color', 'mag2', 'ra', 'dec')
-        gs.ras ...
-        '''
-        for attr in attrs:
-            new_list = [g.__getattribute__(attr) for g in self.galaxies]
-            new_val = np.concatenate(new_list)
-            self.__setattr__('%ss' % attr, new_val)
-
-    def finite_key(self, key):
-        return [g for g in self.galaxies if np.isfinite(g.__dict__[key])]
-
-    def select_on_key(self, key, val):
-        ''' ex filter2 == F814W works great with strings or exact g.key==val.
-        rounds z to four places, no error handling.
-        '''
-        key = key.lower()
-        if key == 'z':
-            gs = [g for g in self.galaxies if
-                  np.round(g.__dict__[key], 4) == val]
-        else:
-            gs = [g for g in self.galaxies if g.__dict__[key] == val]
-        return gs
-
-    def group_by_z(self):
-        if not hasattr(self, 'zs'):
-            return
-        zsf = self.zs[np.isfinite(self.zs)]
-        zsn = self.zs[np.isnan(self.zs)]
-        d = {}
-        for z in zsf:
-            key = 'Z%.4f' % z
-            d[key] = galaxies.select_on_key(self, 'z', z)
-
-        d['no z'] = [g for g in gals if np.isnan(g.z)]
-        return d
-
-    def intersection(self, **kwargs):
-        '''
-        ex kwargs = {'filter2':'F814W', 'filter1':'F555W'}
-        will return a list of galaxy objects that match all kwarg values.
-        '''
-        gs_tmp = self.galaxies
-        gs = [galaxies.select_on_key(self, k, v) for k, v in kwargs.items()]
-        for i in range(len(gs)):
-            gs_tmp = list(set(gs_tmp) & set(gs[i]))
-        return gs_tmp
-
-
-
-def hla_galaxy_info(filename):
-    name = os.path.split(filename)[1]
-    name_split = name.split('_')[1:-2]
-    survey, lixo, photsys, pidtarget, filters = name_split
-    propid = pidtarget.split('-')[0]
-    target = '-'.join(pidtarget.split('-')[1:])
-    return survey, propid, target, filters, photsys
-
-
-def bens_fmt_galaxy_info(filename):
-    info = os.path.split(filename)[1].split('.')[0].split('_')
-    # Why not just split? Sometimes there's an IR right in there for
-    # reasons beyond comprehension.
-    (propid, target) = info[:2]
-    (filter1, filter2) = info[-2:]
-    return propid, target, filter1, filter2
 
 
 class star_pop(object):
@@ -503,6 +404,107 @@ class star_pop(object):
             if hasattr(self, d.title()):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
+
+ 
+      
+class galaxies(star_pop):
+    '''
+    wrapper for lists of galaxy objects, each method returns lists, unless they
+    are setting attributes.
+    '''
+    def __init__(self, galaxy_objects):
+        self.galaxies = galaxy_objects
+        # this will break if more than one filter1 or filter2... is that
+        # how I want it?
+        self.filter1, = np.unique([g.filter1 for g in galaxy_objects])
+        self.filter2, = np.unique([g.filter2 for g in galaxy_objects])
+
+    def sum_attr(self, *attrs):
+        for attr, g in itertools.product(attrs, self.galaxies):
+            g.__setattr__('sum_%s' % attr, np.sum(g.data.get_col(attr)))
+    
+    def all_stages(self, *stages):
+        '''
+        adds the indices of any stage as attributes to galaxy.
+        If the stage isn't found, -1 is returned.
+        '''
+        [g.all_stages(*stages) for g in self.galaxies]
+        return
+
+    def squish(self, *attrs):
+        '''
+        concatenates an attribute or many attributes and adds them to galaxies
+        instance -- with an 's' at the end to pluralize them... that might
+        be stupid.
+        ex 
+        for gal in gals:
+            gal.ra = gal.data['ra']
+            gal.dec = gal.data['dec']
+        gs = rsp.Galaxies.galaxies(gals)
+        gs.squish('color', 'mag2', 'ra', 'dec')
+        gs.ras ...
+        '''
+        for attr in attrs:
+            new_list = [g.__getattribute__(attr) for g in self.galaxies]
+            new_val = np.concatenate(new_list)
+            self.__setattr__('%ss' % attr, new_val)
+
+    def finite_key(self, key):
+        return [g for g in self.galaxies if np.isfinite(g.__dict__[key])]
+
+    def select_on_key(self, key, val):
+        ''' ex filter2 == F814W works great with strings or exact g.key==val.
+        rounds z to four places, no error handling.
+        '''
+        key = key.lower()
+        if key == 'z':
+            gs = [g for g in self.galaxies if
+                  np.round(g.__dict__[key], 4) == val]
+        else:
+            gs = [g for g in self.galaxies if g.__dict__[key] == val]
+        return gs
+
+    def group_by_z(self):
+        if not hasattr(self, 'zs'):
+            return
+        zsf = self.zs[np.isfinite(self.zs)]
+        zsn = self.zs[np.isnan(self.zs)]
+        d = {}
+        for z in zsf:
+            key = 'Z%.4f' % z
+            d[key] = galaxies.select_on_key(self, 'z', z)
+
+        d['no z'] = [g for g in gals if np.isnan(g.z)]
+        return d
+
+    def intersection(self, **kwargs):
+        '''
+        ex kwargs = {'filter2':'F814W', 'filter1':'F555W'}
+        will return a list of galaxy objects that match all kwarg values.
+        '''
+        gs_tmp = self.galaxies
+        gs = [galaxies.select_on_key(self, k, v) for k, v in kwargs.items()]
+        for i in range(len(gs)):
+            gs_tmp = list(set(gs_tmp) & set(gs[i]))
+        return gs_tmp
+
+
+def hla_galaxy_info(filename):
+    name = os.path.split(filename)[1]
+    name_split = name.split('_')[1:-2]
+    survey, lixo, photsys, pidtarget, filters = name_split
+    propid = pidtarget.split('-')[0]
+    target = '-'.join(pidtarget.split('-')[1:])
+    return survey, propid, target, filters, photsys
+
+
+def bens_fmt_galaxy_info(filename):
+    info = os.path.split(filename)[1].split('.')[0].split('_')
+    # Why not just split? Sometimes there's an IR right in there for
+    # reasons beyond comprehension.
+    (propid, target) = info[:2]
+    (filter1, filter2) = info[-2:]
+    return propid, target, filter1, filter2
 
 
 class galaxy(star_pop):
