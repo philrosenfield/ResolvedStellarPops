@@ -17,24 +17,33 @@ logger = logging.getLogger()
 angst_data = rsp.angst_tables.AngstTables()
 
 
-
 class star_pop(object):
     def __init__(self):
         pass
 
     def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None, yfilter=None,
                  contour_args={}, scatter_args={}, plot_args={}, scatter_off=False,
-                 levels=20, threshold=10, contour_lw={}):
+                 levels=20, threshold=10, contour_lw={}, color_by_arg_kw={}):
+
         if fig is None:
             fig = plt.figure(figsize=(8, 8))
+
         if ax is None:
             ax = plt.axes()
+
         if xlim is None:
             ax.set_xlim(color.min(), color.max())
+
         if ylim is None:
             ax.set_ylim(mag.max(), mag.min())
+
         if yfilter is None:
             yfilter = self.filter2
+        
+        if len(color_by_arg_kw) != 0:
+            scatter_off = True
+            self.color_by_arg(ax=ax, fig=fig, **color_by_arg_kw)
+
         if scatter_off is False:
             contour_args = dict({'cmap': cm.gray_r, 'zorder': 100}.items() +
                                 contour_args.items())
@@ -45,8 +54,8 @@ class star_pop(object):
             contour_lw = dict({'linewidths': 2, 'colors': 'white', 'zorder': 200}.items() +
                                contour_lw.items())
 
-            ncolbin = int(np.diff((np.min(color), np.max(color))) / 0.05)
-            nmagbin = int(np.diff((np.min(mag), np.max(mag))) / 0.05)
+            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / 0.05)
+            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / 0.05)
 
             plt_pts, cs = scatter_contour(color, mag,
                                           threshold=threshold, levels=levels,
@@ -67,6 +76,59 @@ class star_pop(object):
         self.fig = fig
         return
 
+    def color_by_arg(self, xcol, ycol, colorcol, bins=None, cmap=None, ax=None,
+                     fig=None, labelfmt = '$%.3f$'):
+        
+        if fig is None:
+            if not hasattr(self, 'fig'):
+                fig = plt.figure()
+            else:
+                fig = self.fig
+        
+        if ax is None:
+            if not hasattr(self, 'ax'):
+                ax = plt.axes()
+            else:
+                ax = self.ax
+
+        if bins is None:
+            bins = 10
+
+        xdata = self.data.get_col(xcol)
+        ydata = self.data.get_col(ycol)
+        coldata = self.data.get_col(colorcol)
+        
+        # need the bins to be an array to use digitize.
+        if type(bins) == int:
+            hist, bins = np.histogram(coldata, bins=bins)
+        
+        inds = np.digitize(coldata, bins)
+        uinds = np.unique(inds)
+        # digitize sticks all points that aren't in bins in the final bin
+        # cut that bin, or plot will be meaningless..
+        if uinds[-1] == len(bins):
+            uinds = uinds[:-1]
+        if cmap is None:
+            if 3 <= len(uinds) <= 11:
+                import brewer2mpl
+                bmap = brewer2mpl.get_map('Spectral', 'Diverging', len(uinds))
+                cols = bmap.mpl_colors
+            else:
+                cols = rspg.discrete_colors(len(uinds), colormap='Spectral')
+        else:
+            cols = rspg.discrete_colors(len(uinds), colormap=cmap)
+
+        for j, i in enumerate(uinds):
+            sub_inds, = np.nonzero(inds == i)
+            lab = labelfmt % bins[i]  # bins are left bin edges.
+            ax.plot(xdata[sub_inds], ydata[sub_inds], '.', color=cols[j],
+                    label=lab, mew=0.)
+
+        ax.legend(loc=0, numpoints=1)
+        self.ax = ax
+        self.fig = fig
+        
+        
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False):
         self.redding_vector()
         self.cmd_errors()

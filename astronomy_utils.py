@@ -4,6 +4,34 @@ import numpy as np
 import angst_tables
 angst_data = angst_tables.AngstTables()
 
+
+def points_inside_ds9_polygon(reg_name, ra_points, dec_points):
+    '''
+    uses read_reg
+    '''
+    radec = np.column_stack((ra_points, dec_points))
+    ras, decs = read_reg(reg_name,shape='polygon')
+    verts = np.column_stack((ras, decs))
+    mask = nxutils.points_inside_poly(radec, verts)
+    inds, = np.nonzero(mask)
+    return inds
+
+
+def read_reg(reg_name, shape='polygon'):
+    '''
+    Takes a ds9 reg file and loads ra dec into arrays. 
+    Only tested on polygon shape. 
+    returns ras, decs
+    '''
+    with open(reg_name, 'r') as f:
+        lines = f.readlines()
+    xy, = [map(float, line.replace(shape + '(', '').replace(')', '').split('#')[0].split(',')) 
+               for line in lines if line.startswith(shape)]
+    ras = xy[0::2]
+    decs =xy[1::2]
+    return ras, decs
+
+
 def hess(color, mag, binsize, **kw):
     """
     Compute a hess diagram (surface-density CMD) on photometry data.

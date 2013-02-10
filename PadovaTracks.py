@@ -281,15 +281,14 @@ class Track(object):
 
 
     def hb_eeps(self):
-
-ax = ts.plot_all_tracks('LOG_TE', 'LOG_L', annotate=False)
-for t in ts.tracks:
-    ycs = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]
-    inds = np.array([np.argmin(abs(t.data.YCEN-yc)) for yc in ycs])
-    ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
-    ccs = [0.45, 0.43, 0.41, 0.39, 0.37, 0.35, 0.33, 0.31]
-    inds = np.array([np.argmin(abs(t.data.XC_cen-cc)) for cc in ccs])
-    ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
+        pass
+        '''
+        ax = ts.plot_all_tracks('LOG_TE', 'LOG_L', annotate=False)
+        for t in ts.tracks:
+            ycs = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]
+            inds = np.array([np.argmin(abs(t.data.YCEN-yc)) for yc in ycs])
+            ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
+        '''
     
 
     def add_ms_eeps(self):
@@ -1200,6 +1199,7 @@ class critical_point(object):
             self.please_define = []
             self.key_dict = self.sandros_dict
 
+
 class eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to ptcri class.
@@ -1213,51 +1213,80 @@ class eep(object):
 
 
 class TrackSet(object):
-    def __init__(self, input_obj):
+    def __init__(self, input_obj, hb=False):
         self.tracks_base = os.path.join(input_obj.tracks_dir, input_obj.prefix)
-        self.track_names = fileIO.get_files(self.tracks_base, '*F7_*HB')
+
+
         self.prefix = input_obj.prefix
         search_term = '*%s*dat' % input_obj.prefix
         self.ptcri_file, = fileIO.get_files(input_obj.ptcrifile_loc,
                                             search_term)
-        if hasattr('input_obj', 'eep_list'):
+        if hasattr(input_obj, 'eep_list'):
             self.eep = eep(input_obj)
         else:
             self.eep = None
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
-
+        
+        self.track_names = fileIO.get_files(self.tracks_base, '*F7_*PMS')
         self.tracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                        for track in self.track_names]
+        if hb is True:
+            self.hbtrack_names = fileIO.get_files(self.tracks_base, '*F7_*HB')
+            self.hbtracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
+                             for track in self.hbtrack_names]
 
-    def plot_all_tracks(self, xcol, ycol, annotate=True):
+
+    def plot_all_tracks(self, xcol, ycol, annotate=True, ax=None, hb=False,
+                        both=False, reverse_x=False, sandro=True):
+        didit = 0
         line_pltkw = {'color': 'black', 'alpha': 0.3}
         # would be nice to use color brewer here.
-        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5, 'color':'blue'}
-
-        ax = None
-        xmax = -99.
-        xmin = 99
-        ymax = -99
-        ymin = 99
-        lims = np.array([])
-        for t in self.tracks:
+        nptcris = len(self.ptcri.key_dict)
+        cols = rspg.discrete_colors(nptcris, colormap='spectral')
+        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
+        
+        xlims = np.array([])
+        ylims = np.array([])
+        if both is True:
+            tracks = np.concatenate((self.tracks, self.hbtracks))
+        elif hb is True:
+            tracks = self.hbtracks
+        else:
+            tracks = self.tracks
+        for t in tracks:
             #for t in ts:
             all_inds, = np.nonzero(t.data.AGE > 0.2)    
             ax = t.plot_track(xcol, ycol, ax=ax, inds=all_inds,
                               plt_kw=line_pltkw)
-            
-            np.append(lims, np.array(np.hstack((ax.get_xlim(), ax.get_ylim()))))
-                    
+                
+            xlims = np.append(xlims, np.array(ax.get_xlim()))
+            ylims = np.append(ylims, np.array(ax.get_ylim()))       
             if annotate is True:
                 iptcri, = np.nonzero(t.ptcri.iptcri > 0)
                 inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
+                if len(inds) == nptcris:
+                    labs = [t.ptcri.get_ptcri_name(i, sandro=sandro).replace('_','\_') for i in range(nptcris)]
+                    didit += 1
                 if np.sum(inds) == 0:
                     continue
-                ax.plot(t.data[xcol][inds], t.data[ycol][inds], **point_pltkw)  
+                if didit == 1:
+                    didit += 1
+                    [ax.plot(t.data[xcol][inds[i]], t.data[ycol][inds[i]],
+                             color=cols[i], label='$%s$' % labs[i], **point_pltkw)
+                             for i in range(len(inds))]
+                else:
+                    [ax.plot(t.data[xcol][inds[i]], t.data[ycol][inds[i]],
+                             color=cols[i], **point_pltkw)
+                             for i in range(len(inds))]
+                
 
-        print lims
-        ax.set_xlim(xmax, xmin)
-        ax.set_xlim(ymin, ymax)
+        if reverse_x is True:
+            ax.set_xlim(np.max(xlims), np.min(xlims))
+        else:
+            ax.set_xlim(np.min(xlims), np.max(xlims))
+        if annotate is True:
+            ax.legend(loc=0, numpoints=1)
+        ax.set_xlim(np.min(ylims), np.max(ylims))
         ax.set_xlabel('LOG TE')
         ax.set_ylabel('LOG L')
         plt.savefig('%s.png' % self.prefix)
