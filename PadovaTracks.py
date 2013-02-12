@@ -12,6 +12,7 @@ class Track(object):
     def __init__(self, filename, ptcri=None, min_lage=0.2, cut_long=True,
                  eep=None):
         (self.base, self.name) = os.path.split(filename)
+        print filename
         self.load_track(filename, min_lage=min_lage, cut_long=cut_long)
         self.filename_info()
         self.mass = self.data.MASS[0]
@@ -81,18 +82,24 @@ class Track(object):
             lines = f.readlines()
 
         begin_track, = [i for i,l in enumerate(lines) if 'BEGIN TRACK' in l]
-        self.header = lines[:begin_track]
-        col_keys = lines[begin_track + 1].strip().split()
+        self.header = lines[:begin_track]            
+        col_keys = lines[begin_track + 1].replace('#', '').strip().split()
+        begin_track_skip = 2
+
+        if 'information' in lines[begin_track + 2]:
+            col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])
+            begin_track_skip += 1
+
         dtype = [(c, 'd') for c in col_keys]
         try:
             data = np.genfromtxt(filename,
-                                 skiprows=begin_track + 2,
+                                 skiprows=begin_track + begin_track_skip,
                                  names=col_keys)
         except ValueError:
             data = np.genfromtxt(filename,
-                                 skiprows=begin_track + 2,
-                                 skip_footer = 2,
-                                 names=col_keys)
+                                 skiprows=begin_track + begin_track_skip,
+                                 names=col_keys,
+                                 invalid_raise=False)
 
         # cut non-physical part of the model
         # NOTE it should be >= but sometimes Sandro's PMS_BEG
@@ -106,7 +113,28 @@ class Track(object):
             self.cut_long_track()
         return
 
+    def add_to_col_keys(self, col_keys, additional_col_line):
+        new_cols = additional_col_line.split(':')[1].strip().split()
+        col_keys = list(np.concatenate((col_keys, new_cols)))
+        return col_keys
+    
+    def format_track_file(self):
+        '''
+        add # comment to header. Useful for fromHR2mags.
+        '''
+        self.header = ['# %s' % h for h in self.header]
 
+        name_dat = '%s.dat' % self.name
+        filename = os.path.join(self.base, name_dat)
+        #to_write = [np.column_stack(self.data[c]) for c in columns_list]
+        #to_write = np.squeeze(np.array(to_write).T)
+        with open(filename, 'w') as f:
+            f.writelines(self.header)
+            f.write('# %s \n' % ' '.join(self.col_keys))
+            np.savetxt(f, self.data, dtype=self.data.dtype)
+        return filename
+        
+    
     def low_mass_cut(self):
         ims_beg, =  np.nonzero(self.data.MODE == self.ptcri.sandros_dict['MS_BEG'])
         
@@ -905,7 +933,7 @@ class Track(object):
 
     def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, 
                    inds=None, plt_kw={}, annotate=False, clean=True, ainds=None,
-                   sandro=False):
+                   sandro=False, cmd=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -926,11 +954,15 @@ class Track(object):
             # Non physical inds go away.
             inds, = np.nonzero(self.data.AGE > 0.2)
 
+        if cmd is True:
+            xdata = self.data[xcol] - self.data[ycol]
+        else:
+            xdata = self.data[xcol]
         if inds is not None:
             inds = [i for i in inds if i > 0]
-            ax.plot(self.data[xcol][inds], self.data[ycol][inds], **plt_kw)
+            ax.plot(xdata[inds], self.data[ycol][inds], **plt_kw)
         else:
-            ax.plot(self.data[xcol], self.data[ycol], **plt_kw)
+            ax.plot(xdata, self.data[ycol], **plt_kw)
 
         if reverse_x:
             ax.set_xlim(ax.get_xlim()[::-1])
@@ -939,7 +971,8 @@ class Track(object):
             ax.set_ylim(ax.get_ylim()[::-1])
 
         if annotate:
-            ax = self.annotate_plot(ax, xcol, ycol, inds=ainds, sandro=sandro)
+            ax = self.annotate_plot(ax, xcol, ycol, inds=ainds, sandro=sandro,
+                                    cmd=cmd)
         
         return ax
 
@@ -971,7 +1004,9 @@ class Track(object):
             xdata = self.data[xcol]
         else:
             xdata = xcol
-
+        
+        if cmd is True:
+            xdata = xdata - self.data[ycol]
         # label stylings                  
         bbox = dict(boxstyle='round, pad=0.5', fc=fc, alpha=0.5)
         arrowprops = dict(arrowstyle='->', connectionstyle='arc3, rad=0')
@@ -1204,40 +1239,40 @@ class eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to ptcri class.
     '''
-    def __init__(self, inputobj):
-        self.eep_list = inputobj.eep_list
-        if hasattr(inputobj, 'eep_lengths'):
-            self.nticks = inputobj.eep_lengths
-        else:
-            self.nticks = None
+    def __init__(self, eep_list, eep_lengths=None):
+        self.eep_list = eep_list
+        self.nticks = eep_lengths
+
 
 
 class TrackSet(object):
-    def __init__(self, input_obj, hb=False):
-        self.tracks_base = os.path.join(input_obj.tracks_dir, input_obj.prefix)
+    def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
+                 eep_list=None, eep_lengths=None, hb=False,
+                 track_search_term='*F7_*PMS', hbtrack_search_term='*F7_*HB'):
+    
+        self.tracks_base = os.path.join(tracks_dir, prefix)
 
+        self.prefix = prefix
+        search_term = '*%s*dat' % prefix
 
-        self.prefix = input_obj.prefix
-        search_term = '*%s*dat' % input_obj.prefix
-        self.ptcri_file, = fileIO.get_files(input_obj.ptcrifile_loc,
-                                            search_term)
-        if hasattr(input_obj, 'eep_list'):
-            self.eep = eep(input_obj)
+        self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
+        if eep_list is not None:
+            self.eep = eep(eep_list, eep_lengths=eep_lengths)
         else:
             self.eep = None
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
         
-        self.track_names = fileIO.get_files(self.tracks_base, '*F7_*PMS')
+        self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
         self.tracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                        for track in self.track_names]
         if hb is True:
-            self.hbtrack_names = fileIO.get_files(self.tracks_base, '*F7_*HB')
+            self.hbtrack_names = fileIO.get_files(self.tracks_base, hbtrack_search_term)
             self.hbtracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                              for track in self.hbtrack_names]
 
 
     def plot_all_tracks(self, xcol, ycol, annotate=True, ax=None, hb=False,
-                        both=False, reverse_x=False, sandro=True):
+                        both=False, reverse_x=False, sandro=True, cmd=False):
         didit = 0
         line_pltkw = {'color': 'black', 'alpha': 0.3}
         # would be nice to use color brewer here.
@@ -1256,9 +1291,10 @@ class TrackSet(object):
         for t in tracks:
             #for t in ts:
             all_inds, = np.nonzero(t.data.AGE > 0.2)    
+            
             ax = t.plot_track(xcol, ycol, ax=ax, inds=all_inds,
-                              plt_kw=line_pltkw)
-                
+                              plt_kw=line_pltkw, cmd=cmd)
+            
             xlims = np.append(xlims, np.array(ax.get_xlim()))
             ylims = np.append(ylims, np.array(ax.get_ylim()))       
             if annotate is True:
@@ -1271,11 +1307,15 @@ class TrackSet(object):
                     continue
                 if didit == 1:
                     didit += 1
-                    [ax.plot(t.data[xcol][inds[i]], t.data[ycol][inds[i]],
+                    if cmd is True:
+                        xdata = t.data[xcol] - t.data[ycol]
+                    else:
+                        xdata = t.data[xcol]
+                    [ax.plot(xdata[inds[i]], t.data[ycol][inds[i]],
                              color=cols[i], label='$%s$' % labs[i], **point_pltkw)
                              for i in range(len(inds))]
                 else:
-                    [ax.plot(t.data[xcol][inds[i]], t.data[ycol][inds[i]],
+                    [ax.plot(xdata[inds[i]], t.data[ycol][inds[i]],
                              color=cols[i], **point_pltkw)
                              for i in range(len(inds))]
                 
@@ -1287,9 +1327,16 @@ class TrackSet(object):
         if annotate is True:
             ax.legend(loc=0, numpoints=1)
         ax.set_xlim(np.min(ylims), np.max(ylims))
-        ax.set_xlabel('LOG TE')
-        ax.set_ylabel('LOG L')
-        plt.savefig('%s.png' % self.prefix)
+        ylab = ycol.replace('_', '\ ')
+        xlab = xcol.replace('_', '\ ')
+        figname = '%s_%s_%s.png' % (self.prefix, xcol, ycol)
+
+        if cmd is True:
+            xlab = '%s-%s' % (xlab, ylab)
+        ax.set_xlabel('$%s$' % xlab)
+        ax.set_ylabel('$%s$' % ylab)
+        
+        plt.savefig(figname)
         return ax
 
 
@@ -1303,7 +1350,7 @@ class TrackSet(object):
 
 if __name__ == '__main__':
     import pdb
-    input_obj = fileIO.input_file(sys.argv[1])
+    input_obj = fileIO.load_input(sys.argv[1])
     pdb.set_trace()
-    ts = TrackSet(input_obj)
+    ts = TrackSet(**input_obj)
     #ts.track_set_for_match()

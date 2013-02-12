@@ -19,7 +19,7 @@ class Isochrone(object):
 
     def plot_isochrone(self, col1, col2, ax=None, plt_kw={}, mag_covert_kw={},
                        photsys=None, clean=True, inds=None, reverse_x=False,
-                       reverse_y=False):
+                       reverse_y=False, pms=False):
         import matplotlib.pyplot as plt
         if ax is None:
             fig = plt.figure()
@@ -41,6 +41,12 @@ class Isochrone(object):
         else:
             x = self.get_col(col1)
         
+        if pms is False:
+            clean = False
+            nopms, = np.nonzero(self.get_col('stage') != 0)
+        else:
+            nopms, = np.arange(len(y))
+
         if clean is True:
             rollit = len(x) - np.argmax(x)
             x = np.roll(x, rollit)
@@ -49,8 +55,9 @@ class Isochrone(object):
             y = y[1:]
 
         if inds is None:
-            ax.plot(x, y, **plt_kw)
+            ax.plot(x[nopms], y[nopms], **plt_kw)
         else:
+            inds = list(set(inds) & set(nopms))
             ax.plot(x[inds], y[inds], **plt_kw)
 
         if reverse_x is True:
