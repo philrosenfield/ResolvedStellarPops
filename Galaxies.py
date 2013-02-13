@@ -23,7 +23,8 @@ class star_pop(object):
 
     def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None, yfilter=None,
                  contour_args={}, scatter_args={}, plot_args={}, scatter_off=False,
-                 levels=20, threshold=10, contour_lw={}, color_by_arg_kw={}):
+                 levels=20, threshold=10, contour_lw={}, color_by_arg_kw={},
+                 filter1=None, filter2=None):
 
         if fig is None:
             fig = plt.figure(figsize=(8, 8))
@@ -37,8 +38,16 @@ class star_pop(object):
         if ylim is None:
             ax.set_ylim(mag.max(), mag.min())
 
+        if hasattr(self, 'filter2'):
+            filter2 = self.filter2
+
+        if hasattr(self, 'filter1'):
+            filter1 = self.filter1
+
         if yfilter is None:
-            yfilter = self.filter2
+            yfilter = filter2
+        
+        
         
         if len(color_by_arg_kw) != 0:
             scatter_off = True
@@ -69,9 +78,9 @@ class star_pop(object):
         else:
             ax.plot(color, mag, '.', **plot_args)
 
-        ax.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
+        ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
         ax.set_ylabel('$%s$' % yfilter, fontsize=20)
-
+        ax.tick_params(labelsize=16)
         self.ax = ax
         self.fig = fig
         return

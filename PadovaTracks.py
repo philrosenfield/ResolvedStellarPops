@@ -16,6 +16,7 @@ class Track(object):
         self.load_track(filename, min_lage=min_lage, cut_long=cut_long)
         self.filename_info()
         self.mass = self.data.MASS[0]
+
         if ptcri is not None:
             if type(ptcri) == str:
                 pass
@@ -106,7 +107,6 @@ class Track(object):
         #      will be one model number too soon for that.
         ainds, = np.nonzero(data['AGE'] > min_lage)
         data = data[ainds]
-                
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
         if cut_long:
