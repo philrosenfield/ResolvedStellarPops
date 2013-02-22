@@ -1,43 +1,46 @@
-import ResolvedStellarPops as rsp
-import ResolvedStellarPops.graphics.GraphicsUtils as rspgraph
+# Strangers wrote
+import os
+import sys
+import numpy as np
 import matplotlib.nxutils as nxutils
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.patches import FancyArrow
-from TrilegalUtils import get_stage_label, get_label_stage
-from scatter_contour import scatter_contour
-import os
-import sys
-import numpy as np
-import brewer2mpl
 import itertools
 import logging
 logger = logging.getLogger()
 
-angst_data = rsp.angst_tables.AngstTables()
+# Friends wrote
+from scatter_contour import scatter_contour
+import brewer2mpl
+
+# I wrote
+import astronomy_utils
+from TrilegalUtils import get_stage_label, get_label_stage
+import graphics.GraphicsUtils as rspgraph
+import fileIO
+import angst_tables
+angst_data =  angst_tables.AngstTables()
 
 
 class star_pop(object):
     def __init__(self):
         pass
 
-    def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None, yfilter=None,
-                 contour_args={}, scatter_args={}, plot_args={}, scatter_off=False,
-                 levels=20, threshold=10, contour_lw={}, color_by_arg_kw={},
-                 filter1=None, filter2=None):
-
+    def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None,
+                 yfilter=None, contour_args={}, scatter_args={}, plot_args={},
+                 scatter_off=False, levels=20, threshold=10, contour_lw={},
+                 color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None):
+        set_fig = 0
+        set_ax = 0
         if fig is None:
             fig = plt.figure(figsize=(8, 8))
-
+            set_fig = 1
+        
         if ax is None:
             ax = plt.axes()
-
-        if xlim is None:
-            ax.set_xlim(color.min(), color.max())
-
-        if ylim is None:
-            ax.set_ylim(mag.max(), mag.min())
-
+            set_ax = 1
+        
         if hasattr(self, 'filter2'):
             filter2 = self.filter2
 
@@ -47,6 +50,9 @@ class star_pop(object):
         if yfilter is None:
             yfilter = filter2
         
+        if slice_inds is not None:
+            color = color[slice_inds]
+            mag = mag[slice_inds]
         
         
         if len(color_by_arg_kw) != 0:
@@ -78,15 +84,28 @@ class star_pop(object):
         else:
             ax.plot(color, mag, '.', **plot_args)
 
+        if xlim is None:
+            xlim = (color.min(), color.max())
+
+        if ylim is None:
+            ylim = (mag.max(), mag.min())
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
         ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
         ax.set_ylabel('$%s$' % yfilter, fontsize=20)
         ax.tick_params(labelsize=16)
-        self.ax = ax
-        self.fig = fig
+        
+        if set_ax == 1:
+            self.ax = ax
+        if set_fig == 1:
+            self.fig = fig
         return
 
     def color_by_arg(self, xcol, ycol, colorcol, bins=None, cmap=None, ax=None,
-                     fig=None, labelfmt = '$%.3f$'):
+                     fig=None, labelfmt = '$%.3f$', xdata=None, ydata=None,
+                     coldata=None, xlim=None, ylim=None, slice_inds=None,
+                     legend=True):
         
         if fig is None:
             if not hasattr(self, 'fig'):
@@ -103,9 +122,17 @@ class star_pop(object):
         if bins is None:
             bins = 10
 
-        xdata = self.data.get_col(xcol)
-        ydata = self.data.get_col(ycol)
-        coldata = self.data.get_col(colorcol)
+        if xdata is None:
+            xdata = self.data.get_col(xcol)
+        if ydata is None:
+            ydata = self.data.get_col(ycol)
+        if colorcol is None:
+            coldata = self.data.get_col(colorcol)
+        
+        if slice_inds is not None:
+            xdata = xdata[slice_inds]
+            ydata = ydata[slice_inds]
+            coldata = coldata[slice_inds]
         
         # need the bins to be an array to use digitize.
         if type(bins) == int:
@@ -120,23 +147,61 @@ class star_pop(object):
         if cmap is None:
             if 3 <= len(uinds) <= 11:
                 import brewer2mpl
-                bmap = brewer2mpl.get_map('Spectral', 'Diverging', len(uinds))
+                #bmap = brewer2mpl.get_map('Spectral', 'Diverging', len(uinds))
+                bmap = brewer2mpl.get_map('Paired', 'Qualitative', len(uinds))
                 cols = bmap.mpl_colors
             else:
-                cols = rspg.discrete_colors(len(uinds), colormap='Spectral')
+                cols = rspgraph.discrete_colors(len(uinds), colormap='RdYlGn')
         else:
-            cols = rspg.discrete_colors(len(uinds), colormap=cmap)
+            cols = rspgraph.discrete_colors(len(uinds), colormap=cmap)
 
+        sub_inds = np.array([])
+        nc = len(cols[0])
+        colors = np.ndarray(shape=(len(xdata), nc), dtype=float)
+        labs = []
         for j, i in enumerate(uinds):
-            sub_inds, = np.nonzero(inds == i)
-            lab = labelfmt % bins[i]  # bins are left bin edges.
-            ax.plot(xdata[sub_inds], ydata[sub_inds], '.', color=cols[j],
-                    label=lab, mew=0.)
-
-        ax.legend(loc=0, numpoints=1)
-        self.ax = ax
-        self.fig = fig
+            sinds, = np.nonzero(inds == i)
+            N = len(sinds)
+            if N == 0:
+                continue
+            if labelfmt != '':
+                labs.append(labelfmt % bins[i])  # bins are left bin edges.
+            #sinds_colors = np.repeat(cols[j], [N,N,N], axis=0).reshape(3, N).T
+            colors[sinds] = cols[j]
+            #fig1 = plt.figure()
+            #ax1 = plt.axes()
+            #ax1.plot(xdata[sinds], ydata[sinds], 'o', color=cols[j], label=labelfmt % bins[i])
+            #ax1.legend()
+            #ax1.set_xlim(xlim)
+            #ax1.set_ylim(ylim)
+            sub_inds = np.append(sub_inds, sinds)
         
+        #colors = colors.reshape(len(colors)/3, 3)
+        inds = map(int, sub_inds[:])
+        np.random.shuffle(inds)
+        # fake out the legend...
+        if labelfmt != '':
+            [ax.plot(999, 999, 'o', color=cols[i], label=labs[i]) for i in range(len(labs))]
+        ax.scatter(xdata[inds], ydata[inds], marker='o', s=20, color=colors[inds])
+
+        if xlim is None:
+            xlim = (xdata.min(), xdata.max())
+
+        if ylim is None:
+            ylim = (ydata.max(), ydata.min())
+
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+
+        if hasattr(self, 'filter1') and hasattr(self, 'filter2') and legend is True:
+            ax.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
+            ax.set_ylabel('$%s$' % self.filter2, fontsize=20)
+            ax.tick_params(labelsize=16)
+
+        if legend is True:
+            ax.legend(loc=0, numpoints=1, frameon=False)
+
+        return ax
         
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False):
         self.redding_vector()
@@ -145,48 +210,43 @@ class star_pop(object):
         if trgb is True:
             self.put_a_line_on_it(self.trgb, consty=True)
         
-    def put_a_line_on_it(self, val, consty=True, constx=False, color='black',
-                         ls='--', lw=2):
+    def put_a_line_on_it(self, ax, val, consty=True, color='black',
+                         ls='--', lw=2, annotate=True, annotate_fmt='$TRGB=%.2f$'):
         """
-        Trivial if this is just a constant y. But if the constant is actually
-        on a plot of y vs x-Const it's less trivial
-        
-        if consty == True, then this is just a constant y value.
-        
-        if yfilter is not True, then val is assumed to be on a plot of y vs y-x
-        and val represents a value of x.
+        if consty is True: plots a constant y value across ax.xlims().
+        if consty is False: plots a constant x on a plot of y vs x-y
         """
 
-        (xmin, xmax) = self.ax.get_xlim()
-        (ymin, ymax) = self.ax.get_ylim()
+        (xmin, xmax) = ax.get_xlim()
+        (ymin, ymax) = ax.get_ylim()
     
         xarr = np.linspace(xmin, xmax, 20)
         # y axis is magnitude...
         yarr = np.linspace(ymax, ymin, 20)
         
-        if consty is True and constx is False:
+        if consty is True:
             # just a contsant y value over the plot range of x.
             new_yarr = np.repeat(val, len(xarr))
             new_xarr = xarr
-        if consty is False and constx is True:
-            # a plot of y vs y-x and we want to mark 
+        if consty is False:
+            # a plot of y vs x-y and we want to mark 
             # where a constant value of x is
             new_yarr = yarr
             # if you make the ability to make the yaxis filter1...
             #if filter1 == None:
             #    new_xarr = val - yarr
-            new_xarr = yarr - val
+            new_xarr = val - yarr
         
-        self.ax.plot(new_xarr, new_yarr, ls, color=color, lw=lw)
-        self.ax.annotate('$TRGB=%.2f$' % val, xy=(new_xarr[-1]-0.1, new_yarr[-1]-0.2),
-                    horizontalalignment='right', fontsize=16,
-                    **rsp.graphics.GraphicsUtils.load_ann_kwargs())
-        
-    
+        ax.plot(new_xarr, new_yarr, ls, color=color, lw=lw)
+        if annotate is True:
+            ax.annotate(annotate_fmt % val, xy=(new_xarr[-1]-0.1,
+                        new_yarr[-1]-0.2), ha='right', fontsize=16,
+                        **rspgraph.load_ann_kwargs())
+
 
     def redding_vector(self):
-        Afilt1 = rsp.astronomy_utils.parse_mag_tab(self.photsys, self.filter1)
-        Afilt2 = rsp.astronomy_utils.parse_mag_tab(self.photsys, self.filter2)
+        Afilt1 =  astronomy_utils.parse_mag_tab(self.photsys, self.filter1)
+        Afilt2 =  astronomy_utils.parse_mag_tab(self.photsys, self.filter2)
         Rslope = Afilt2 / (Afilt1 - Afilt2)
         dmag = 1.
         dcol = dmag / Rslope
@@ -247,8 +307,9 @@ class star_pop(object):
         self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
+
     def text_on_cmd(self):
-        an_kw = rsp.graphics.GraphicsUtils.load_ann_kwargs()
+        an_kw =  rspgraph.load_ann_kwargs()
         strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target, self.dmod, self.Av)
         offset = 0.15
         for string in strings.split():
@@ -305,8 +366,34 @@ class star_pop(object):
             col = col[slice_inds]
             mag = mag[slice_inds]
 
-        self.hess = rsp.astronomy_utils.hess(col, mag, binsize, **hess_kw)
+        self.hess =  astronomy_utils.hess(col, mag, binsize, **hess_kw)
         return
+
+    
+    def hess_plot(self, fig=None, ax=None, colorbar=False, imshow_kw={}):
+        '''
+        Plots a hess diagram with imshow.
+        default kwargs passed to imshow:
+        default_kw = {'norm': LogNorm(vmin=None, vmax=self.[2].max()),
+                      'cmap': cm.gray,
+                      'interpolation': 'nearest',
+                      'extent': [self.hess[0][0], self.hess[0][-1],
+                                 self.hess[1][-1], self.hess[1][0]]}
+        '''
+        assert hasattr(self, 'hess'), 'run self.make_hess before plotting'
+        
+        if hasattr(self, 'filter2') and hasattr(self, 'filter1'):
+            filter1 = self.filter1
+            filter2 = self.filter2
+        else:
+            filter1 = None
+            filter2 = None
+
+        ax =  astronomy_utils.hess_plot(self.hess, fig=fig, ax=ax,
+                                        filter1=filter1, filter2=filter2,
+                                        colorbar=colorbar, 
+                                        imshow_kw=imshow_kw)
+        return ax
 
 
     def get_header(self):
@@ -379,13 +466,13 @@ class star_pop(object):
             if useasts is True:
                 am1 = self.ast_mag1
                 am2 = self.ast_mag2
-                old_dmod, old_Av = rsp.astronomy_utils.get_dmodAv(self)
+                old_dmod, old_Av =  astronomy_utils.get_dmodAv(self)
                 old_mag_covert_kw = {'Av': old_Av, 'dmod': old_dmod}
-                M1 = rsp.astronomy_utils.mag2Mag(am1,
+                M1 =  astronomy_utils.mag2Mag(am1,
                                                  self.filter1,
                                                  self.photsys,
                                                  **old_mag_covert_kw)
-                M2 = rsp.astronomy_utils.mag2Mag(am2,
+                M2 =  astronomy_utils.mag2Mag(am2,
                                                  self.filter2,
                                                  self.photsys,
                                                  **old_mag_covert_kw)
@@ -393,38 +480,38 @@ class star_pop(object):
                 M1 = self.data.get_col(self.filter1)
                 M2 = self.data.get_col(self.filter2)
 
-            self.mag1 = rsp.astronomy_utils.Mag2mag(M1,
+            self.mag1 =  astronomy_utils.Mag2mag(M1,
                                                     self.filter1,
                                                     self.photsys,
                                                     **mag_covert_kw)
-            self.mag2 = rsp.astronomy_utils.Mag2mag(M2,
+            self.mag2 =  astronomy_utils.Mag2mag(M2,
                                                     self.filter2,
                                                     self.photsys,
                                                     **mag_covert_kw)
             self.color = self.mag1 - self.mag2
         else:
             if hasattr(self, 'mag1'):
-                self.Mag1 = rsp.astronomy_utils.mag2Mag(self.mag1,
+                self.Mag1 =  astronomy_utils.mag2Mag(self.mag1,
                                                         self.filter1,
                                                         self.photsys,
                                                         **mag_covert_kw)
-                self.Mag2 = rsp.astronomy_utils.mag2Mag(self.mag2, 
+                self.Mag2 =  astronomy_utils.mag2Mag(self.mag2, 
                                                         self.filter2,
                                                         self.photsys,
                                                         **mag_covert_kw)
                 self.Color = self.Mag1 - self.Mag2
                 if hasattr(self, 'trgb'):
-                    self.Trgb = rsp.astronomy_utils.mag2Mag(self.trgb,
+                    self.Trgb =  astronomy_utils.mag2Mag(self.trgb,
                                                             self.filter2,
                                                             self.photsys,
                                                             **mag_covert_kw)
 
             if hasattr(self, 'Mag1'):
-                self.mag1 = rsp.astronomy_utils.Mag2mag(self.Mag1, 
+                self.mag1 =  astronomy_utils.Mag2mag(self.Mag1, 
                                                         self.filter1,
                                                         self.photsys,
                                                         **mag_covert_kw)
-                self.mag2 = rsp.astronomy_utils.Mag2mag(self.Mag2,
+                self.mag2 =  astronomy_utils.Mag2mag(self.Mag2,
                                                         self.filter2,
                                                         self.photsys,
                                                         **mag_covert_kw)
@@ -511,7 +598,7 @@ class galaxies(star_pop):
         for gal in gals:
             gal.ra = gal.data['ra']
             gal.dec = gal.data['dec']
-        gs = rsp.Galaxies.galaxies(gals)
+        gs =  Galaxies.galaxies(gals)
         gs.squish('color', 'mag2', 'ra', 'dec')
         gs.ras ...
         '''
@@ -606,34 +693,47 @@ class galaxy(star_pop):
                 logger.warning('assuming this is wfc3 data')
             self.propid, self.target, self.filter1, self.filter2 = bens_fmt_galaxy_info(fname)
 
-        if filetype == 'fitstable':
+        if 'fits' in filetype:
             import pyfits
             hdu = pyfits.open(fname)
-            #self.data = rsp.fileIO.read_fits(fname)
+            #self.data =  fileIO.read_fits(fname)
             ext = self.photsys.upper().split('_')[0]
             self.data = hdu[1].data
-            self.header = hdu[0].header
-            ext = self.header['CAMERA']
-            if '-' in ext:
-                if 'ACS' in ext:
-                    ext = 'ACS'
-                else:
-                    ext = ext.split('-')[-1]
-            if band is not None:
-                ext = band.upper()
-            self.mag1 = self.data['mag1_%s' % ext]
-            self.mag2 = self.data['mag2_%s' % ext]
             self.ra = self.data['ra']
-            self.dec = self.data['dec']
+            self.dec = self.data['dec']         
+
+            if filetype == 'fitstable':
+                self.header = hdu[0].header
+                ext = self.header['CAMERA']
+                if '-' in ext:
+                    if 'ACS' in ext:
+                        ext = 'ACS'
+                    else:
+                        ext = ext.split('-')[-1]
+                if band is not None:
+                    ext = band.upper()
+                self.mag1 = self.data['mag1_%s' % ext]
+                self.mag2 = self.data['mag2_%s' % ext]
+            if filetype == 'fitsimage':
+                # made to read holtmann data...
+                # this wont work on ir filters.
+                filts = [f for f in self.data.columns.names if f.endswith('w') and f.startswith('f')]
+                order = np.argsort([float(f.replace('f', '').replace('w', '')) for f in filts])
+                self.filter1 = filts[order[0]].upper()
+                self.filter2 = filts[order[1]].upper()
+                self.mag1 = self.data[self.filter1]
+                self.mag2 = self.data[self.filter2]
         elif filetype == 'tagged_phot':
-            self.data = rsp.fileIO.read_tagged_phot(fname)
+            self.data =  fileIO.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
+        
         elif filetype == 'match_phot':
             self.data = np.genfromtxt(fname, names=['mag1', 'mag2'])
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
+        
         elif filetype == 'm31brick':
             assert band is not None, 'Must supply band, uv, ir, acs'
             import pyfits
@@ -712,7 +812,7 @@ class simgalaxy(star_pop):
             self.base = trilegal_out.base
             self.name = trilegal_out.name
         else:
-            self.data = rsp.fileIO.read_table(trilegal_out)
+            self.data =  fileIO.read_table(trilegal_out)
             self.base, self.name = os.path.split(trilegal_out)
         self.filter1 = filter1
         self.filter2 = filter2
@@ -763,7 +863,7 @@ class simgalaxy(star_pop):
                                      'output')
         fit_file_name = '%s_%s_%s.fit'%(self.ID, self.mix, self.model_name)
         try:
-            fit_file, = rsp.fileIO.get_files(match_out_dir, fit_file_name)
+            fit_file, =  fileIO.get_files(match_out_dir, fit_file_name)
             self.chi2, self.fit = MatchUtils.get_fit(fit_file)
         except ValueError:
             logger.warning('no match output for %s.' % fit_file_name)
@@ -1032,7 +1132,7 @@ class simgalaxy(star_pop):
                 text_offset = 0.02
                 xpos = ax.get_xlim()[0] + 2 * text_offset
                 ypos = trgb - text_offset
-                num = rsp.math_utils.brighter(mag2, trgb - self.count_offset,
+                num =  math_utils.brighter(mag2, trgb - self.count_offset,
                                               inds=ind).size
                 rspgraph.plot_numbs(ax, num, xpos, ypos, **kwargs)
         
@@ -1042,7 +1142,7 @@ class simgalaxy(star_pop):
                 ax.set_ylim(ylim)
 
         if figname is None:
-            figname = rsp.fileIO.replace_ext(self.name, '.png')
+            figname =  fileIO.replace_ext(self.name, '.png')
         
         figname = figname.replace('.png', '%s.png' % extra)
         plt.savefig(figname)
@@ -1094,7 +1194,7 @@ def galaxy_metallicity(gal, target, **kwargs):
 
 
 def get_fake(target, fake_loc='.'):
-    return rsp.fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
+    return  fileIO.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
 
 
 def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
@@ -1138,11 +1238,11 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 
     if outfile is not None: 
         if overwrite or not os.path.isfile(outfile):
-            rsp.TrilegalUtils.write_trilegal_sim(sgal, outfile)
+             TrilegalUtils.write_trilegal_sim(sgal, outfile)
         else:
             logger.warning('%s exists, not overwriting' % outfile)
     if spread_outfile is not None:
-        rsp.TrilegalUtils.write_spread(sgal, outfile=spread_outfile,
+         TrilegalUtils.write_spread(sgal, outfile=spread_outfile,
                                        overwrite=overwrite)
     return
 

@@ -1255,20 +1255,27 @@ class TrackSet(object):
         self.prefix = prefix
         search_term = '*%s*dat' % prefix
 
-        self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
-        if eep_list is not None:
-            self.eep = eep(eep_list, eep_lengths=eep_lengths)
+        if ptcrifile_loc is not None:
+            self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
+            if eep_list is not None:
+                self.eep = eep(eep_list, eep_lengths=eep_lengths)
+            else:
+                self.eep = None
+            self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
         else:
+            self.ptcri = None
             self.eep = None
-        self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
-        
+
         self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
         self.tracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                        for track in self.track_names]
+        self.masses = np.round([t.mass for t in self.tracks], 3)
+
         if hb is True:
             self.hbtrack_names = fileIO.get_files(self.tracks_base, hbtrack_search_term)
             self.hbtracks = [Track(track, ptcri=self.ptcri, min_lage=0., cut_long=0)
                              for track in self.hbtrack_names]
+            self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
 
 
     def plot_all_tracks(self, xcol, ycol, annotate=True, ax=None, hb=False,

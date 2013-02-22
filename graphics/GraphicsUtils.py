@@ -21,6 +21,14 @@ def plot_lines(axs, xrange, yval, color='black'):
     x=[ax.plot((xrange), (yval, yval), color=color) for ax in axs]
     return
 
+def forceAspect(ax, aspect=1):
+    '''
+    forces the aspect ratio of a given axis
+    '''
+    im = ax.get_images()
+    extent =  im[0].get_extent()
+    ax.set_aspect(abs((extent[1] - extent[0]) / (extent[3] - extent[2])) / aspect)
+
 
 def plot_numbs(ax, item, xpos, ypos, **kwargs):
     x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20, 

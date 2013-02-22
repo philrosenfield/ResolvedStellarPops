@@ -3,6 +3,10 @@ import os
 import numpy as np
 import angst_tables
 angst_data = angst_tables.AngstTables()
+import graphics.GraphicsUtils as rspgraph
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 
 def points_inside_ds9_polygon(reg_name, ra_points, dec_points):
@@ -84,6 +88,46 @@ def hess(color, mag, binsize, **kw):
     hesst, cbin, mbin = np.histogram2d(color, mag, bins=[cbin, mbin])
     hess = hesst.T
     return (cbin, mbin, hess)
+
+
+def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=None,
+              imshow_kw={}):
+    '''
+    Plots a hess diagram with imshow.
+    default kwargs passed to imshow:
+    default_kw = {'cmap': cm.gray,
+                  'interpolation': 'nearest',
+                  'extent': [hess[0][0], hess[0][-1],
+                             hess[1][-1], hess[1][0]]}
+    '''
+    if fig is None:
+        fig = plt.figure(figsize=(9,9))
+
+    if ax is None:
+        ax = plt.axes()
+
+    default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max()),
+                  'cmap': cm.gray,
+                  'interpolation': 'gaussian',
+                  'extent': [hess[0][0], hess[0][-1],
+                             hess[1][-1], hess[1][0]]}
+
+    imshow_kw = dict(default_kw.items() + imshow_kw.items())
+            
+    im = ax.imshow(hess[2], **imshow_kw)
+    rspgraph.forceAspect(ax, aspect=1)
+    #im = ax.contourf(self.hess[2], **imshow_kw)
+
+    if colorbar is True:    
+        fig.colorbar(im, shrink=0.77)
+            
+    if filter2 is not None and filter1 is not None:
+        ax.set_ylabel('$%s$' % (filter2), fontsize=20)
+        ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
+        ax.tick_params(labelsize=16)
+
+    return ax
+
 
 
 def parse_mag_tab(photsys, filter, bcdir=None):

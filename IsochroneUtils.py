@@ -5,21 +5,24 @@ import math_utils
 
 
 class Isochrone(object):
-    def __init__(self, metallicity, age, data_array, col_keys):
-        self.metallicity = metallicity
+    def __init__(self, Z, age, data_array, col_keys, Y):
+        self.Z = Z
         self.age = age
         self.data_array = data_array
         self.key_dict = dict(zip(col_keys, range(len(col_keys))))
-        
+        self.Y = Y
+
     def get_row(self, i):
         return self.data_array[i, :]
 
     def get_col(self, key):
         return self.data_array[:, self.key_dict[key]]
 
-    def plot_isochrone(self, col1, col2, ax=None, plt_kw={}, mag_covert_kw={},
-                       photsys=None, clean=True, inds=None, reverse_x=False,
-                       reverse_y=False, pms=False):
+    def plot_isochrone(self, col1, col2, ax=None, fig=None, plt_kw={},
+                       mag_covert_kw={}, photsys=None, clean=True, inds=None, 
+                       reverse_x=False, reverse_y=False, pms=False, xlim=None,
+                       ylim=None):
+
         import matplotlib.pyplot as plt
         if ax is None:
             fig = plt.figure()
@@ -41,30 +44,41 @@ class Isochrone(object):
         else:
             x = self.get_col(col1)
         
-        if pms is False:
+        if pms is False and hasattr(self, 'stage'):
             clean = False
             nopms, = np.nonzero(self.get_col('stage') != 0)
         else:
-            nopms, = np.arange(len(y))
+            nopms = np.arange(len(y) - 1)
+        
+        if inds is not None:
+            inds = list(set(inds) & set(nopms))
+        else:
+            inds = nopms
+
+        x = x[inds]
+        y = y[inds]
 
         if clean is True:
-            rollit = len(x) - np.argmax(x)
-            x = np.roll(x, rollit)
-            y = np.roll(y, rollit)
-            x = x[1:]
-            y = y[1:]
-
-        if inds is None:
-            ax.plot(x[nopms], y[nopms], **plt_kw)
-        else:
-            inds = list(set(inds) & set(nopms))
-            ax.plot(x[inds], y[inds], **plt_kw)
+            isep = np.argmax(np.diff(x, 2))
+            pl,  = ax.plot(x[:isep], y[:isep], **plt_kw)
+            plt_kw['color'] = pl.get_color()
+            plt_kw['label'] = ''
+            pl,  = ax.plot(x[isep+1:], y[isep+1:], **plt_kw)
 
         if reverse_x is True:
             ax.set_xlim(ax.get_xlim()[::-1])
 
         if reverse_y is True:
             ax.set_ylim(ax.get_ylim()[::-1])
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+        if ylim is not None:
+            ax.set_ylim(ylim)
+
+        ax.set_xlabel('$%s$' % col1, fontsize=20)
+        ax.set_ylabel('$%s$' % col2, fontsize=20)
+        ax.tick_params(labelsize=16)
 
         return ax
 
@@ -86,6 +100,7 @@ def get_all_isochrones(filename):
 
     start_indices = []
     metallicities = []
+    Ys = []
     ages = []
     Nrows = 0
     N_isochrones = 0
@@ -101,6 +116,7 @@ def get_all_isochrones(filename):
             line = lines[i]
             line = line.split()
             metallicities.append(float(line[4]))
+            Ys.append(float(line[7]))
             ages.append(float(line[-2]))
 
     colhead = lines[start_indices[0] - 1].strip()
@@ -142,5 +158,5 @@ def get_all_isochrones(filename):
         IsoDict[key] = Isochrone(metallicities[i],
                                  ages[i],
                                  data[start_indices[i]: start_indices[i + 1]],
-                                 col_keys)
+                                 col_keys, Ys[i])
     return IsoDict
