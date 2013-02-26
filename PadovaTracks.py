@@ -28,7 +28,7 @@ class Track(object):
             self.ptcri = ptcri
 
     def filename_info(self):
-        (pref, __, smass) = self.name.replace('.PMS','').split('_')
+        (pref, __, smass) = self.name.split('.PMS')[0].split('_')
         #self.__setattr__[]
         #get that into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
         Z, Ymore = self.name.split('Z')[1].split('Y')
@@ -933,7 +933,7 @@ class Track(object):
 
     def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, 
                    inds=None, plt_kw={}, annotate=False, clean=True, ainds=None,
-                   sandro=False, cmd=False):
+                   sandro=False, cmd=False, convert_mag_kw={}):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -954,15 +954,29 @@ class Track(object):
             # Non physical inds go away.
             inds, = np.nonzero(self.data.AGE > 0.2)
 
+        ydata = self.data[ycol]
         if cmd is True:
-            xdata = self.data[xcol] - self.data[ycol]
+            if len(convert_mag_kw) != 0:
+                import ResolvedStellarPops as rsp
+                photsys = convert_mag_kw['photsys']
+                dmod = convert_mag_kw.get('dmod', 0.)
+                Av = convert_mag_kw.get('Av', 0.)
+                Mag1 = self.data[xcol]
+                Mag2 = self.data[ycol]
+                mag1 = rsp.astronomy_utils.Mag2mag(Mag1, xcol, photsys, Av=Av, dmod=dmod)
+                mag2 = rsp.astronomy_utils.Mag2mag(Mag2, ycol, photsys, Av=Av, dmod=dmod)
+                xdata = mag1 - mag2
+                ydata = mag2
+            else:
+                xdata = self.data[xcol] - self.data[ycol]
         else:
             xdata = self.data[xcol]
+        
         if inds is not None:
             inds = [i for i in inds if i > 0]
-            ax.plot(xdata[inds], self.data[ycol][inds], **plt_kw)
+            ax.plot(xdata[inds], ydata[inds], **plt_kw)
         else:
-            ax.plot(xdata, self.data[ycol], **plt_kw)
+            ax.plot(xdata, ydata, **plt_kw)
 
         if reverse_x:
             ax.set_xlim(ax.get_xlim()[::-1])
@@ -1279,13 +1293,15 @@ class TrackSet(object):
 
 
     def plot_all_tracks(self, xcol, ycol, annotate=True, ax=None, hb=False,
-                        both=False, reverse_x=False, sandro=True, cmd=False):
+                        both=False, reverse_x=False, sandro=True, cmd=False,
+                        convert_mag_kw={}):
         didit = 0
         line_pltkw = {'color': 'black', 'alpha': 0.3}
-        # would be nice to use color brewer here.
-        nptcris = len(self.ptcri.key_dict)
-        cols = rspg.discrete_colors(nptcris, colormap='spectral')
-        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
+        if annotate is True:
+            # would be nice to use color brewer here.
+            nptcris = len(self.ptcri.key_dict)
+            cols = rspg.discrete_colors(nptcris, colormap='spectral')
+            point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
         
         xlims = np.array([])
         ylims = np.array([])
@@ -1300,7 +1316,8 @@ class TrackSet(object):
             all_inds, = np.nonzero(t.data.AGE > 0.2)    
             
             ax = t.plot_track(xcol, ycol, ax=ax, inds=all_inds,
-                              plt_kw=line_pltkw, cmd=cmd)
+                              plt_kw=line_pltkw, cmd=cmd,
+                              convert_mag_kw=convert_mag_kw)
             
             xlims = np.append(xlims, np.array(ax.get_xlim()))
             ylims = np.append(ylims, np.array(ax.get_ylim()))       
@@ -1333,7 +1350,7 @@ class TrackSet(object):
             ax.set_xlim(np.min(xlims), np.max(xlims))
         if annotate is True:
             ax.legend(loc=0, numpoints=1)
-        ax.set_xlim(np.min(ylims), np.max(ylims))
+        ax.set_xlim(np.min(xlims), np.max(xlims))
         ylab = ycol.replace('_', '\ ')
         xlab = xcol.replace('_', '\ ')
         figname = '%s_%s_%s.png' % (self.prefix, xcol, ycol)

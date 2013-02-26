@@ -21,31 +21,38 @@ class Isochrone(object):
     def plot_isochrone(self, col1, col2, ax=None, fig=None, plt_kw={},
                        mag_covert_kw={}, photsys=None, clean=True, inds=None, 
                        reverse_x=False, reverse_y=False, pms=False, xlim=None,
-                       ylim=None):
+                       ylim=None, xdata=None, ydata=None):
 
         import matplotlib.pyplot as plt
         if ax is None:
             fig = plt.figure()
             ax = plt.axes()
         
-        y = self.get_col(col2)    
-        if len(mag_covert_kw) != 0:
-            import astronomy_utils
-            y = astronomy_utils.Mag2mag(y, col2, photsys, **mag_covert_kw)
-
-        if '-' in col1:
-            col1a, col1b = col1.split('-')
-            x1 = self.get_col(col1a)
-            x2 = self.get_col(col1b)
-            if len(mag_covert_kw) != 0:
-                x1 = astronomy_utils.Mag2mag(x1, col1a, photsys, **mag_covert_kw)
-                x2 = astronomy_utils.Mag2mag(x2, col1b, photsys, **mag_covert_kw)
-            x = x1 - x2
+        if ydata is not None:
+            y = ydata
         else:
-            x = self.get_col(col1)
-        
+            y = self.get_col(col2)    
+            if len(mag_covert_kw) != 0:
+                import astronomy_utils
+                y = astronomy_utils.Mag2mag(y, col2, photsys, **mag_covert_kw)
+            ax.set_ylabel('$%s$' % col2, fontsize=20)
+        if xdata is not None:
+            x = xdata
+        else:
+            if '-' in col1:
+                col1a, col1b = col1.split('-')
+                x1 = self.get_col(col1a)
+                x2 = self.get_col(col1b)
+                if len(mag_covert_kw) != 0:
+                    x1 = astronomy_utils.Mag2mag(x1, col1a, photsys, **mag_covert_kw)
+                    x2 = astronomy_utils.Mag2mag(x2, col1b, photsys, **mag_covert_kw)
+                x = x1 - x2
+            else:
+                x = self.get_col(col1)
+
+            ax.set_xlabel('$%s$' % col1, fontsize=20)
+
         if pms is False and hasattr(self, 'stage'):
-            clean = False
             nopms, = np.nonzero(self.get_col('stage') != 0)
         else:
             nopms = np.arange(len(y) - 1)
@@ -60,7 +67,7 @@ class Isochrone(object):
 
         if clean is True:
             isep = np.argmax(np.diff(x, 2))
-            pl,  = ax.plot(x[:isep], y[:isep], **plt_kw)
+            pl,  = ax.plot(x[:isep-1], y[:isep-1], **plt_kw)
             plt_kw['color'] = pl.get_color()
             plt_kw['label'] = ''
             pl,  = ax.plot(x[isep+1:], y[isep+1:], **plt_kw)
@@ -76,8 +83,6 @@ class Isochrone(object):
         if ylim is not None:
             ax.set_ylim(ylim)
 
-        ax.set_xlabel('$%s$' % col1, fontsize=20)
-        ax.set_ylabel('$%s$' % col2, fontsize=20)
         ax.tick_params(labelsize=16)
 
         return ax

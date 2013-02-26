@@ -42,7 +42,11 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
                                                      skip_footer=footer,
                                                      unpack=True)
 
-    half_bin = np.diff(dlogz[0: 2])[0] / 2.
+    # sarah's sim seem to flip the z...
+    if sarah_sim is True:
+        dlogz = dlogz[::-1]
+    
+    half_bin = np.diff(dlogz[0: 2])[0] / 2.        
     # correct age for trilegal isochrones.
     tf[tf == 10.15] = 10.13
     with open(outfile, 'w') as out:

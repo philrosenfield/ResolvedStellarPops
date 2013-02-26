@@ -16,6 +16,15 @@ rcParams['xtick.labelsize'] = 'large'
 rcParams['axes.edgecolor'] = 'grey'
 rc('text', usetex=True)
 
+def arrow_on_line(ax, xarr, yarr, index, color, width=.06):
+    x = xarr[index]
+    dx = xarr[index + 1] - x
+    y = yarr[index]
+    dy = yarr[index + 1] - y
+    arr = FancyArrow(x, y, dx, dy, fc=color, ec="none", linewidth=1,
+                     length_includes_head=True, head_width=width)
+    ax.add_patch(arr)
+    return arr
 
 def plot_lines(axs, xrange, yval, color='black'):
     x=[ax.plot((xrange), (yval, yval), color=color) for ax in axs]

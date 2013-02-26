@@ -100,7 +100,7 @@ class star_pop(object):
             self.ax = ax
         if set_fig == 1:
             self.fig = fig
-        return
+        return fig, ax
 
     def color_by_arg(self, xcol, ycol, colorcol, bins=None, cmap=None, ax=None,
                      fig=None, labelfmt = '$%.3f$', xdata=None, ydata=None,
@@ -181,8 +181,8 @@ class star_pop(object):
         np.random.shuffle(inds)
         # fake out the legend...
         if labelfmt != '':
-            [ax.plot(999, 999, 'o', color=cols[i], label=labs[i]) for i in range(len(labs))]
-        ax.scatter(xdata[inds], ydata[inds], marker='o', s=20, color=colors[inds])
+            [ax.plot(999, 999, 'o', color=cols[i], mec=cols[i], label=labs[i]) for i in range(len(labs))]
+        ax.scatter(xdata[inds], ydata[inds], marker='o', s=15, edgecolors='none', color=colors[inds])
 
         if xlim is None:
             xlim = (xdata.min(), xdata.max())
