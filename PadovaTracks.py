@@ -9,23 +9,12 @@ import math_utils
 import graphics.GraphicsUtils as rspg    
 
 class Track(object):
-    def __init__(self, filename, ptcri=None, min_lage=0.2, cut_long=True,
-                 eep=None):
+    def __init__(self, filename, ptcri=None, min_lage=0.2, cut_long=False):
         (self.base, self.name) = os.path.split(filename)
-        print filename
         self.load_track(filename, min_lage=min_lage, cut_long=cut_long)
         self.filename_info()
         self.mass = self.data.MASS[0]
-
-        if ptcri is not None:
-            if type(ptcri) == str:
-                pass
-                #self.load_critical_points(ptcri_file=ptcri, eep_obj=eep)
-            else:
-                pass
-                #self.load_critical_points(ptcri=ptcri, eep_obj=eep)
-        else:
-            self.ptcri = ptcri
+        self.ptcri = ptcri
 
     def filename_info(self):
         (pref, __, smass) = self.name.split('.PMS')[0].split('_')
@@ -62,7 +51,7 @@ class Track(object):
         else:
             # beginning thin shell
             print 'Cutting at thin shell burning'
-            ishell, = np.nonzero((ycen == 0) & (self.data.QCAROX > self.data.QHEL*3./4.))
+            ishell, = np.nonzero((ycen == 0) & (self.data.QCAROX > self.data.QHEL * 3. / 4.))
             if len(ishell) > 0:
                 itpagb = np.min(ishell)
             else:
@@ -118,6 +107,7 @@ class Track(object):
         col_keys = list(np.concatenate((col_keys, new_cols)))
         return col_keys
     
+    
     def format_track_file(self):
         '''
         add # comment to header. Useful for fromHR2mags.
@@ -134,7 +124,7 @@ class Track(object):
             np.savetxt(f, self.data, dtype=self.data.dtype)
         return filename
         
-    
+          
     def low_mass_cut(self):
         ims_beg, =  np.nonzero(self.data.MODE == self.ptcri.sandros_dict['MS_BEG'])
         
@@ -145,7 +135,59 @@ class Track(object):
         
         hburn = hburn[ims_beg:]
         
+        
+    def write_culled_track(self, columns_list, **kwargs):
+        '''
+        write out only some columns of the PMS file.
+        '''
+        filename = kwargs.get('filename')
+        if filename is None:
+            name_dat = '%s.dat' % self.name
+            filename = os.path.join(self.base, name_dat)
+        to_write = [np.column_stack(self.data[c]) for c in columns_list]
+        to_write = np.squeeze(np.array(to_write).T)
+        with open(filename, 'w') as f:
+            f.write('# %s \n' % ' '.join(columns_list))
+            np.savetxt(f, to_write, fmt='%.6f')
+        return filename
 
+
+    def write_trilegal_isotrack_ptcri(self, age, logl, logte, new_eep_dict, outfile=None):
+        '''
+        in dev... not finished.
+        '''
+        if self.mass >= 1.65:
+            extra = 'INT2'
+        else:
+            return
+
+        if outfile is None:
+            outfile = 'ptcri_%s_Z%.4f_Y%.3f.dat.%s' % (os.path.split(self.base)[1],
+                                                       self.Z, self.Y, extra)
+
+        with open(outfile, 'a') as f:
+            for i in range(len(age)):
+                extra = ''
+                if i in new_eep_dict.values():
+                    key, = [k for (k,v) in new_eep_dict.items() if v == i]
+                    if key == 'PMS_BEG':
+                        start = True
+                        age[i] = 0.
+                        extra = ' M=%.6f PMS_BEG 0 \n' % self.mass
+                    else:
+                        extra += ' %s %i \n' % (key, i)
+                else:
+                    extra += ' %i \n' % i
+                isoc = '%.12e %.5f %.5f' % (age[i], logl[i], logte[i])
+
+                #print isoc
+                f.write(isoc+extra)
+
+
+class DefineEeps(object):
+    def __init__(self):
+        pass
+    
     def define_eep_stages(self):
         '''
         must define the stages here if not using Sandro's defaults.
@@ -218,6 +260,25 @@ class Track(object):
         
         assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >=  0), \
                 'EEPs are not monotonically increasing. M=%.3f' % self.mass
+
+
+    def remove_dupes(self, x, y, z, just_two=False):
+        '''
+        Duplicates will make the interpolation fail, and thus delay graduation
+        dates. Here is where they die.
+        '''
+
+        inds = np.arange(len(x))
+        if not just_two:
+            mask, = np.nonzero(((np.diff(x) == 0) &
+                                (np.diff(y) == 0) &
+                                (np.diff(z) == 0)))
+        else:
+            mask, = np.nonzero(((np.diff(x) == 0) & (np.diff(y) == 0)))
+
+        non_dupes = [i for i in inds if i not in mask]
+
+        return non_dupes
 
 
     def add_ms_beg_eep(self):
@@ -706,22 +767,128 @@ class Track(object):
 
         assert ptcri.Y == self.Y, 'Ys do not match between track and ptcri file'
 
+        
 
-    def write_culled_track(self, columns_list, **kwargs):
+    def interpolate_vs_age(self, col, inds, k=3, nest=-1, s=0.):
         '''
-        write out only some columns of the PMS file.
+        a caller for scipy.optimize.splprep. Will also rid the array
+        of duplicate values. Returns tckp, an input to splev.
         '''
-        filename = kwargs.get('filename')
-        if filename is None:
-            name_dat = '%s.dat' % self.name
-            filename = os.path.join(self.base, name_dat)
-        to_write = [np.column_stack(self.data[c]) for c in columns_list]
-        to_write = np.squeeze(np.array(to_write).T)
-        with open(filename, 'w') as f:
-            f.write('# %s \n' % ' '.join(columns_list))
+        non_dupes = self.remove_dupes(self.data[col][inds],
+                                      self.data.AGE[inds], 'lixo', just_two=True)
+
+        if len(non_dupes) <= k:
+            k = len(non_dupes) - 1
+            print 'only %i indices to fit...' % len(non_dupes)
+            print 'new spline_level %i' % k
+
+        tckp, u = splprep([self.data[col][inds][non_dupes],
+                           np.log10(self.data.AGE[inds][non_dupes])],
+                           s=s, k=k, nest=nest)
+        return tckp
+    
+
+    def interpolate_te_l_age(self, inds, k=3, nest=-1, s=0.):
+        '''
+        a caller for scipy.optimize.splprep. Will also rid the array
+        of duplicate values. Returns tckp, an input to splev.
+        '''
+        non_dupes = self.remove_dupes(self.data.LOG_TE[inds],
+                                      self.data.LOG_L[inds],
+                                      self.data.AGE[inds])
+
+        if len(non_dupes) <= k:
+            k = len(non_dupes) - 1
+            print 'only %i indices to fit...' % len(non_dupes)
+            print 'new spline_level %i' % k
+
+        tckp, u = splprep([self.data.LOG_TE[inds][non_dupes],
+                           self.data.LOG_L[inds][non_dupes],
+                           np.log10(self.data.AGE[inds][non_dupes])],
+                           s=s, k=k, nest=nest)
+        return tckp
+
+
+    def tracks_for_match(self, outfile='default'):        
+    
+        if outfile == 'default':
+            outfile = os.path.join('%s' % self.base, 'match_%s.dat' % self.name.replace('.PMS',''))
+            header = '# logAge Mass logTe Mbol logg C/O \n'
+            #print 'writing %s' % outfile
+
+        if hasattr(self.ptcri, 'eep') and self.ptcri.eep.nticks is not None:
+            nticks = self.ptcri.eep.nticks
+        else:
+            nticks = np.repeat(200, len(self.ptcri.iptcri) - 1)
+
+
+        logTe = np.array([])
+        logL = np.array([])
+        Age = np.array([])
+        new_eep_dict = {}
+        tot_pts = 0
+
+        for i in range(len(np.nonzero(self.ptcri.iptcri > 0)[0]) - 1):
+            mess = '%.3f %s=%i %s=%i' % (self.mass,
+                                        self.ptcri.get_ptcri_name(i, sandro=False),
+                                        self.ptcri.iptcri[i],
+                                        self.ptcri.get_ptcri_name(i+1, sandro=False),
+                                        self.ptcri.iptcri[i+1])
+
+            if i != 0 and self.ptcri.iptcri[i+1] == 0:
+                # except for PMS_BEG which == 0, skip if no iptcri.
+                print mess
+                print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
+                                          self.ptcri.get_ptcri_name(i+1, sandro=False))
+                print 'cause the second eep is zippo.'
+                continue
+
+            inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1])
+            if len(inds) == 0:
+                print mess
+                print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
+                                          self.ptcri.get_ptcri_name(i+1, sandro=False))
+            
+                print 'cause there are no inds between these crit pts.'
+                continue
+        
+            if len(inds) == 1:
+                # include the last ind.
+                inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1] + 1)
+
+            tckp = self.interpolate_te_l_age(inds)
+            tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
+            new_eep_dict[self.ptcri.get_ptcri_name(i)] = tot_pts
+            tot_pts += nticks[i]
+            logTe = np.append(logTe, tenew)
+            logL = np.append(logL, lnew)
+            Age = np.append(Age, 10**agenew)
+        #print new_eep_dict
+        self.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)
+        line = ' '.join(map(str, np.sort(new_eep_dict.values())))
+        line += '\t !M=%.6f' % self.mass
+        print line
+    
+        Mbol = 4.77 - 2.5 * logL
+        logg = -10.616 + np.log10(self.mass) + 4.0 * logTe - logL
+        logAge = np.log10(Age)
+        # CO place holder!
+        CO = np.zeros(len(logL))
+        mass_arr = np.repeat(self.mass, len(logL))
+    
+        to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
+
+
+        with open(outfile, 'w') as f:
+            f.write(header)
             np.savetxt(f, to_write, fmt='%.6f')
-        return filename
 
+        self.match_data = to_write
+
+
+class TrackDiag(object):
+    def __init__(self, track):
+        pass
 
     def diagnostic_plots(self, inds=None, annotate=True, fig=None, axs=None):
         
@@ -766,169 +933,6 @@ class Track(object):
             axs[i].set_title('$%s$' % self.name.replace('_', '\ ').replace('.PMS', ''))
             
         return fig, axs
-
-            
-    def tracks_for_match(self, outfile='default'):        
-        
-        if outfile == 'default':
-            outfile = os.path.join('%s' % self.base, 'match_%s.dat' % self.name.replace('.PMS',''))
-            header = '# logAge Mass logTe Mbol logg C/O \n'
-            #print 'writing %s' % outfile
-
-        if hasattr(self.ptcri, 'eep') and self.ptcri.eep.nticks is not None:
-            nticks = self.ptcri.eep.nticks
-        else:
-            nticks = np.repeat(200, len(self.ptcri.iptcri) - 1)
-
-
-        logTe = np.array([])
-        logL = np.array([])
-        Age = np.array([])
-        new_eep_dict = {}
-        tot_pts = 0
-        for i in range(len(np.nonzero(self.ptcri.iptcri > 0)[0]) - 1):
-            mess = '%.3f %s=%i %s=%i' % (self.mass,
-                                        self.ptcri.get_ptcri_name(i, sandro=False),
-                                        self.ptcri.iptcri[i],
-                                        self.ptcri.get_ptcri_name(i+1, sandro=False),
-                                        self.ptcri.iptcri[i+1])
-
-            if i != 0 and self.ptcri.iptcri[i+1] == 0:
-                # except for PMS_BEG which == 0, skip if no iptcri.
-                print mess
-                print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
-                                          self.ptcri.get_ptcri_name(i+1, sandro=False))
-                print 'cause the second eep is zippo.'
-                continue
-
-            inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1])
-            if len(inds) == 0:
-                print mess
-                print 'skipping %s-%s' % (self.ptcri.get_ptcri_name(i, sandro=False),
-                                          self.ptcri.get_ptcri_name(i+1, sandro=False))
-                
-                print 'cause there are no inds between these crit pts.'
-                continue
-            
-            if len(inds) == 1:
-                # include the last ind.
-                inds = np.arange(self.ptcri.iptcri[i], self.ptcri.iptcri[i+1] + 1)
-
-            tckp = self.interpolate_te_l_age(inds)
-            tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
-            new_eep_dict[self.ptcri.get_ptcri_name(i)] = tot_pts
-            tot_pts += nticks[i]
-            logTe = np.append(logTe, tenew)
-            logL = np.append(logL, lnew)
-            Age = np.append(Age, 10**agenew)
-        #print new_eep_dict
-        self.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)
-        line = ' '.join(map(str, np.sort(new_eep_dict.values())))
-        line += '\t !M=%.6f' % self.mass
-        print line
-        
-        Mbol = 4.77 - 2.5 * logL
-        logg = -10.616 + np.log10(self.mass) + 4.0 * logTe - logL
-        logAge = np.log10(Age)
-        # CO place holder!
-        CO = np.zeros(len(logL))
-        mass_arr = np.repeat(self.mass, len(logL))
-        
-        to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
-
-
-        with open(outfile, 'w') as f:
-            f.write(header)
-            np.savetxt(f, to_write, fmt='%.6f')
-
-        self.match_data = to_write
-
-    def write_trilegal_isotrack_ptcri(self, age, logl, logte, new_eep_dict, outfile=None):
-        if self.mass >= 1.65:
-            extra = 'INT2'
-        else:
-            return
-
-        if outfile is None:
-            outfile = 'ptcri_%s_Z%.4f_Y%.3f.dat.%s' % (os.path.split(self.base)[1],
-                                                       self.Z, self.Y, extra)
-
-        with open(outfile, 'a') as f:
-            for i in range(len(age)):
-                extra = ''
-                if i in new_eep_dict.values():
-                    key, = [k for (k,v) in new_eep_dict.items() if v == i]
-                    if key == 'PMS_BEG':
-                        start = True
-                        age[i] = 0.
-                        extra = ' M=%.6f PMS_BEG 0 \n' % self.mass
-                    else:
-                        extra += ' %s %i \n' % (key, i)
-                else:
-                    extra += ' %i \n' % i
-                isoc = '%.12e %.5f %.5f' % (age[i], logl[i], logte[i])
-
-                #print isoc
-                f.write(isoc+extra)
-        
-
-    def interpolate_vs_age(self, col, inds, k=3, nest=-1, s=0.):
-        '''
-        a caller for scipy.optimize.splprep. Will also rid the array
-        of duplicate values. Returns tckp, an input to splev.
-        '''
-        non_dupes = self.remove_dupes(self.data[col][inds],
-                                      self.data.AGE[inds], 'lixo', just_two=True)
-
-        if len(non_dupes) <= k:
-            k = len(non_dupes) - 1
-            print 'only %i indices to fit...' % len(non_dupes)
-            print 'new spline_level %i' % k
-
-        tckp, u = splprep([self.data[col][inds][non_dupes],
-                           np.log10(self.data.AGE[inds][non_dupes])],
-                           s=s, k=k, nest=nest)
-        return tckp
-    
-
-    def interpolate_te_l_age(self, inds, k=3, nest=-1, s=0.):
-        '''
-        a caller for scipy.optimize.splprep. Will also rid the array
-        of duplicate values. Returns tckp, an input to splev.
-        '''
-        non_dupes = self.remove_dupes(self.data.LOG_TE[inds],
-                                      self.data.LOG_L[inds],
-                                      self.data.AGE[inds])
-
-        if len(non_dupes) <= k:
-            k = len(non_dupes) - 1
-            print 'only %i indices to fit...' % len(non_dupes)
-            print 'new spline_level %i' % k
-
-        tckp, u = splprep([self.data.LOG_TE[inds][non_dupes],
-                           self.data.LOG_L[inds][non_dupes],
-                           np.log10(self.data.AGE[inds][non_dupes])],
-                           s=s, k=k, nest=nest)
-        return tckp
-
-
-    def remove_dupes(self, x, y, z, just_two=False):
-        '''
-        Duplicates will make the interpolation fail, and thus delay graduation
-        dates. Here is where they die.
-        '''
-
-        inds = np.arange(len(x))
-        if not just_two:
-            mask, = np.nonzero(((np.diff(x) == 0) &
-                                (np.diff(y) == 0) &
-                                (np.diff(z) == 0)))
-        else:
-            mask, = np.nonzero(((np.diff(x) == 0) & (np.diff(y) == 0)))
-
-        non_dupes = [i for i in inds if i not in mask]
-
-        return non_dupes
 
 
     def plot_track(self, xcol, ycol, reverse_x=False, reverse_y=False, ax=None, 
@@ -1035,6 +1039,18 @@ class Track(object):
         return ax
 
 
+    def maxmin(self, col, inds=None):
+        '''
+        returns the max and min of a column in Track.data. use inds to index.
+        '''
+        arr = self.data[col]
+        if inds is not None:
+            arr = arr[inds]
+        ma = np.max(arr)
+        mi = np.min(arr)
+        return (ma, mi)
+
+
     def check_ptcris(self):
         '''
         plot of the track, the interpolation, with each eep labeled
@@ -1114,31 +1130,6 @@ class Track(object):
         plt.savefig('sandro_ptcri_Z%g_Y%g_M%.3f.png' % (self.Z, self.Y, self.mass))
         return (fig, ax)
 
-    def maxmin(self, col, inds=None):
-        '''
-        returns the max and min of a column in Track.data. use inds to index.
-        '''
-        arr = self.data[col]
-        if inds is not None:
-            arr = arr[inds]
-        ma = np.max(arr)
-        mi = np.min(arr)
-        return (ma, mi)
-
-class DefineEeps(object):
-    def __init__(self):
-        pass
-    # almost everything...
-
-class TrackDiag(object):
-    def __init__(self, track):
-        pass
-    
-    # plot_track
-    # annotate_plot
-    # check_ptcris
-    # convective test
-    # diagnostic plots
         
 class critical_point(object):
     '''
@@ -1258,7 +1249,6 @@ class eep(object):
         self.nticks = eep_lengths
 
 
-
 class TrackSet(object):
     def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
                  eep_list=None, eep_lengths=None, hb=False,
@@ -1366,7 +1356,7 @@ class TrackSet(object):
 
     def track_set_for_match(self):
         for t in self.tracks:
-            t.load_critical_points(self.ptcri_file, eep_obj=self.eep)
+            t.load_critical_points(self.ptcri_file)
             t.tracks_for_match()
             t.check_ptcris()
         self.plot_all_tracks('LOG_TE', 'LOG_L')
@@ -1377,4 +1367,4 @@ if __name__ == '__main__':
     input_obj = fileIO.load_input(sys.argv[1])
     pdb.set_trace()
     ts = TrackSet(**input_obj)
-    #ts.track_set_for_match()
+    track_set_for_match()
