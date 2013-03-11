@@ -169,16 +169,18 @@ class DefineEeps(object):
     def __init__(self):
         pass
     
-    def define_eep_stages(self, track):
+    def define_eep_stages(self, track, hb=False):
         '''
         must define the stages here if not using Sandro's defaults.
         * denotes stages defined here.
 
         1 MS_BEG  Starting of the central H-burning phase
-        2 MS_TMIN* First Minimum in Teff for high-mass or Xc=0.30 for low-mass stars
+        2 MS_TMIN* First Minimum in Teff for high-mass or Xc=0.30 for low-mass 
+        stars
         3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT
         4 SG_MAXL*   Maximum in logL for high-mass or Xc=0.0 for low-mass stars
-        5 RG_BASE Minimum in logL for high-mass or Base of the RGB for low-mass stars
+        5 RG_BASE Minimum in logL for high-mass or Base of the RGB for low-mass 
+        stars
         6 RG_BMP1 The maximum luminosity during the RGB Bump
         7 RG_BMP2 The minimum luminosity during the RGB Bump
         8 RG_TIP  Tip of the RGB
@@ -195,54 +197,50 @@ class DefineEeps(object):
         15 C_BUR Starting of the central C-burning phase
         
         Not yet implemented, no TPAGB tracks decided:
-        x When the energy produced by the CNO cycle is larger than that provided by the He burning during the AGB (Lcno > L3alpha)
+        x When the energy produced by the CNO cycle is larger than that 
+        provided by the He burning during the AGB (Lcno > L3alpha)
         x The maximum luminosity before the first Thermal Pulse
         x The AGB termination
         '''
-        xcen_eeps = False
         ptcri = self.ptcri
-        if xcen_eeps is True:
-            default_list = ['XCEN_%.2f' % frac for
-                             frac in np.linspace(0., 1, 21)][::-1]
 
-            default_list.extend(['YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40',
-                                 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00'])
-            
-            eep_list = ptcri.please_define
-
-            self.add_cen_eeps(track, xcen_eeps=xcen_eeps, xcen=True)
-            self.add_cen_eeps(track, xcen_eeps=xcen_eeps)
-            self.add_cburn_eep(track)
-        else:
-            default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_MINL',
-                            'YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20',
-                            'YCEN_0.10', 'YCEN_0.00']
-            eep_list = ptcri.please_define
+        if hb is True:
+            default_list = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                            'YCEN_0.100', 'YCEN_0.005', 'AGB_MAXL', 'AGB_MINL', 
+                            'MAXL']
+            eep_list = ptcri.please_define_hb
             assert default_list == eep_list, \
-                'Can not define all EEPs. Please check lists'
-                           
-            self.add_ms_eeps(track)
-            # even though ms_tmin comes first, need to bracket with ms_to
-    
-            ims_to = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
-                                                                 sandro=False)]
-    
-            ims_tmin = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TMIN',
-                                                                   sandro=False)]
-            if ims_to == 0:
-                # should now make sure all other eeps are 0.
-                [self.add_eep(cp, 0) for cp in default_list[2:]]
-            else:
-                #self.add_ms_tmin_eep()
-                self.add_min_l_eep(track)
-                self.add_max_l_eep(track)
-                self.add_quiesscent_he_eep(track)
-                self.add_cen_eeps(track)
-                #self.add_cburn_eep()
+                'Can not define all HB EEPs. Please check lists'
+            self.hb_eeps(track)
+            return
+
+        default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_MINL',
+                        'YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20',
+                        'YCEN_0.10', 'YCEN_0.00']
+        eep_list = ptcri.please_define
+        assert default_list == eep_list, \
+            'Can not define all EEPs. Please check lists'
+                       
+        self.add_ms_eeps(track)
+        # even though ms_tmin comes first, need to bracket with ms_to
+
+        ims_to = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
+                                                             sandro=False)]
+
+        ims_tmin = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TMIN',
+                                                               sandro=False)]
+        if ims_to == 0:
+            # should now make sure all other eeps are 0.
+            [self.add_eep(cp, 0) for cp in default_list[2:]]
+        else:
+            self.add_min_l_eep(track)
+            self.add_max_l_eep(track)
+            self.add_quiesscent_he_eep(track)
+            self.add_cen_eeps(track)
+            #self.add_cburn_eep()
         
         assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >=  0), \
                 'EEPs are not monotonically increasing. M=%.3f' % track.mass
-
 
     def remove_dupes(self, x, y, z, just_two=False):
         '''
@@ -327,10 +325,13 @@ class DefineEeps(object):
         self.add_eep(eep_name, he_minl)
 
 
-    def add_cen_eeps(self, track, xcen_eeps=False, xcen=False):
+    def add_cen_eeps(self, track, xcen_eeps=False, xcen=False, cens=None,
+                     hb=False):
         '''
         Add YCEN_[fraction] eeps, if YCEN=fraction found to 0.01, will add 0 as
         the iptrcri. (0.01 is hard coded)
+        list of YCEN_[fraction] can be supplied by cens= otherwise taken from
+        self.ptcri.please_define
         '''
         if xcen:
             fcol = 'PMS_BEG'
@@ -342,23 +343,31 @@ class DefineEeps(object):
         if xcen_eeps is False:
             fcol = 'RG_BMP2'
         
-        inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name(fcol, sandro=xcen_eeps)], len(track.data[col]))
+        if hb is False:
+            inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name(fcol,
+                                               sandro=xcen_eeps)],
+                                               len(track.data[col]))
+        else:
+            inds = np.arange(len(track.data[col]))
 
         #iheb, = np.nonzero((track.data.LY > 0.) & (track.data.XCEN == 0.))
-        cens = [i for i in self.ptcri.please_define if i.startswith(col)]
-        for cen in cens:
+        if cens is None:
+            # use undefined central values instead of given list.
+            cens = [i for i in self.ptcri.please_define if i.startswith(col)]
             # e.g., YCEN_0.50
-            frac = float(cen.split('_')[-1])
-            ind, dif = math_utils.closest_match(frac, track.data[col][inds])
+            cens = [float(cen.split('_')[-1]) for cen in cens]
+
+        for cen in cens:            
+            ind, dif = math_utils.closest_match(cen, track.data[col][inds])
             icen = inds[0] + ind
             # some tolerance for a good match.
             if dif > 0.01:
                 #print '%s is found, but %.2f off: %.3f M=%.3f' % (ycen, dif, track.data.YCEN[iheb[ind]], self.mass)
                 icen = 0
-            self.add_eep(cen, icen)
+            self.add_eep('%s_%.3f' % (col, cen), icen, hb=hb)
 
 
-    def hb_eeps(self, track):
+    def hb_eeps(self, track, cens=None):
         pass
         '''
         ax = ts.plot_all_tracks('LOG_TE', 'LOG_L', annotate=False)
@@ -367,7 +376,10 @@ class DefineEeps(object):
             inds = np.array([np.argmin(abs(t.data.YCEN-yc)) for yc in ycs])
             ax.plot(t.data.LOG_TE[inds], t.data.LOG_L[inds], 'o')
         '''
-    
+        if cens is None:
+            cens = [0.5, 0.4, 0.2, 0.1, 0.005]
+
+        self.add_cen_eeps(track, cens=cens, hb=True)
 
     def add_ms_eeps(self, track):
         '''
@@ -582,11 +594,16 @@ class DefineEeps(object):
                                             len(inds), t.mass)
 
         
-    def add_eep(self, eep_name, ind):
+    def add_eep(self, eep_name, ind, hb=False):
         '''
         Will add or replace the index of Track.data to self.ptcri.iptcri
         '''
-        self.ptcri.iptcri[self.ptcri.key_dict[eep_name]] = ind
+        if hb is True:
+            key_dict = self.ptcri.key_dict_hb
+        else:
+            key_dict = self.ptcri.key_dict
+
+        self.ptcri.iptcri[key_dict[eep_name]] = ind
         #print eep_name, ind
 
     
@@ -707,7 +724,7 @@ class DefineEeps(object):
 
         
     def load_critical_points(self, track, filename=None, ptcri=None,
-                             eep_obj=None):
+                             eep_obj=None, hb=False):
         '''
         iptcri is the critical point index rel to track.data
         mptcri is the model number of the critical point
@@ -721,41 +738,52 @@ class DefineEeps(object):
         self.ptcri = ptcri
 
         # Sandro's definitions.
-        mptcri = ptcri.data_dict['M%.3f' % track.mass]
-        self.ptcri.iptcri = np.sort(np.concatenate([np.nonzero(track.data.MODE == m)[0]
+        if hb is True:
+            self.ptcri.iptcri = []
+            please_define = ptcri.please_define_hb
+        else:
+            mptcri = ptcri.data_dict['M%.3f' % track.mass]
+            self.ptcri.iptcri = np.sort(np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                             for m in mptcri]))
-        # sometimes, the track has been cut...
-        #self.ptcri.iptcri = [p for p in self.ptcri.iptcri if p < len(track.data.LOG_L)]
-        # sandro's points, just for comparison.
-        self.ptcri.sptcri = self.ptcri.iptcri
+            # sometimes, the track has been cut...
+            #self.ptcri.iptcri = [p for p in self.ptcri.iptcri if p < len(track.data.LOG_L)]
+            # sandro's points, just for comparison.
+            self.ptcri.sptcri = self.ptcri.iptcri
+            please_define = ptcri.please_define
 
-        if len(ptcri.please_define) > 0:
+        if len(please_define) > 0:
             if hasattr(self.ptcri, 'eep'):
                 # already loaded eep
                 eep_obj = self.ptcri.eep                
-                space_for_new = np.zeros(len(eep_obj.eep_list), dtype='int')
+                if hb is True:
+                    space_for_new = np.zeros(len(eep_obj.eep_list_hb), dtype='int')
+                else:
+                    space_for_new = np.zeros(len(eep_obj.eep_list), dtype='int')
+
                 self.ptcri.iptcri = space_for_new
                 
-            # Get the values that we won't be replacing.
-            for eep_name in self.ptcri.sandro_eeps:
-                if eep_name in self.ptcri.eep.eep_list:
-                    # model number in track
-                    mode_num = mptcri[self.ptcri.sandros_dict[eep_name]]
-                    # which eep index would this replace
-                    ieep =  self.ptcri.eep.eep_list.index(eep_name)
-                    if mode_num == 0 or mode_num > len(track.data.LOG_L):
-                        # this track doesn't have this eep either because
-                        # it just doesn't get there, or it was too long, and
-                        # cut before I got the track set.
-                        iorig = 0
-                    else:
-                        # new ptcri
-                        iorig, = np.nonzero(track.data.MODE == mode_num)
-                        #print eep_name, iorig
-                    self.ptcri.iptcri[ieep] = iorig
+            if hb is False:
+                # Get the values that we won't be replacing.
+                # For HB, there are no values from Sandro.
+                for eep_name in self.ptcri.sandro_eeps:
+                    if eep_name in self.ptcri.eep.eep_list:
+                        # model number in track
+                        mode_num = mptcri[self.ptcri.sandros_dict[eep_name]]
+                        # which eep index would this replace
+                        ieep =  self.ptcri.eep.eep_list.index(eep_name)
+                        if mode_num == 0 or mode_num > len(track.data.LOG_L):
+                            # this track doesn't have this eep either because
+                            # it just doesn't get there, or it was too long, and
+                            # cut before I got the track set.
+                            iorig = 0
+                        else:
+                            # new ptcri
+                            iorig, = np.nonzero(track.data.MODE == mode_num)
+                            #print eep_name, iorig
+                        self.ptcri.iptcri[ieep] = iorig
 
             #print self.ptcri.iptcri
-            self.define_eep_stages(track)
+            self.define_eep_stages(track, hb=hb)
             track.ptcri = deepcopy(self.ptcri)
 
         assert ptcri.Z == track.Z, \
@@ -861,7 +889,7 @@ class TrackDiag(object):
     def plot_track(self, track, xcol, ycol, reverse_x=False, reverse_y=False,
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=True,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
-                   xdata=None, ydata=None):
+                   xdata=None, ydata=None, hb=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -918,13 +946,13 @@ class TrackDiag(object):
 
         if annotate:
             ax = self.annotate_plot(track, ax, xcol, ycol, inds=ainds,
-                                    sandro=sandro, cmd=cmd)
+                                    sandro=sandro, hb=hb, cmd=cmd)
         
         return ax
 
     
     def annotate_plot(self, track, ax, xcol, ycol, inds=None, sandro=False,
-                      cmd=False):
+                      cmd=False, hb=False):
         '''
         if a subset of ptcri inds are used, set them in inds. If you want
         sandro's ptcri's sandro=True, will also change the face color of the
@@ -936,15 +964,16 @@ class TrackDiag(object):
         else:
             ptcri = track.ptcri.sptcri
             fc = 'red'
-        
+
+        ptcri_kw = {'sandro': sandro, 'hb': hb}
         if inds is None:
             #inds = np.array([p for p in ptcri if p > 0])
             inds = ptcri
-            labels = ['$%s$' % track.ptcri.get_ptcri_name(i, sandro=sandro).replace('_','\ ')
+            labels = ['$%s$' % track.ptcri.get_ptcri_name(i, **ptcri_kw).replace('_','\ ')
                       for i in range(len(inds))]
         else:
             iplace = np.array([np.nonzero(ptcri == i)[0][0] for i in inds])
-            labels = ['$%s$' % track.ptcri.get_ptcri_name(int(i), sandro=sandro).replace('_','\ ')
+            labels = ['$%s$' % track.ptcri.get_ptcri_name(int(i), **ptcri_kw).replace('_','\ ')
                       for i in iplace]
         
         if type(xcol) == str:
@@ -981,22 +1010,27 @@ class TrackDiag(object):
         return (ma, mi)
 
 
-    def check_ptcris(self, track):
+    def check_ptcris(self, track, hb=False):
         '''
         plot of the track, the interpolation, with each eep labeled
         '''
         all_inds, = np.nonzero(track.data.AGE > 0.2)
         
         iptcri, = np.nonzero(self.ptcri.iptcri > 0)
-        
-        last = self.ptcri.get_ptcri_name(int(iptcri[-1]),sandro=False)
+        ptcri_kw = {'sandro': False, 'hb': hb}
+        last = self.ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
 
-        plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
-                 ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL'],
-                 ['RG_MINL', 'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
-                 ['RG_TIP', 'HE_MINL', 'YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40'],
-                 ['YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10'],
-                 ['YCEN_0.10', 'YCEN_0.00', 'C_BUR']]
+        if hb is False:
+            plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
+                     ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL'],
+                     ['RG_MINL', 'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
+                     ['RG_TIP', 'HE_MINL', 'YCEN_0.55', 'YCEN_0.50',
+                      'YCEN_0.40'],
+                     ['YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10'],
+                     ['YCEN_0.10', 'YCEN_0.00', 'C_BUR']]
+        else:
+            plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                     'YCEN_0.100', 'YCEN_0.005']]
 
         for i, plot in enumerate(plots):
             if last in plot:
@@ -1004,12 +1038,12 @@ class TrackDiag(object):
 
         line_pltkw = {'color': 'black'}
         point_pltkw = {'marker': 'o', 'ls': ''}
-        (fig, axs) = rspg.setup_multiplot(nplots, **{'figsize':(12,8)})
+        (fig, axs) = rspg.setup_multiplot(nplots, **{'figsize': (12,8)})
 
         for i, ax in enumerate(np.ravel(axs)):
             if i == len(plots):
                 continue
-            inds = [self.ptcri.get_ptcri_name(cp, sandro=False)
+            inds = [self.ptcri.get_ptcri_name(cp, **ptcri_kw)
                     for cp in plots[i]]
             inds = self.ptcri.iptcri[inds][np.nonzero(self.ptcri.iptcri[inds])[0]]
             if np.sum(inds) == 0:
@@ -1020,7 +1054,8 @@ class TrackDiag(object):
             goodlimx = ax.get_xlim()
             goodlimy = ax.get_ylim()
             ax = self.plot_track(track, 'LOG_TE', 'LOG_L', ax=ax, inds=inds,
-                                 plt_kw=point_pltkw, annotate=True, ainds=inds)
+                                 plt_kw=point_pltkw, annotate=True, ainds=inds,
+                                 hb=hb)
             
             if hasattr(self, 'match_data'):
                 logl = (4.77 - self.match_data.T[3]) / 2.5
@@ -1048,8 +1083,17 @@ class TrackDiag(object):
         
         title = 'M = %.3f Z = %.4f Y = %.4f' % (track.mass, track.Z, track.Y)
         fig.suptitle(title, fontsize=20)
-        plt.savefig('ptcri_Z%g_Y%g_M%.3f.png' % (track.Z, track.Y, track.mass))
-        self.plot_sandro_ptcri(track)
+        if hb is True:
+            extra = '_HB'
+        else:
+            extra = ''
+        figname = 'ptcri_Z%g_Y%g_M%.3f%s.png' % (track.Z, track.Y, track.mass,
+                                                 extra)
+        plt.savefig(figname)
+        print 'wrote %s' % figname
+
+        if hb is False:
+            self.plot_sandro_ptcri(track)
 
 
     def plot_sandro_ptcri(self, track):
@@ -1063,7 +1107,6 @@ class TrackDiag(object):
         plt.savefig('sandro_ptcri_Z%g_Y%g_M%.3f.png' % (track.Z, track.Y, 
                                                         track.mass))
         return
-
 
 class critical_point(object):
     '''
@@ -1087,10 +1130,12 @@ class critical_point(object):
             ystr = ystr[:-1]
         self.Y = float(ystr)
 
-    def get_ptcri_name(self, val, sandro=True):
+    def get_ptcri_name(self, val, sandro=True, hb=False):
     
         if sandro is True:      
             search_dict = self.sandros_dict
+        elif hb is True:
+            search_dict = self.key_dict_hb
         else:
             search_dict = self.key_dict
 
@@ -1158,17 +1203,22 @@ class critical_point(object):
             str_mass = 'M%.3f' % self.masses[i]
             data_dict[str_mass] = data[i][3:].astype('int')
 
-        please_define = []        
+        self.data_dict = data_dict
+        self.please_define = []        
+        self.please_define_hb = []
+
         if eep_obj is not None:
             please_define = [c for c in eep_obj.eep_list if c not in col_keys]
-
-        self.data_dict = data_dict
-
-        if eep_obj is not None:
             self.eep = eep_obj
             self.key_dict = dict(zip(eep_obj.eep_list,
                                      range(len(eep_obj.eep_list))))
             self.please_define = please_define
+            if eep_obj.eep_list_hb is not None:
+                self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
+                                         range(len(eep_obj.eep_list_hb))))
+                # there is no mixture between Sandro's HB eeps since there
+                # are no HB eeps in the ptcri files. Define them all here.
+                self.please_define_hb = eep_obj.eep_list_hb
         else:
             self.please_define = []
             self.key_dict = self.sandros_dict
@@ -1178,15 +1228,19 @@ class eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to ptcri class.
     '''
-    def __init__(self, eep_list, eep_lengths=None):
+    def __init__(self, eep_list, eep_lengths=None, eep_list_hb=None,
+                 eep_lengths_hb=None):
         self.eep_list = eep_list
         self.nticks = eep_lengths
+        self.eep_list_hb = eep_list_hb
+        self.nticks_hb = eep_lengths_hb
 
 
 class TrackSet(object):
     def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
-                 eep_list=None, eep_lengths=None, hb=False,
-                 track_search_term='*F7_*PMS', hbtrack_search_term='*F7_*HB'):
+                 eep_list=None, eep_lengths=None, eep_list_hb=None, 
+                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
+                 hbtrack_search_term='*F7_*HB'):
     
         self.tracks_base = os.path.join(tracks_dir, prefix)
 
@@ -1198,7 +1252,10 @@ class TrackSet(object):
         if ptcrifile_loc is not None:
             self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
             if eep_list is not None:
-                self.eep = eep(eep_list, eep_lengths=eep_lengths)
+                eep_kw = {'eep_lengths': eep_lengths, 
+                          'eep_list_hb': eep_list_hb, 
+                          'eep_lengths_hb': eep_lengths_hb}
+                self.eep = eep(eep_list, eep_kw=eep_kw)
 
             self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
 
@@ -1219,8 +1276,9 @@ class TrackSet(object):
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
-                 eep_list=None, eep_lengths=None, hb=False,
-                 track_search_term='*F7_*PMS', hbtrack_search_term='*F7_*HB'):
+                 eep_list=None, eep_lengths=None, eep_list_hb=None, 
+                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
+                 hbtrack_search_term='*F7_*HB'):
     
         self.tracks_base = os.path.join(tracks_dir, prefix)
 
@@ -1232,26 +1290,37 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
         if eep_list is not None:
-            self.eep = eep(eep_list, eep_lengths=eep_lengths)
+            eep_kw = {'eep_lengths': eep_lengths, 
+                      'eep_list_hb': eep_list_hb, 
+                      'eep_lengths_hb': eep_lengths_hb}
+            self.eep = eep(eep_list, **eep_kw)
 
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
 
         self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
         track_kw = {'ptcri': self.ptcri, 'min_lage': 0., 'cut_long': 0}
-        self.tracks = []
-        for track in self.track_names:        
-            track_obj = Track(track, **track_kw)
-            track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri)
-            self.tracks.append(track_obj)     
-            self.prepare_track(track_obj)
-            self.check_ptcris(track_obj)
+        #self.tracks = []
+        #for track in self.track_names:        
+        #    track_obj = Track(track, **track_kw)
+        #    track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri)
+        #    self.tracks.append(track_obj)     
+        #    self.prepare_track(track_obj)
+        #    self.check_ptcris(track_obj)
 
-        self.masses = np.round([t.mass for t in self.tracks], 3)
+        #self.masses = np.round([t.mass for t in self.tracks], 3)
 
+        self.hbtracks = []
         if hb is True:
             self.hbtrack_names = fileIO.get_files(self.tracks_base, hbtrack_search_term)
-            self.hbtracks = [Track(track, **track_kw)
-                             for track in self.hbtrack_names]
+            for track in self.hbtrack_names:        
+                track_obj = Track(track, **track_kw)
+                track_obj = self.load_critical_points(track_obj,
+                                                      ptcri=self.ptcri,
+                                                      hb=True)
+                self.hbtracks.append(track_obj)
+                self.prepare_track(track_obj)
+                self.check_ptcris(track_obj, hb=hb)
+
             self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
 
         #self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L')
@@ -1333,55 +1402,60 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         return ax
 
 
-    def prepare_track(self, track, outfile='default'):    
+    def prepare_track(self, track, outfile='default', hb=False):    
         if outfile == 'default':
             outfile = os.path.join('%s' % track.base, 'match_%s.dat' % track.name.replace('.PMS',''))
             header = '# logAge Mass logTe Mbol logg C/O \n'
             #print 'writing %s' % outfile
 
-        if hasattr(self.ptcri, 'eep') and self.ptcri.eep.nticks is not None:
-            nticks = self.ptcri.eep.nticks
+        if hasattr(self.ptcri, 'eep'):
+            if hb is True:
+                nticks = self.ptcri.eep.nticks_hb
+            else:
+                nticks = self.ptcri.eep.nticks
         else:
             print 'using default spacing between eeps'
             nticks = np.repeat(200, len(self.ptcri.iptcri) - 1)
+
+        assert nticks is not None, 'invalid eep_lengths, check eep list.'
 
         logTe = np.array([])
         logL = np.array([])
         Age = np.array([])
         new_eep_dict = {}
         tot_pts = 0
-
+        ptcri_kw = {'sandro': False, 'hb': hb}
         for i in range(len(np.nonzero(track.ptcri.iptcri > 0)[0]) - 1):
             mess = '%.3f %s=%i %s=%i' % (track.mass,
-                                        track.ptcri.get_ptcri_name(i, sandro=False),
+                                        track.ptcri.get_ptcri_name(i, **ptcri_kw),
                                         track.ptcri.iptcri[i],
-                                        track.ptcri.get_ptcri_name(i+1, sandro=False),
+                                        track.ptcri.get_ptcri_name(i+1, **ptcri_kw),
                                         track.ptcri.iptcri[i+1])
 
             if i != 0 and self.ptcri.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
                 print mess
-                print 'skipping %s-%s' % (track.ptcri.get_ptcri_name(i, sandro=False),
-                                          track.ptcri.get_ptcri_name(i + 1, sandro=False))
+                print 'skipping %s-%s' % (track.ptcri.get_ptcri_name(i, **ptcri_kw),
+                                          track.ptcri.get_ptcri_name(i + 1, **ptcri_kw))
                 print 'cause the second eep is zippo.'
                 continue
 
             inds = np.arange(track.ptcri.iptcri[i], track.ptcri.iptcri[i+1])
             if len(inds) == 0:
                 print mess
-                print 'skipping %s-%s' % (track.ptcri.get_ptcri_name(i, sandro=False),
-                                          track.ptcri.get_ptcri_name(i + 1, sandro=False))
+                print 'skipping %s-%s' % (track.ptcri.get_ptcri_name(i, **ptcri_kw),
+                                          track.ptcri.get_ptcri_name(i+1, **ptcri_kw))
             
                 print 'cause there are no inds between these crit pts.'
                 continue
         
             if len(inds) == 1:
                 # include the last ind.
-                inds = np.arange(track.ptcri.iptcri[i], track.ptcri.iptcri[i + 1] + 1)
+                inds = np.arange(track.ptcri.iptcri[i], track.ptcri.iptcri[i+1] + 1)
 
             tckp = self.interpolate_te_l_age(track, inds)
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
-            new_eep_dict[track.ptcri.get_ptcri_name(i, sandro=False)] = tot_pts
+            new_eep_dict[track.ptcri.get_ptcri_name(i, **ptcri_kw)] = tot_pts
             tot_pts += nticks[i]
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)

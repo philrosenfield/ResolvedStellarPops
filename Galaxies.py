@@ -66,6 +66,7 @@ class star_pop(object):
             scatter_args = dict({'marker': '.', 'color': 'black', 'alpha': 0.2,
                                  'edgecolors': None, 'zorder': 1}.items() +
                                  scatter_args.items())
+
             contour_lw = dict({'linewidths': 2, 'colors': 'white', 'zorder': 200}.items() +
                                contour_lw.items())
 
@@ -82,7 +83,11 @@ class star_pop(object):
             self.plt_pts = plt_pts
             self.cs = cs
         else:
-            ax.plot(color, mag, '.', **plot_args)
+            plot_args = dict({'marker': '.', 'color': 'black', 'mew': 0.,
+                              'lw': 0}.items() +
+                                plot_args.items())
+
+            ax.plot(color, mag, **plot_args)
 
         if xlim is None:
             xlim = (color.min(), color.max())
@@ -203,12 +208,12 @@ class star_pop(object):
 
         return ax
         
-    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False):
+    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None):
         self.redding_vector()
         self.cmd_errors()
         self.text_on_cmd()
         if trgb is True:
-            self.put_a_line_on_it(self.trgb, consty=True)
+            self.put_a_line_on_it(ax, self.trgb)
         
     def put_a_line_on_it(self, ax, val, consty=True, color='black',
                          ls='--', lw=2, annotate=True, annotate_fmt='$TRGB=%.2f$'):
@@ -563,8 +568,7 @@ class star_pop(object):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
- 
-      
+
 class galaxies(star_pop):
     '''
     wrapper for lists of galaxy objects, each method returns lists, unless they
