@@ -202,18 +202,18 @@ class DefineEeps(object):
 
         if hb is True:
             default_list = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
-                            'YCEN_0.100', 'YCEN_0.005', 'AGB_MAXL', 'AGB_MINL',
-                            'MAXL']
+                            'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']
             eep_list = ptcri.please_define_hb
             assert default_list == eep_list, \
                 'Can not define all HB EEPs. Please check lists'
             self.add_hb_beg(track)
             self.hb_eeps(track)
+            self.add_agb_eeps(track)
             return
 
         default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_MINL',
-                        'YCEN_0.55', 'YCEN_0.50', 'YCEN_0.40', 'YCEN_0.20',
-                        'YCEN_0.10', 'YCEN_0.00']
+                        'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                        'YCEN_0.100', 'YCEN_0.000']
         eep_list = ptcri.please_define
         assert default_list == eep_list, \
             'Can not define all EEPs. Please check lists'
@@ -344,78 +344,90 @@ class DefineEeps(object):
 
         These EEPS will be when 1) helium (shell) fusion first overpowers
         hydrogen (shell) fusion and 2) when hydrogen wins again (before TPAGB).
-        For low-mass HB (<0.5) the hydrogen fusion is VERY low (no atm!),
-        and never surpasses helium.
-        diagnostic:
+        For low-mass HB (<0.485) the hydrogen fusion is VERY low (no atm!),
+        and never surpasses helium, this is still a to be done!!
         '''
-        for track in tm.hbtracks:
-            if track.mass <= 0.6:
-                continue
+        if track.mass <= 0.480:
+            print 'warning, HB AGB EEPS might not work for HPHB'
 
-            ly = track.data.LY
-            lx = track.data.LX
-            norm_age = track.data.AGE/track.data.AGE[-1]
+        ly = track.data.LY
+        lx = track.data.LX
+        norm_age = track.data.AGE/track.data.AGE[-1]
 
-            ex_inds, = np.nonzero(track.data.YCEN == 0.00)
+        ex_inds, = np.nonzero(track.data.YCEN == 0.00)
 
-            diff_L = np.abs(ly[ex_inds] - lx[ex_inds])
-            peak_dict = rsp.math_utils.find_peaks(diff_L)
+        diff_L = np.abs(ly[ex_inds] - lx[ex_inds])
+        peak_dict = math_utils.find_peaks(diff_L)
 
-            # there are probably thermal pulses, taking the first 6 mins to
-            # try and avoid them.
-            mins = peak_dict['minima_locations'][:6]
+        # there are probably thermal pulses, taking the first 6 mins to
+        # try and avoid them. Yeah, I messed around, 6 is ok.
+        mins = peak_dict['minima_locations'][:6]
 
-            # the two deepest mins are the ly = lx match
-            min_inds = np.asarray(mins)[np.argsort(diff_L[mins])[0:2]]
-            (agb_ly1, agb_ly2) = np.sort(ex_inds[min_inds])
+        # the two deepest mins are the ly = lx match
+        min_inds = np.asarray(mins)[np.argsort(diff_L[mins])[0:2]]
+        (agb_ly1, agb_ly2) = np.sort(ex_inds[min_inds])
 
-            # most of the time, that works... a couple times it poops out.
-            # this should fix the agb_lys if they are both in a thermal pulse:
-            i = 4
-            if norm_age[ex_inds[mins[0]]] < 0.89 and norm_age[agb_ly1] > 0.98:
-                while norm_age[agb_ly1] > 0.98:
-                    print track.mass
-                    mins = mins[:i]
-                    min_inds = np.asarray(mins)[np.argsort(diff_L[mins])[0:2]]
-                    (agb_ly1, agb_ly2) = np.sort(ex_inds[min_inds])
-                    i -= 1
-            # now the agb_ly2 is in a thermal pulse...
-            HELP!
-            
-            eep_name = 'AGB_LY1'
-            eep_name = 'AGB_LY2'
-            #self.add_eep(eep_name, agb_ly2, hb=True)
-            if diag_plot is True:
-                fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 6))
-                ax1.plot(norm_age, ly, label='He', color='purple')
-                ax1.plot(norm_age, lx, label='H', color='orange')
-                ax1.plot(norm_age[ex_inds], diff_L, label='abs diff',
-                         color='black')
-                ax1.plot(norm_age[ex_inds[mins]], diff_L[mins], 'o',
-                         color='black')
-                ax1.plot(norm_age[agb_ly1], track.data.LX[agb_ly1], 'o',
-                         color='red')
-                ax1.plot(norm_age[agb_ly2], track.data.LX[agb_ly2], 'o',
-                         color='blue')
-                ax1.set_title(track.mass)
-                ax1.legend(loc=0)
-                ax1.set_ylim(-0.05, 1.)
-                ax1.set_xlim(norm_age[ex_inds[0]], 1)
-                ax1.set_ylabel('Luminosity fraction from []')
-                ax1.set_xlabel('Age/Total Age')
-                ax2.plot(track.data.LOG_TE, track.data.LOG_L, color='green')
-                ax2.plot(track.data.LOG_TE[agb_ly1], track.data.LOG_L[agb_ly1],
-                         'o', color='red')
-                ax2.plot(track.data.LOG_TE[agb_ly2], track.data.LOG_L[agb_ly2],
-                         'o', color='blue')
-                ax2.set_xlim(ax2.get_xlim()[::-1])
-                ax2.set_xlabel('$\log\ T_{eff}$')
-                ax2.set_ylabel('$\log\ L$')
-                figname = 'diag_agb_eep_M%s.png' % track.mass
-                plt.savefig(figname)
-                if i == 4:
-                    plt.close()
-                print 'wrote %s' % figname
+        # most of the time, the above works... a couple times the points
+        # are in a thermal pulse and well, that's not ideal is it?
+
+        # if they are both in a thermal pulse take away some mins...
+        i = 4
+        if norm_age[ex_inds[mins[0]]] < 0.89 and norm_age[agb_ly1] > 0.98:
+            while norm_age[agb_ly1] > 0.98:
+                mins = mins[:i]
+                min_inds = np.asarray(mins)[np.argsort(diff_L[mins])[0:2]]
+                (agb_ly1, agb_ly2) = np.sort(ex_inds[min_inds])
+                i -= 1
+
+        # if the agb_ly2 is in a thermal pulse take away some mins...
+        if norm_age[agb_ly2] > 0.999:
+            while norm_age[agb_ly2] > 0.999:
+                mins = mins[:i]
+                min_inds = np.asarray(mins)[np.argsort(diff_L[mins])[0:2]]
+                (agb_ly1, agb_ly2) = np.sort(ex_inds[min_inds])
+                i -= 1
+
+        self.add_eep('AGB_LY1', agb_ly1, hb=True)
+        self.add_eep('AGB_LY2', agb_ly2, hb=True)
+
+        if diag_plot is True:
+            agb_ly1c = 'red'
+            agb_ly2c = 'blue'
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 6))
+            ax1.plot(norm_age, ly, label='He', color='purple')
+            ax1.plot(norm_age, lx, label='H', color='orange')
+            ax1.plot(norm_age[ex_inds], diff_L, label='abs diff',
+                     color='black')
+            ax1.plot(norm_age[ex_inds[mins]], diff_L[mins], 'o',
+                     color='black')
+            ax1.plot(norm_age[agb_ly1], track.data.LX[agb_ly1], 'o',
+                     color=agb_ly1c)
+            ax1.plot(norm_age[agb_ly2], track.data.LX[agb_ly2], 'o',
+                     color=agb_ly2c)
+
+            ax1.set_title(track.mass)
+            ax1.legend(loc=0)
+            ax1.set_ylim(-0.05, 1.)
+            ax1.set_xlim(norm_age[ex_inds[0]], 1)
+            ax1.set_ylabel('Luminosity fraction from []')
+            ax1.set_xlabel('Age/Total Age')
+
+            ax2.plot(track.data.LOG_TE, track.data.LOG_L, color='green')
+            ax2.plot(track.data.LOG_TE[agb_ly1], track.data.LOG_L[agb_ly1],
+                     'o', color=agb_ly1c)
+            ax2.plot(track.data.LOG_TE[agb_ly2], track.data.LOG_L[agb_ly2],
+                     'o', color=agb_ly2c)
+            ax2.set_xlim(ax2.get_xlim()[::-1])
+            ax2.set_xlabel('$\log\ T_{eff}$')
+            ax2.set_ylabel('$\log\ L$')
+
+            figname = 'diag_agb_eep_M%s.png' % track.mass
+            plt.savefig(figname)
+            # helpful in ipython:
+            #if i == 4:
+            #    plt.close()
+            plt.close()
+            print 'wrote %s' % figname
 
     def add_ms_eeps(self, track):
         '''
@@ -1050,13 +1062,14 @@ class TrackDiag(object):
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
                      ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL'],
                      ['RG_MINL', 'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
-                     ['RG_TIP', 'HE_MINL', 'YCEN_0.55', 'YCEN_0.50',
-                      'YCEN_0.40'],
-                     ['YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10'],
-                     ['YCEN_0.10', 'YCEN_0.00', 'C_BUR']]
+                     ['RG_TIP', 'HE_MINL', 'YCEN_0.550', 'YCEN_0.500',
+                      'YCEN_0.400'],
+                     ['YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100'],
+                     ['YCEN_0.100', 'YCEN_0.000', 'C_BUR']]
         else:
             plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
-                     'YCEN_0.100', 'YCEN_0.005']]
+                     'YCEN_0.100', 'YCEN_0.005'],
+                     ['YCEN_0.005', 'AGB_LY1', 'AGB_LY2']]
 
         for i, plot in enumerate(plots):
             if last in plot:
@@ -1321,15 +1334,17 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
         track_kw = {'ptcri': self.ptcri, 'min_lage': 0., 'cut_long': 0}
-        #self.tracks = []
-        #for track in self.track_names:
-        #    track_obj = Track(track, **track_kw)
-        #    track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri)
-        #    self.tracks.append(track_obj)
-        #    self.prepare_track(track_obj)
-        #    self.check_ptcris(track_obj)
+        self.tracks = []
+        for track in self.track_names:
+            track_obj = Track(track, **track_kw)
+            track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri)
+            self.tracks.append(track_obj)
+            self.prepare_track(track_obj)
+            self.check_ptcris(track_obj)
 
-        #self.masses = np.round([t.mass for t in self.tracks], 3)
+        self.masses = np.round([t.mass for t in self.tracks], 3)
+        self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
+                             reverse_x=True)
 
         self.hbtracks = []
         if hb is True:
@@ -1345,80 +1360,115 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
 
-        #self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L')
+        self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=True,
+                             reverse_x=True)
 
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
-                        hbtracks=None, both=False, reverse_x=False, sandro=True,
-                        cmd=False, convert_mag_kw={}):
+                        reverse_x=False, sandro=True, cmd=False,
+                        convert_mag_kw={}, hb=False):
         '''
-        - It would be much easier to discern breaks in the sequences if you did three separate plots: PMS_BEG to MS_BEG, MS_BEG to RG_TIP, and RG_TIP to C_BUR.  As it stands, one is trying to tell RGB features from AGB features.  Likewise, there is such a small color difference between some of the different points that I'm not entire sure what I'm seeing.
-        - I see a sharp break in the RGB bump and RGB tip sequences.  Are those visible in the isochrones?
-        - We need to make sure that the blue edge of the blue loop is captured.  It looks like there are points near the BHeB sequence, but not exactly on.  Is there a specific physical state that corresponds to the minimum Teff that we could tie this to?
-        - I don't see any HB stars -- are post-TRGB phases included?
+        It would be much easier to discern breaks in the sequences if you did
+        three separate plots: PMS_BEG to MS_BEG,
+        MS_BEG to RG_TIP, and RG_TIP to C_BUR.
+        As it stands, one is trying to tell RGB features from AGB features.
+        Likewise, there is such a small color difference between some of the
+        different points that I'm not entire sure what I'm seeing.
 
+        I see a sharp break in the RGB bump and RGB tip sequences.
+        Are those visible in the isochrones?
         '''
-        didit = 0
+
+        ptcri_kw = {'sandro': sandro, 'hb': hb}
+
+        if hb is False:
+            plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
+                     ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
+                      'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
+                     ['RG_TIP', 'HE_MINL', 'YCEN_0.55', 'YCEN_0.50',
+                      'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00',
+                      'C_BUR']]
+            key_dict = self.ptcri.key_dict
+        else:
+            plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                     'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']]
+            key_dict = self.ptcri.key_dict_hb
+            ptcri_kw['sandro'] = False
+
         line_pltkw = {'color': 'black', 'alpha': 0.3}
+
         if annotate is True:
             # would be nice to use color brewer here.
-            nptcris = len(self.ptcri.key_dict)
+            nptcris = len(key_dict)
             cols = rspg.discrete_colors(nptcris, colormap='spectral')
             point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
 
         xlims = np.array([])
         ylims = np.array([])
-        if hbtracks is not None:
-            tracks = np.concatenate((tracks, hbtracks))
-
-        for t in tracks:
-            #for t in ts:
-            all_inds, = np.nonzero(t.data.AGE > 0.2)
-
-            ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
-                                 plt_kw=line_pltkw, cmd=cmd,
-                                 convert_mag_kw=convert_mag_kw)
-
-            xlims = np.append(xlims, np.array(ax.get_xlim()))
-            ylims = np.append(ylims, np.array(ax.get_ylim()))
-            if annotate is True:
-                iptcri, = np.nonzero(t.ptcri.iptcri > 0)
-                inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
-                if len(inds) == nptcris:
-                    labs = [self.ptcri.get_ptcri_name(i, sandro=sandro).replace('_', '\_') for i in range(nptcris)]
-                    didit += 1
-                if np.sum(inds) == 0:
+        for j in range(len(plots)):
+            didit = 0
+            fig, ax = plt.subplots()
+            for t in tracks:
+                print t.mass
+                all_inds, = np.nonzero(t.data.AGE > 0.2)
+                try:
+                    inds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
+                            for cp in plots[j]]
+                except:
                     continue
-                if didit == 1:
-                    didit += 1
-                    if cmd is True:
-                        xdata = t.data[xcol] - t.data[ycol]
+                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
+                                     plt_kw=line_pltkw, cmd=cmd,
+                                     convert_mag_kw=convert_mag_kw)
+
+                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=inds,
+                                     plt_kw=line_pltkw, cmd=cmd,
+                                     convert_mag_kw=convert_mag_kw)
+
+                xlims = np.append(xlims, np.array(ax.get_xlim()))
+                ylims = np.append(ylims, np.array(ax.get_ylim()))
+
+                if annotate is True:
+                    #inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
+                    if len(inds) == nptcris:
+                        labs = [self.ptcri.get_ptcri_name(i, **ptcri_kw).replace('_', '\_')
+                                for i in range(nptcris)]
+                        didit += 1
+                    if np.sum(inds) == 0:
+                        continue
+
+                    xdata = t.data[xcol]
+                    ydata = t.data[ycol]
+
+                    if didit == 1:
+                        didit += 1
+                        if cmd is True:
+                            xdata = t.data[xcol] - t.data[ycol]
+
+                        [ax.plot(xdata[inds[i]], ydata[inds[i]],
+                                 color=cols[i], label='$%s$' % labs[i],
+                                 **point_pltkw)
+                         for i in range(len(inds))]
                     else:
-                        xdata = t.data[xcol]
-                    [ax.plot(xdata[inds[i]], t.data[ycol][inds[i]],
-                             color=cols[i], label='$%s$' % labs[i], **point_pltkw)
-                     for i in range(len(inds))]
-                else:
-                    [ax.plot(xdata[inds[i]], t.data[ycol][inds[i]],
-                             color=cols[i], **point_pltkw)
-                     for i in range(len(inds))]
+                        [ax.plot(xdata[inds[i]], ydata[inds[i]],
+                                 color=cols[i], **point_pltkw)
+                         for i in range(len(inds))]
 
-        if reverse_x is True:
-            ax.set_xlim(np.max(xlims), np.min(xlims))
-        else:
+            if reverse_x is True:
+                ax.set_xlim(np.max(xlims), np.min(xlims))
+            else:
+                ax.set_xlim(np.min(xlims), np.max(xlims))
+            if annotate is True:
+                ax.legend(loc=0, numpoints=1)
             ax.set_xlim(np.min(xlims), np.max(xlims))
-        if annotate is True:
-            ax.legend(loc=0, numpoints=1)
-        ax.set_xlim(np.min(xlims), np.max(xlims))
-        ylab = ycol.replace('_', '\ ')
-        xlab = xcol.replace('_', '\ ')
-        figname = '%s_%s_%s.png' % (self.prefix, xcol, ycol)
+            ylab = ycol.replace('_', '\ ')
+            xlab = xcol.replace('_', '\ ')
+            figname = '%s_%s_%s_%i.png' % (self.prefix, xcol, ycol, j)
 
-        if cmd is True:
-            xlab = '%s-%s' % (xlab, ylab)
-        ax.set_xlabel('$%s$' % xlab)
-        ax.set_ylabel('$%s$' % ylab)
+            if cmd is True:
+                xlab = '%s-%s' % (xlab, ylab)
+            ax.set_xlabel('$%s$' % xlab)
+            ax.set_ylabel('$%s$' % ylab)
 
-        plt.savefig(figname)
+            plt.savefig(figname)
         return ax
 
     def prepare_track(self, track, outfile='default', hb=False):
