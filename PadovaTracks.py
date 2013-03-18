@@ -289,7 +289,6 @@ class DefineEeps(object):
         peak_dict = math_utils.find_peaks(track.data.YCEN[inds])
         ymax = peak_dict['maxima_locations'][0]
         he_beg = inds[ymax]
-        print he_beg
         eep_name = 'HE_BEG'
         self.add_eep(eep_name, he_beg)
 
@@ -485,8 +484,9 @@ class DefineEeps(object):
                                    max=False, more_than_one='min of min',
                                    extra_inds=ex_inds, parametric_interp=False)
 
-        if ms_tmin == -1 and track.mass >= 1.2:
-            logger.warning('Using XCEN=0.3 for T_MIN: M=%.3f' % track.mass)
+        if ms_tmin == -1:
+            if track.mass >= 1.2:
+                logger.warning('Using XCEN=0.3 for T_MIN: M=%.3f' % track.mass)
             inds = self.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1',
                                                   sandro=False)
             inds = list(set(ex_inds) & set(inds))
@@ -1334,80 +1334,10 @@ class TrackSet(object):
                              for track in self.hbtrack_names]
             self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
 
-
-class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
-    def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
-                 eep_list=None, eep_lengths=None, eep_list_hb=None,
-                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
-                 hbtrack_search_term='*F7_*HB', plot_dir=None,
-                 outfile_dir=None, logfile='parsec2match.log'):
-
-        fh = logging.FileHandler(logfile)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-        logger.setLevel(logging.DEBUG)
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.WARNING)
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
-        logger.info('==START OF LOG==')
-        self.tracks_base = os.path.join(tracks_dir, prefix)
-
-        self.prefix = prefix
-        search_term = '*%s*dat' % prefix
-
-        self.ptcri = None
-        self.eep = None
-
-        self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
-
-        if eep_list is not None:
-            eep_kw = {'eep_lengths': eep_lengths,
-                      'eep_list_hb': eep_list_hb,
-                      'eep_lengths_hb': eep_lengths_hb}
-            self.eep = eep(eep_list, **eep_kw)
-
-        self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
-
-        self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
-        track_kw = {'ptcri': self.ptcri, 'min_lage': 0., 'cut_long': 0}
-        self.tracks = []
-        for track in self.track_names:
-            track_obj = Track(track, **track_kw)
-            track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri)
-            self.tracks.append(track_obj)
-            self.prepare_track(track_obj, outfile_dir=outfile_dir)
-            self.check_ptcris(track_obj, plot_dir=plot_dir)
-
-        self.masses = np.round([t.mass for t in self.tracks], 3)
-        self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
-                             reverse_x=True, plot_dir=plot_dir)
-
-        self.hbtracks = []
-        if hb is True:
-            self.hbtrack_names = fileIO.get_files(self.tracks_base,
-                                                  hbtrack_search_term)
-            for track in self.hbtrack_names:
-                track_obj = Track(track, **track_kw)
-                track_obj = self.load_critical_points(track_obj,
-                                                      ptcri=self.ptcri,
-                                                      hb=True,
-                                                      plot_dir=plot_dir)
-                self.hbtracks.append(track_obj)
-                self.prepare_track(track_obj, outfile_dir=outfile_dir)
-                self.check_ptcris(track_obj, hb=hb, plot_dir=plot_dir)
-
-            self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
-
-        self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=True,
-                             reverse_x=True, plot_dir=plot_dir)
-        fh.close()
-        ch.close()
-
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
-                        convert_mag_kw={}, hb=False, plot_dir=None):
+                        convert_mag_kw={}, hb=False, plot_dir=None,
+                        zoomin=True):
         '''
         It would be much easier to discern breaks in the sequences if you did
         three separate plots: PMS_BEG to MS_BEG,
@@ -1424,43 +1354,49 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         if hb is False:
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
+
                      ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
                       'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
-                     ['RG_TIP', 'HE_BEG', 'YCEN_0.55', 'YCEN_0.50',
-                      'YCEN_0.40', 'YCEN_0.20', 'YCEN_0.10', 'YCEN_0.00',
+
+                     ['RG_TIP', 'HE_BEG', 'YCEN_0.550', 'YCEN_0.500',
+                      'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.000',
                       'C_BUR']]
-            key_dict = self.ptcri.key_dict
+
+            fig_extra = ['pms', 'ms', 'rg']
         else:
             plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
                      'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']]
-            key_dict = self.ptcri.key_dict_hb
+            # overwriting kwargs!!
             ptcri_kw['sandro'] = False
+            fig_extra = ['hb']
 
         line_pltkw = {'color': 'black', 'alpha': 0.3}
-
-        if annotate is True:
-            # would be nice to use color brewer here.
-            nptcris = len(key_dict)
-            cols = rspg.discrete_colors(nptcris, colormap='spectral')
-            point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
 
         xlims = np.array([])
         ylims = np.array([])
         for j in range(len(plots)):
-            didit = 0
             fig, ax = plt.subplots()
-            for t in tracks:
-                all_inds, = np.nonzero(t.data.AGE > 0.2)
-                try:
-                    inds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
-                            for cp in plots[j]]
-                except:
-                    continue
-                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
-                                     plt_kw=line_pltkw, cmd=cmd,
-                                     convert_mag_kw=convert_mag_kw)
+            if annotate is True:
+                point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
+                cols = rspg.discrete_colors(len(plots[j]), colormap='spectral')
+                labs = [p.replace('_', '\_') for p in plots[j]]
 
-                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=inds,
+            didit = 0
+            xlimi = np.array([])
+            ylimi = np.array([])
+            for t in tracks:
+
+                all_inds, = np.nonzero(t.data.AGE > 0.2)
+
+                ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
+                         for cp in plots[j]]
+
+                inds = t.ptcri.iptcri[ainds][np.nonzero(t.ptcri.iptcri[ainds])[0]]
+
+                if np.sum(inds) == 0:
+                    continue
+
+                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
                                      plt_kw=line_pltkw, cmd=cmd,
                                      convert_mag_kw=convert_mag_kw)
 
@@ -1468,51 +1404,204 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 ylims = np.append(ylims, np.array(ax.get_ylim()))
 
                 if annotate is True:
-                    #inds = t.ptcri.iptcri[np.nonzero(t.ptcri.iptcri)[0]]
-                    if len(inds) == nptcris:
-                        labs = [self.ptcri.get_ptcri_name(i, **ptcri_kw).replace('_', '\_')
-                                for i in range(nptcris)]
-                        didit += 1
-                    if np.sum(inds) == 0:
-                        continue
-
                     xdata = t.data[xcol]
                     ydata = t.data[ycol]
 
-                    if didit == 1:
+                    if cmd is True:
+                        xdata = t.data[xcol] - t.data[ycol]
+                    pls = []
+                    for i in range(len(inds)):
+                        x = xdata[inds[i]]
+                        y = ydata[inds[i]]
+                        xlimi = np.append(xlimi, (np.min(x), np.max(x)))
+                        ylimi = np.append(ylimi, (np.min(y), np.max(y)))
+                        pl, = ax.plot(x, y, color=cols[i], **point_pltkw)
+                        pls.append(pl)
+
+                    if len(inds) == len(plots[j]):
                         didit += 1
-                        if cmd is True:
-                            xdata = t.data[xcol] - t.data[ycol]
+                        if didit == 1:
+                            plines = pls
 
-                        [ax.plot(xdata[inds[i]], ydata[inds[i]],
-                                 color=cols[i], label='$%s$' % labs[i],
-                                 **point_pltkw)
-                         for i in range(len(inds))]
-                    else:
-                        [ax.plot(xdata[inds[i]], ydata[inds[i]],
-                                 color=cols[i], **point_pltkw)
-                         for i in range(len(inds))]
-
-            if reverse_x is True:
-                ax.set_xlim(np.max(xlims), np.min(xlims))
+            if zoomin is True:
+                ax.set_xlim(np.min(xlimi), np.max(xlimi))
+                ax.set_ylim(np.min(ylimi), np.max(ylimi))
             else:
                 ax.set_xlim(np.min(xlims), np.max(xlims))
+
+            if reverse_x is True:
+                ax.set_xlim(ax.get_xlim()[::-1])
+
             if annotate is True:
-                ax.legend(loc=0, numpoints=1)
-            ax.set_xlim(np.min(xlims), np.max(xlims))
+                ax.legend(plines, labs, numpoints=1, loc=0, frameon=False)
+
             ylab = ycol.replace('_', '\ ')
             xlab = xcol.replace('_', '\ ')
-            figname = '%s_%s_%s_%i.png' % (self.prefix, xcol, ycol, j)
+            figname = '%s_%s_%s_%s.png' % (self.prefix, xcol, ycol, fig_extra[j])
 
             if cmd is True:
                 xlab = '%s-%s' % (xlab, ylab)
+
             ax.set_xlabel('$%s$' % xlab)
             ax.set_ylabel('$%s$' % ylab)
+
             if plot_dir is not None:
                 figname = os.path.join(plot_dir, figname)
             plt.savefig(figname)
+            logger.info('wrote %s' % figname)
             plt.close()
-        return ax
+        return
+
+
+class MatchTracks(object):
+    '''
+    a simple check of the output from TracksForMatch. I want it to run on the
+    same input file as TracksForMatch.
+    '''
+    def __init__(self, outfile_dir=None, eep_list=None, eep_lengths=None,
+                 track_search_term='match_*dat', eep_list_hb=None,
+                 eep_lengths_hb=None, prefix=None, **kwargs):
+
+        self.tracks_base = outfile_dir
+        self.prefix = prefix
+        all_track_names = fileIO.get_files(self.tracks_base, track_search_term)
+        self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
+        self.track_names = [t for t in all_track_names
+                            if t not in self.hbtrack_names]
+        self.tracks = [self._load_track(t) for t in self.track_names]
+        self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
+
+        self.eep_list = eep_list
+        self.eep_lengths = eep_lengths
+        self.eep_lengths_hb = eep_lengths_hb
+        self.eep_list_hb = eep_list_hb
+        self._plot_all_tracks(self.tracks, eep_list=eep_list,
+                              eep_lengths=eep_lengths, plot_dir=outfile_dir)
+        self._plot_all_tracks(self.hbtracks, eep_list=eep_list_hb,
+                              eep_lengths=eep_lengths_hb, plot_dir=outfile_dir,
+                              extra='_HB')
+
+    def _load_track(self, filename):
+        '''
+        '''
+        # the filename actually contains Mbol, but I convert it in genfromtxt.
+        names = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
+        data = np.genfromtxt(filename, names=names,
+                             converters={3: lambda m: (4.77 - float(m)) / 2.5})
+        data = data.view(np.recarray)
+        return data
+
+    def _plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
+                         plot_dir=None, extra=''):
+
+        if eep_lengths is not None:
+            eep_lengths = map(int, np.insert(np.cumsum(eep_lengths), 0, 1))
+        line_pltkw = {'color': 'black', 'alpha': 0.3}
+        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
+        cols = rspg.discrete_colors(len(eep_list), colormap='spectral')
+        labs = [p.replace('_', '\_') for p in eep_list]
+
+        fig, ax = plt.subplots()
+        # fake lengend
+        [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
+         for i in range(len(eep_lengths))]
+
+        [ax.plot(t.LOG_TE, t.LOG_L, **line_pltkw) for t in tracks]
+        xlims = np.array([])
+        ylims = np.array([])
+        for t in tracks:
+            for i in range(len(eep_lengths)):
+                x = t.LOG_TE
+                y = t.LOG_L
+                ind = eep_lengths[i] - 1
+                # print ind, labs[i], len(eep_lengths), i, len(t.LOG_TE)
+                if (len(x) < ind):
+                    continue
+                ax.plot(x[ind], y[ind], color=cols[i], **point_pltkw)
+                xlims = np.append(xlims, (np.min(x[ind]), np.max(x[ind])))
+                ylims = np.append(ylims, (np.min(y[ind]), np.max(y[ind])))
+
+        ax.set_xlim(np.max(xlims), np.min(xlims))
+        ax.set_ylim(np.min(ylims), np.max(ylims))
+        ax.legend(loc=0, numpoints=1, frameon=0)
+        figname = 'match_%s%s.png' % (self.prefix, extra)
+        if plot_dir is not None:
+            figname = os.path.join(plot_dir, figname)
+        plt.savefig(figname)
+
+
+class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
+    def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
+                 eep_list=None, eep_lengths=None, eep_list_hb=None,
+                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
+                 hbtrack_search_term='*F7_*HB', plot_dir=None,
+                 outfile_dir=None):
+
+        # get ptcri file and eeps.
+        self.ptcri = None
+        self.eep = None
+
+        self.prefix = prefix
+
+        self.ptcri_file, = fileIO.get_files(ptcrifile_loc, '*%s*dat' % prefix)
+
+        if eep_list is not None:
+            eep_kw = {'eep_lengths': eep_lengths,
+                      'eep_list_hb': eep_list_hb,
+                      'eep_lengths_hb': eep_lengths_hb}
+            self.eep = eep(eep_list, **eep_kw)
+
+        self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
+
+        # load the tracks
+        self.tracks_base = os.path.join(tracks_dir, prefix)
+        self.track_names = fileIO.get_files(self.tracks_base, track_search_term)
+
+        track_kw = {'ptcri': self.ptcri, 'min_lage': 0., 'cut_long': 0}
+        self.tracks = []
+
+        for track in self.track_names:
+            track_obj = Track(track, **track_kw)
+
+            # do the work! Assign eeps either from sandro, or eep_list and
+            # make some diagnostic plots.
+            track_obj = self.load_critical_points(track_obj, ptcri=self.ptcri,
+                                                  plot_dir=plot_dir)
+            self.tracks.append(track_obj)
+
+            # make match output files.
+            self.prepare_track(track_obj, outfile_dir=outfile_dir)
+
+            # make diagnostic plots
+            self.check_ptcris(track_obj, plot_dir=plot_dir)
+
+        self.masses = np.round([t.mass for t in self.tracks], 3)
+
+        # make summary diagnostic plots
+        self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
+                             reverse_x=True, plot_dir=plot_dir)
+
+        # do the same as above but for HB.
+        if hb is True:
+            self.hbtracks = []
+            self.hbtrack_names = fileIO.get_files(self.tracks_base,
+                                                  hbtrack_search_term)
+            for track in self.hbtrack_names:
+                track_obj = Track(track, **track_kw)
+                track_obj = self.load_critical_points(track_obj,
+                                                      ptcri=self.ptcri,
+                                                      hb=True,
+                                                      plot_dir=plot_dir)
+                self.hbtracks.append(track_obj)
+                self.prepare_track(track_obj, outfile_dir=outfile_dir, hb=True)
+                self.check_ptcris(track_obj, hb=hb, plot_dir=plot_dir)
+
+            self.hbmasses = np.round([t.mass for t in self.hbtracks], 3)
+
+            self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=True,
+                                 reverse_x=True, plot_dir=plot_dir)
+        fh.close()
+        ch.close()
 
     def prepare_track(self, track, outfile='default', hb=False,
                       outfile_dir=None):
@@ -1541,39 +1630,36 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         tot_pts = 0
         ptcri_kw = {'sandro': False, 'hb': hb}
         for i in range(len(np.nonzero(track.ptcri.iptcri > 0)[0]) - 1):
+            this_eep = track.ptcri.get_ptcri_name(i, **ptcri_kw)
+            next_eep = track.ptcri.get_ptcri_name(i+1, **ptcri_kw)
+            ithis_eep = track.ptcri.iptcri[i]
+            inext_eep = track.ptcri.iptcri[i+1]
             mess = '%.3f %s=%i %s=%i' % (track.mass,
-                                         track.ptcri.get_ptcri_name(i,
-                                                                    **ptcri_kw),
-                                         track.ptcri.iptcri[i],
-                                         track.ptcri.get_ptcri_name(i+1,
-                                                                    **ptcri_kw),
-                                         track.ptcri.iptcri[i+1])
+                                         this_eep, ithis_eep,
+                                         next_eep, inext_eep)
 
             if i != 0 and self.ptcri.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
                 logger.warning(mess)
                 logger.warning('skipping %s-%s\ncause the second eep is zippo.'
-                               % (track.ptcri.get_ptcri_name(i, **ptcri_kw),
-                                   track.ptcri.get_ptcri_name(i+1, **ptcri_kw)))
+                               % (this_eep, next_eep))
                 continue
 
-            inds = np.arange(track.ptcri.iptcri[i], track.ptcri.iptcri[i+1])
+            inds = np.arange(ithis_eep, inext_eep)
             if len(inds) == 0:
                 logger.warning(mess)
                 logger.warning(
                     'skipping %s-%s cause there are no inds between these crit pts.'
-                    % (track.ptcri.get_ptcri_name(i, **ptcri_kw),
-                       track.ptcri.get_ptcri_name(i+1, **ptcri_kw)))
+                    % (this_eep, next_eep))
                 continue
 
             if len(inds) == 1:
                 # include the last ind.
-                inds = np.arange(track.ptcri.iptcri[i],
-                                 track.ptcri.iptcri[i+1] + 1)
+                inds = np.arange(ithis_eep, inext_eep + 1)
 
             tckp = self.interpolate_te_l_age(track, inds)
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
-            new_eep_dict[track.ptcri.get_ptcri_name(i, **ptcri_kw)] = tot_pts
+            new_eep_dict[this_eep] = tot_pts
             tot_pts += nticks[i]
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)
@@ -1602,6 +1688,20 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         self.match_data = to_write
 
 
+def do_entire_set(input_obj={}):
+    tracks_dir = input_obj['tracks_dir']
+    prefixs = [d for d in os.listdir(tracks_dir)
+               if os.path.isdir(os.path.join(tracks_dir, d))]
+    for prefix in prefixs:
+        if prefix == 'S12D_NS_Z0.0002_Y0.249':
+            continue
+        input_obj['prefix'] = prefix
+        input_obj['plot_dir'] = os.path.join(tracks_dir, prefix, 'plots')
+        input_obj['outfile_dir'] = os.path.join(tracks_dir, prefix, 'match')
+        TracksForMatch(**input_obj)
+        MatchTracks(**input_obj)
+
+
 def check_basti():
     track_base = '/Users/phil/research/parsec2match/stellarmodels/msz83sss_eta02_wfc3ir'
     track_names = os.listdir(track_base)
@@ -1621,4 +1721,17 @@ if __name__ == '__main__':
     import pdb
     input_obj = fileIO.load_input(sys.argv[1])
     pdb.set_trace()
-    tm = TracksForMatch(**input_obj)
+    logfile = sys.argv[1].replace('inp', 'log')
+    fh = logging.FileHandler(logfile)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    do_entire_set(input_obj=input_obj)
+    #TracksForMatch(**input_obj)
+    #MatchTracks(**input_obj)
