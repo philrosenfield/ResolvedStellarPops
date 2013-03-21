@@ -397,8 +397,8 @@ class star_pop(object):
         '''
         check = [(dmod + Av == 0.), (target is None)]
         #assert False in check, 'either supply dmod and Av or target'
-
-        if check[0]:
+        print check, len(check), dmod + Av
+        if check[0] is True:
             filters = ','.join((self.filter1, self.filter2))
             if target is not None:
                 logger.info('converting mags with angst table using %s' %
@@ -696,11 +696,10 @@ class galaxy(star_pop):
         self.color = self.mag1 - self.mag2
         # angst table loads
         if angst is True:
-            if self.photsys == 'acs_wfc' or self.photsys == 'wfpc2':
-                self.comp50mag1 = angst_data.get_50compmag(self.target,
-                                                           self.filter1)
-                self.comp50mag2 = angst_data.get_50compmag(self.target,
-                                                           self.filter2)
+            self.comp50mag1 = angst_data.get_50compmag(self.target,
+                                                       self.filter1)
+            self.comp50mag2 = angst_data.get_50compmag(self.target,
+                                                       self.filter2)
             self.trgb_av_dmod(band=band)
             # Abs mag
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
@@ -711,26 +710,9 @@ class galaxy(star_pop):
         returns trgb, av, dmod from angst table
         TODO: move the wfc3 crap to angst_tables and make an IR table.
         '''
-        if band == 'ir':
-            table = '/Users/phil/research/TP-AGBcalib/SNAP/tables/table.dat'
-            with open(table, 'r') as t:
-                lines = t.readlines()
-            for line in lines:
-                line = line.strip().split()
-                if line[0].strip() == self.target:
-                    self.dmod, self.Av = map(float, line[1:3])
-
-            table = '/Users/phil/research/TP-AGBcalib/SNAP/tables/IR_NAGBs.dat'
-            with open(table, 'r') as t:
-                lines = t.readlines()
-            for line in lines:
-                line = line.strip().split(', ')
-                if line[0].split('_')[1] == self.target:
-                    self.trgb = float(line[1])
-        else:
-            filters = ','.join((self.filter1, self.filter2))
-            (self.trgb, self.Av, self.dmod) = \
-                angst_data.get_tab5_trgb_av_dmod(self.target, filters)
+        filters = ','.join((self.filter1, self.filter2))
+        (self.trgb, self.Av, self.dmod) = \
+            angst_data.get_tab5_trgb_av_dmod(self.target, filters)
 
     def __str__(self):
         out = (
