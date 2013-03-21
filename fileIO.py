@@ -6,11 +6,12 @@ import math_utils
 import sys
 from pprint import pprint
 
+
 class input_parameters(object):
     '''
     need to make a dictionary of all the possible parameters
         (in the ex: rsp.TrilegalUtils.galaxy_input_dict())
-    need to make a formatted string with dictionary printing 
+    need to make a formatted string with dictionary printing
         (in the ex: rsp.TrilegalUtils.galaxy_input_fmt())
 
     example
@@ -25,36 +26,35 @@ class input_parameters(object):
     def __init__(self, default_dict=None):
         if default_dict is None:
             print 'need a default dict!'
-        if len(default_dict) == 0: 
+        if len(default_dict) == 0:
             print 'need values in default dictionary.'
             return -1
-        
+
         self.possible_params(default_dict)
-        
+
     def possible_params(self, default_dict={}):
         '''
         assign key as attribute name and value as attribute value from
         dictionary
         '''
         [self.__setattr__(k, v) for k, v in default_dict.items()]
-    
+
     def update_params(self, new_dict):
         '''
         only overwrite attributes that already exist from dictionary
         '''
         [self.__setattr__(k, v) for k, v in new_dict.items() if hasattr(self, k)]
-                
-    
+
     def add_params(self, new_dict):
         '''
         add or overwrite attributes from dictionary
         '''
         [self.__setattr__(k, v) for k, v in new_dict.items()]
-        
+
     def write_params(self, new_file, formatter):
         with open(new_file, 'w') as f:
             f.write(formatter % self.__dict__)
-    
+
     def __str__(self):
         pprint(self.__dict__)
         return ""

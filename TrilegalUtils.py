@@ -7,6 +7,7 @@ logger = logging.getLogger()
 import fileIO
 import graphics
 
+
 class HRD(object):
     def __init__(self, age, logl, logte, mass, eep_list, ieep):
         self.age = np.array(age)
@@ -15,11 +16,12 @@ class HRD(object):
         self.mass = mass
         self.eep_dict = dict(zip(eep_list, np.array(ieep)))
 
+
 class PadovaIsoch(object):
     def __init__(self, ptcri_file):
         self.ptcri_file = ptcri_file
         self.read_padova_isoch()
-            
+
     def read_padova_isoch(self):
         '''
         returns age, logl, logte.
@@ -28,8 +30,8 @@ class PadovaIsoch(object):
             lines = np.array(p.readlines())
 
         # keep the space because !M exists in the files.
-        inds, masses = zip(*[(i, float(l.split(' M=')[1].split()[0])) for 
-                                 (i, l) in enumerate(lines) if ' M=' in l])
+        inds, masses = zip(*[(i, float(l.split(' M=')[1].split()[0])) for
+                             (i, l) in enumerate(lines) if ' M=' in l])
 
         last = [i for (i, l) in enumerate(lines) if '!M' in l][0] - 2
         inds = np.append(inds, last)
@@ -39,24 +41,22 @@ class PadovaIsoch(object):
             isoc_inds = np.arange(inds[i], inds[i+1])
             age, logl, logte = zip(*[map(float, l[:35].split())
                                      for l in lines[isoc_inds]])
-            eep_list, ieep = zip(*[l[35:].split() for l in lines[isoc_inds] 
-                                    if len(l[35:].split()) == 2])
+            eep_list, ieep = zip(*[l[35:].split() for l in lines[isoc_inds]
+                                   if len(l[35:].split()) == 2])
             ieep = map(int, ieep)
             self.__setattr__('iso_m%s' % self.strmass(mass),
                              HRD(age, logl, logte, mass, eep_list, ieep))
 
         return
 
-
     def strmass(self, mass):
-        return ('%.3f' % mass).replace('.','_')
-
+        return ('%.3f' % mass).replace('.', '_')
 
     def plot_padova_isoch(self, figname=None, masses=None):
         if figname is None:
             figname = fileIO.replace_ext(self.ptcri_file, '.png')
-        figtitle = os.path.split(self.ptcri_file)[1].replace('_','\_')
-            
+        figtitle = os.path.split(self.ptcri_file)[1].replace('_', '\_')
+
         if masses is None:
             masses = self.masses
 
@@ -68,7 +68,7 @@ class PadovaIsoch(object):
             logte = isoch.logte
             logl = isoch.logl
             ptinds = np.array(isoch.eep_dict.values())
-            
+
             ax.plot(logte, logl, color='black', alpha=0.2)
             if len(masses) == 1:
                 ax.plot(logte[ptinds], logl[ptinds], '.', color='blue', alpha=0.3)
@@ -77,7 +77,7 @@ class PadovaIsoch(object):
             ptinds = ptinds[sinds]
             labels = np.array(isoch.eep_dict.keys())[sinds]
             for i in range(len(ptinds)):
-                if j == 0:           
+                if j == 0:
                     ax.plot(logte[ptinds[i]], logl[ptinds[i]], 'o',
                             color=cols[i], label='%s' % labels[i].replace('_', '\_'))
                 else:
@@ -90,6 +90,7 @@ class PadovaIsoch(object):
         ax.set_title(r'$\textrm{%s}$' % figtitle, fontsize=16)
         plt.legend()
         plt.savefig(figname)
+
 
 def write_trilegal_sim(sgal, outfile, slice_inds=None):
     '''
@@ -148,12 +149,22 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
 def change_galaxy_input(galaxy_input, **kwargs):
     '''
     if no kwargs are given, will write None as object_mass and object_sfr_file.
-    see galaxy_input_dict()- 
+    see galaxy_input_dict()-
     '''
     input_pars = fileIO.input_parameters(galaxy_input_dict())
     input_pars.add_params(kwargs)
-    input_pars.write_params(galaxy_input, galaxy_imput_fmt())
-    
+    input_pars.write_params(galaxy_input, galaxy_input_fmt())
+
+
+def find_mag_num(file_mag, filter1):
+    file_mag = os.path.join(os.environ['TRILEGAL_ROOT'], file_mag)
+    with open(file_mag, 'r') as f:
+        line = f.readlines()[1].strip().split()
+    try:
+        return line.index(filter1)
+    except ValueError:
+        print '%s not found in %s.' (filter1, file_mag)
+
 
 def galaxy_input_dict():
     return {'coord_kind': 1,
@@ -190,7 +201,7 @@ def galaxy_input_dict():
             'thindisk_sfr_mult_factorB': 0.0,
             'thickdisk_kind': 0,
             'rho_thickdisk_sun': 0.0015,
-            'thickdisk_h_r': 2800.0 ,
+            'thickdisk_h_r': 2800.0,
             'thickdisk_r_min': 0.0,
             'thickdisk_r_max': 15000.0,
             'thickdisk_h_z': 800.0,
@@ -218,11 +229,11 @@ def galaxy_input_dict():
             'object_kind': 1,
             'object_mass': None,
             'object_dist': 10.,
-            'object_avkind':1,
+            'object_avkind': 1,
             'object_av': 0.0,
             'object_cutoffmass': 0.8,
             'object_sfr_file': None,
-            'object_sfr_mult_factorA': 1.0 ,
+            'object_sfr_mult_factorA': 1.0,
             'object_sfr_mult_factorB': 0.0,
             'output_file_type': 1}
 
@@ -282,24 +293,24 @@ def galaxy_input_fmt():
 
 def cmd_input_fmt():
     fmt = \
-    """%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams
-%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb 
+        """%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams
+%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb
 %(kind_postagb)i %(file_postagb)s # kind_postagb, file_postagb DA VERIFICARE file_postagb
 %(ifmr_kind)i %(file_ifmr)s # ifmr_kind, file with ifmr
 %(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency
 ################################explanation######################
-kind_tracks: 1= normal file 
-file_isotrack: tracks for low+int mass 
-file_lowzams: tracks for low-ZAMS 
+kind_tracks: 1= normal file
+file_isotrack: tracks for low+int mass
+file_lowzams: tracks for low-ZAMS
 kind_tpagb: 0= none
-	    1= Girardi et al., synthetic on the flight, no dredge up 
-	    2= Marigo & Girardi 2001, from file, includes mcore and C/O
-	    3= Marigo & Girardi 2007, from file, includes period, mode and mloss  
-	    4= Marigo et al. 2011, from file, includes slope  
+        1= Girardi et al., synthetic on the flight, no dredge up
+        2= Marigo & Girardi 2001, from file, includes mcore and C/O
+        3= Marigo & Girardi 2007, from file, includes period, mode and mloss
+        4= Marigo et al. 2011, from file, includes slope
 file_tpagb: tracks for TP-AGB
 
 kind_postagb: 0= none
-	      1= from file
+        1= from file
 file_postagb: PN+WD tracks
 
 kind_ifmr: 0= default
@@ -346,7 +357,7 @@ class trilegal_sfh(object):
             self.sfh_file = lines[-3].split()[0]
             self.current_sfh_file = self.sfh_file[:]
             self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
-        
+
         self.age, self.sfr, self.z = np.loadtxt(self.sfh_file, unpack=True)
         # should I do this with dtype?
         self.z = np.round(self.z, 4)
@@ -357,10 +368,11 @@ class trilegal_sfh(object):
         '''
         flag = cut1_age[0]
         yrfmt = 1.
-        possible_yrmfts = {'Gyr':1e9 , 'Myr': 1e6, 'yr': 1.}
+        possible_yrmfts = {'Gyr': 1e9, 'Myr': 1e6, 'yr': 1.}
         for py, yrfmt in sorted(possible_yrmfts.items(),
-                                key=lambda (k, v):(v, k), reverse=True):
+                                key=lambda (k, v): (v, k), reverse=True):
             if py in str(cut1_age):
+                import matplotlib
                 if matplotlib.cbook.is_numlike(flag):
                     cut1_age = float(cut1_age.replace(py, ''))
                     flag = ''
@@ -369,24 +381,23 @@ class trilegal_sfh(object):
                 cut1_age *= yrfmt
         return cut1_age, flag
 
-
     def increase_sfr(self, factor, cut_age, over_write_galaxy_input=True):
         '''
         cut_age is in Myr.
         '''
         new_fmt = '%s_inc%i.dat'
-        new_file = new_fmt % (self.sfh_file.replace('.dat',''), factor)        
+        new_file = new_fmt % (self.sfh_file.replace('.dat', ''), factor)
         if over_write_galaxy_input is True:
             galaxy_input = self.galaxy_input
         else:
-            galaxy_input = new_fmt % (self.galaxy_input.replace('.dat',''),
+            galaxy_input = new_fmt % (self.galaxy_input.replace('.dat', ''),
                                       factor)
 
         # copy arrays to not overwrite attributes
         sfr = self.sfr[:]
         age = self.age[:]
         z = self.z[:]
-        
+
         # convert cut_age to yr
         cut_age *= 1e6
 
@@ -394,18 +405,19 @@ class trilegal_sfh(object):
         sfr[inds] *= factor
         np.savetxt(new_file, np.array([age, sfr, z]).T)
         # update galaxy_input file
-        lines[-3] = '%s %s \n' % (new_file, self.galaxy_input_sfh_line)
-        logger.debug('new line: %s' % lines[-3])
-        with open(galaxy_input, 'w') as out:
-            [out.write(l) for l in lines]
+        print 'this is broken!!!!!'
+        #lines[-3] = '%s %s \n' % (new_file, self.galaxy_input_sfh_line)
+        #logger.debug('new line: %s' % lines[-3])
+        #with open(galaxy_input, 'w') as out:
+        #    [out.write(l) for l in lines]
 
         self.current_galaxy_input = galaxy_input
         self.current_sfh_file = new_file
         return self.current_galaxy_input
-    
+
     def edit_sfh_file(self, z, cut_age='<400Myr',
-                            over_write_sfh_file=False, 
-                            new_sfh_file=None):
+                      over_write_sfh_file=False,
+                      new_sfh_file=None):
         '''
         give a constant [median value] sfr for all ages > or < than some cut_age
         (Gyr or Myr).
@@ -413,23 +425,25 @@ class trilegal_sfh(object):
         '''
         # the new sfr file will be the same as the old but with a different
         # extension
+        print 'this is broken!!'
         if not over_write_sfh_file or new_sfh_file is None:
             if cut_age.startswith('>') or cut_age.startswith('<'):
                 cutname = cut_age[1:]
             else:
                 cutname = cut_age
-            new_sfh_file = rsp.fileIO.replace_ext(self.sfh_file, 
-                                                  '_csfr%s.dat' % cutname)
+            new_sfh_file = fileIO.replace_ext(self.sfh_file,
+                                              '_csfr%s.dat' % cutname)
         else:
             new_sfh_file = self.sfh_file[:]
-    
+
         if cut_age:
             # takes the > or < out of the string, and makes it in yrs.
-            cut_age, flag = format_cut_age(cut_age)
+            pass
+            #cut_age, flag = format_cut_age(cut_age)
         else:
             logger.error('nothing to do.')
             return -1
-    
+
         if flag == '<' or not flag:
             overwrites, = np.nonzero(sfh[:, 0] < cut_age)
             saves, = np.nonzero(sfh[:, 0] >= cut_age)
@@ -549,10 +563,10 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
 
 def run_trilegal(cmd_input, galaxy_input, output):
     '''
-    runs trilegal with os.system. might be better with subprocess? Also 
-    changes directory to trilegal root, if that's not in a .cshrc need to 
+    runs trilegal with os.system. might be better with subprocess? Also
+    changes directory to trilegal root, if that's not in a .cshrc need to
     somehow tell it where to go.
-    
+
     to do:
     add -a or any other flag options
     possibly add the stream output to the end of the output file.
@@ -561,15 +575,15 @@ def run_trilegal(cmd_input, galaxy_input, output):
     os.chdir(os.environ['TRILEGAL_ROOT'])
 
     logger.info('running trilegal...')
-    cmd = 'code/main -f %s -l %s %s > trilegal.msg\n' % (cmd_input,
-                                                         galaxy_input, output)
+    cmd = 'code/main -f %s -a -l %s %s > trilegal.msg\n' % (cmd_input,
+                                                            galaxy_input, output)
     logger.debug(cmd)
     t = os.system(cmd)
     logger.info('done.')
 
     if t != 0:
-        for l in open('trilegal.msg').readlines():
-            logger.debug(l.strip())
+        logger.debug('\n'.join([l.strip()
+                                for l in open('trilegal.msg').readlines()]))
     else:
         os.remove('trilegal.msg')
     os.chdir(here)
