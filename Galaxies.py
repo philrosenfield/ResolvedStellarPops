@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.patches import FancyArrow
 from subprocess import PIPE, Popen
+from matplotlib.ticker import NullFormatter
 
 import itertools
 import logging
@@ -37,32 +38,43 @@ class star_pop(object):
                  color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None):
         set_fig = 0
         set_ax = 0
+
         if fig is None:
             fig = plt.figure(figsize=(8, 8))
             set_fig = 1
+
         if ax is None:
             ax = plt.axes()
             set_ax = 1
+
         if hasattr(self, 'filter2'):
             filter2 = self.filter2
+
         if hasattr(self, 'filter1'):
             filter1 = self.filter1
+
         if yfilter is None:
             yfilter = filter2
+
         if slice_inds is not None:
             color = color[slice_inds]
             mag = mag[slice_inds]
+
         if len(color_by_arg_kw) != 0:
             scatter_off = True
             self.color_by_arg(ax=ax, fig=fig, **color_by_arg_kw)
+
         if scatter_off is False:
             contour_args = dict({'cmap': cm.gray_r, 'zorder': 100}.items() +
                                 contour_args.items())
+
             scatter_args = dict({'marker': '.', 'color': 'black', 'alpha': 0.2,
-                                'edgecolors': None, 'zorder': 1}.items() +
+                                'edgecolors': 'none', 'zorder': 1}.items() +
                                 scatter_args.items())
+
             contour_lw = dict({'linewidths': 2, 'colors': 'white',
                                'zorder': 200}.items() + contour_lw.items())
+
             ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / 0.05)
             nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / 0.05)
             plt_pts, cs = scatter_contour(color, mag,
@@ -281,6 +293,10 @@ class star_pop(object):
             self.ax.text(0.95, offset, string, transform=self.ax.transAxes,
                          ha='right', fontsize=16, color='black')
 
+    def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
+        text_kw = dict({'fontsize': 20}.items() + text_kw.items())
+        ax.text(ax.get_xlim()[0] + offset, yval - offset, string, **text_kw)
+
     def all_stages(self, *stages):
         '''
         adds the indices of some stage as an attribute.
@@ -397,7 +413,6 @@ class star_pop(object):
         '''
         check = [(dmod + Av == 0.), (target is None)]
         #assert False in check, 'either supply dmod and Av or target'
-        print check, len(check), dmod + Av
         if check[0] is True:
             filters = ','.join((self.filter1, self.filter2))
             if target is not None:
@@ -648,7 +663,7 @@ class galaxy(star_pop):
                         ext = 'ACS'
                     else:
                         ext = ext.split('-')[-1]
-                if band is not None:
+                if band.upper() == 'IR':
                     ext = band.upper()
                 self.mag1 = self.data['mag1_%s' % ext]
                 self.mag2 = self.data['mag2_%s' % ext]
@@ -1091,6 +1106,144 @@ class simgalaxy(star_pop):
         plt.savefig(figname)
         logger.info('wrote %s' % figname)
         return
+
+
+class sim_and_gal(object):
+    def __init__(self, galaxy, simgalaxy):
+        self.gal = galaxy
+        self.sgal = simgalaxy
+
+    def make_title(self, fig):
+        text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
+        title = '$\rm{%s\ m}_{TRGB}=%.3f$' % (self.gal.target, self.gal.trgb)
+
+        if np.isfinite(self.gal.z):
+            title += ' $Z=%.4f$' % (self.gal.z)
+
+        fig.text(0.5, 0.96, title, **text_kwargs)
+
+    def make_LF(self, maglims, res=0.1, model_plt_color='red', xlim=None,
+                xlim2=None, data_plt_color='black', plt_dir=None,  ylim=None):
+
+        self.gal.rec, = np.nonzero((self.gal.mag1 < self.gal.comp50mag1) &
+                                   (self.gal.mag2 < self.gal.comp50mag2))
+        gal = self.gal
+        sgal = self.sgal
+
+        self.nbins = (gal.mag2[gal.rec].max() - gal.mag2[gal.rec].min()) / res
+        self.gal_hist, self.bins = np.histogram(gal.mag2[gal.rec], self.nbins)
+        self.sgal_hist, _ = np.histogram(sgal.ast_mag2[sgal.rec],
+                                         bins=self.bins)
+        self.sgal_hist *= sgal.rgb_norm
+
+        if hasattr(sgal, 'imstar'):
+            self.mhist, _ = np.histogram(sgal.ast_mag2[sgal.rec][sgal.imstar],
+                                         self.nbins)
+            self.chist, _ = np.histogram(sgal.ast_mag2[sgal.rec][sgal.icstar],
+                                         bins=self.bins)
+
+        fig, axs = self.plot_LF(maglims, res=0.1, model_plt_color='red',
+                                data_plt_color='black', plt_dir=plt_dir,
+                                xlim=xlim, xlim2=xlim2, ylim=ylim)
+
+        self.add_lines_LF(fig, axs)
+
+        figname = '_'.join((gal.target, sgal.mix, sgal.model_name, gal.filter1,
+                           gal.filter2, 'LF.png'))
+
+        if plt_dir is not None:
+            figname = os.path.join(plt_dir, figname)
+        plt.savefig(figname)
+        print 'wrote ', figname
+
+    def plot_LF(self, maglims, res=0.1, model_plt_color='red', ylim=None,
+                data_plt_color='black', plt_dir=None, xlim=None, xlim2=None):
+
+        gal = self.gal
+        sgal = self.sgal
+
+        def setup_lfplot(self, model_plt_color='red', data_plt_color='black'):
+            # plot limits
+            bottom = 0.1
+            height = 0.8
+            widths = [0.28, 0.28, 0.2]
+            lefts = [0.1, 0.41, 0.72]
+
+            fig = plt.figure(1, figsize=(9, 9))
+
+            axs = [plt.axes([lefts[i], bottom, widths[i], height])
+                   for i in range(3)]
+            lab_kw = {'fontsize': 20}
+
+            # titles
+
+            axs[0].set_title('$Data$', color=data_plt_color, **lab_kw)
+            axs[1].set_title('$Model$', color=model_plt_color, **lab_kw)
+
+            axs[0].set_xlabel('$%s-%s$' % (self.gal.filter1, self.gal.filter2),
+                              **lab_kw)
+            axs[0].set_ylabel('$%s$' % self.gal.filter2, **lab_kw)
+            axs[1].set_xlabel(axs[0].get_xlabel(), **lab_kw)
+            axs[2].set_xlabel('$\#$', **lab_kw)
+
+            for ax in axs:
+                ax.tick_params(labelsize=16)
+
+            self.data_plt_color = data_plt_color
+            self.model_plt_color = model_plt_color
+            return fig, axs
+
+        fig, axs = setup_lfplot(self, model_plt_color=model_plt_color,
+                                data_plt_color=data_plt_color)
+
+        mag2_norm = sgal.ast_mag2[sgal.rec][sgal.rgb_norm_inds]
+        color_norm = sgal.ast_color[sgal.rec][sgal.rgb_norm_inds]
+        self.make_title(fig)
+        plt_kw = {'threshold': 25, 'levels': 3, 'scatter_off': True,
+                  'plot_args': {'alpha': 1, 'color': self.data_plt_color}}
+
+        # plot data
+        gal.plot_cmd(gal.color[gal.rec], gal.mag2[gal.rec], ax=axs[0], **plt_kw)
+
+        # plot simulation
+        plt_kw['plot_args']['color'] = self.model_plt_color
+        sgal.plot_cmd(color_norm, mag2_norm, ax=axs[1], **plt_kw)
+
+        # plot histogram
+        hist_kw = {'drawstyle': 'steps', 'color': self.data_plt_color, 'lw': 2}
+        axs[2].semilogx(self.gal_hist, self.bins[1:], **hist_kw)
+
+        hist_kw['color'] = self.model_plt_color
+        axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
+
+        # fix axes
+        if xlim is not None:
+            axs[0].set_xlim(xlim)
+        if ylim is not None:
+            axs[0].set_ylim(ylim)
+        if xlim2 is not None:
+            axs[2].set_xlim(xlim2)
+
+        [ax.set_ylim(axs[0].get_ylim()) for ax in axs[1:]]
+        axs[1].set_xlim(axs[0].get_xlim())
+
+        # no formatters on mid and right plots
+        [ax.yaxis.set_major_formatter(NullFormatter()) for ax in axs[1:]]
+
+        return fig, axs
+
+    def add_lines_LF(self, fig, axs):
+        # lines and numbers on plots
+        gal = self.gal
+        sgal = self.sgal
+        data_agb = math_utils.brighter(gal.mag2, gal.trgb).size
+        line_on_it_kw = {'annotate': 0, 'ls': '-'}
+        gal.put_a_line_on_it(axs[0], gal.trgb, color=self.data_plt_color, **line_on_it_kw)
+        gal.annotate_cmd(axs[0], gal.trgb, '%i' % data_agb, text_kw={'color': self.data_plt_color})
+
+        sim_agb = math_utils.brighter(sgal.ast_mag2[sgal.rec][sgal.rgb_norm_inds], gal.trgb).size
+        gal.put_a_line_on_it(axs[1], gal.trgb, color=self.model_plt_color, **line_on_it_kw)
+        gal.annotate_cmd(axs[1], gal.trgb, '%i' % sim_agb, text_kw={'color': self.model_plt_color})
 
 
 def get_mix_modelname(model):
