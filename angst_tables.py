@@ -117,9 +117,9 @@ class AngstTables(object):
     def get_snap_trgb_av_dmod(self, target):
         target = difflib.get_close_matches(target, self.snap_tab3['target'])[0]
         ind, = np.nonzero(self.snap_tab3['target'] == target)
-        mTRGB = self.snap_tab3['mTRGB_raw'][ind]
-        dmod = self.snap_tab3['dmod'][ind]
-        Av = self.snap_tab3['Av'][ind]
+        mTRGB, = self.snap_tab3['mTRGB_raw'][ind]
+        dmod, = self.snap_tab3['dmod'][ind]
+        Av, = self.snap_tab3['Av'][ind]
         return mTRGB, Av, dmod
 
     def get_snap_50compmag(self, target, filter):

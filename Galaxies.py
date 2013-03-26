@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 from matplotlib.patches import FancyArrow
 from subprocess import PIPE, Popen
 from matplotlib.ticker import NullFormatter, MaxNLocator, MultipleLocator
-
+import pyfits
 import itertools
 import logging
 logger = logging.getLogger()
@@ -43,11 +43,13 @@ class star_pop(object):
             set_fig, set_ax = 1, 1
             ax = plt.axes()
 
-        if hasattr(self, 'filter2'):
-            filter2 = self.filter2
+        if filter2 is None:
+            if hasattr(self, 'filter2'):
+                filter2 = self.filter2
 
-        if hasattr(self, 'filter1'):
-            filter1 = self.filter1
+        if filter1 is None:
+            if hasattr(self, 'filter1'):
+                filter1 = self.filter1
 
         if yfilter is None:
             yfilter = filter2
@@ -247,7 +249,6 @@ class star_pop(object):
         self.ax.add_patch(arr)
 
     def cmd_errors(self, binsize=0.1, errclr=-1.5):
-        import pyfits
         if type(self.data) == pyfits.fitsrec.FITS_rec:
             self.mag1err = self.data.MAG1_ERR
             self.mag2err = self.data.MAG2_ERR
@@ -628,6 +629,29 @@ class galaxy(star_pop):
         self.z = z
         self.Av = Av
         self.dmod = dmod
+        self.load_data(fname, filetype=filetype, hla=hla, angst=angst,
+                       band=band, photsys=photsys)
+
+        # angst table loads
+        if angst is True:
+            self.comp50mag1 = angst_data.get_50compmag(self.target,
+                                                       self.filter1)
+            self.comp50mag2 = angst_data.get_50compmag(self.target,
+                                                       self.filter2)
+            if hasattr(self, 'filter3'):
+                self.comp50mag3 = angst_data.get_50compmag(self.target,
+                                                           self.filter3)
+                self.comp50mag4 = angst_data.get_50compmag(self.target,
+                                                           self.filter4)
+
+            self.trgb_av_dmod()
+            # Abs mag
+            self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
+            #self.z = galaxy_metallicity(self, self.target)
+
+    def load_data(self, fname, filetype='tagged_phot', hla=True, angst=True,
+                  band=None, photsys=None):
+
         if hla is True:
             self.survey, self.propid, self.target, filts, psys = \
                 hla_galaxy_info(fname)
@@ -637,13 +661,9 @@ class galaxy(star_pop):
         else:
             self.survey = ' '
             self.photsys = photsys
-            if self.photsys is None:
-                self.photsys = 'wfc3'
-                logger.warning('assuming this is wfc3 data')
             self.propid, self.target, self.filter1, self.filter2 =  \
                 bens_fmt_galaxy_info(fname)
         if 'fits' in filetype:
-            import pyfits
             hdu = pyfits.open(fname)
             #self.data =  fileIO.read_fits(fname)
             ext = self.photsys.upper().split('_')[0]
@@ -663,6 +683,7 @@ class galaxy(star_pop):
                     ext = band.upper()
                 self.mag1 = self.data['mag1_%s' % ext]
                 self.mag2 = self.data['mag2_%s' % ext]
+                self.filters = [self.filter1, self.filter2]
             if filetype == 'fitsimage':
                 # made to read holtmann data...
                 # this wont work on ir filters.
@@ -687,7 +708,6 @@ class galaxy(star_pop):
 
         elif filetype == 'm31brick':
             assert band is not None, 'Must supply band, uv, ir, acs'
-            import pyfits
             hdu = pyfits.open(fname)
             self.data = hdu[1].data
             self.header = hdu[0].header
@@ -701,29 +721,41 @@ class galaxy(star_pop):
             self.rec = inds
             self.ra = self.data['ra']
             self.dec = self.data['dec']
+        elif filetype == 'agbsnap':
+            data = pyfits.getdata(fname)
+            self.propid, self.target, _, self.filter1, self.filter2, \
+                self.filter3, self.filter4 = self.name.split('.')[0].split('_')
+
+            self.filters = [self.filter1, self.filter2, self.filter3,
+                            self.filter4]
+
+            if hasattr(data, 'MAG1_ACS'):
+                self.mag1 = data.MAG1_ACS
+                self.mag2 = data.MAG2_ACS
+            else:
+                print 'not sure what to do here, boss'
+                sys.exit(2)
+            self.mag3 = data.MAG3_IR
+            self.mag4 = data.MAG4_IR
+            self.ra = data.RA
+            self.dec = data.DEC
+            self.data = data
         else:
-            logger.error('filetype must be fitstable, tagged_phot or match_phot use simgalaxy for trilegal')
+            logger.error('bad filetype')
             sys.exit(2)
         self.color = self.mag1 - self.mag2
-        # angst table loads
-        if angst is True:
-            self.comp50mag1 = angst_data.get_50compmag(self.target,
-                                                       self.filter1)
-            self.comp50mag2 = angst_data.get_50compmag(self.target,
-                                                       self.filter2)
-            self.trgb_av_dmod(band=band)
-            # Abs mag
-            self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
-            #self.z = galaxy_metallicity(self, self.target)
 
-    def trgb_av_dmod(self, band=None):
+    def trgb_av_dmod(self):
         '''
         returns trgb, av, dmod from angst table
-        TODO: move the wfc3 crap to angst_tables and make an IR table.
         '''
         filters = ','.join((self.filter1, self.filter2))
         (self.trgb, self.Av, self.dmod) = \
             angst_data.get_tab5_trgb_av_dmod(self.target, filters)
+        if hasattr(self, 'filter3'):
+            filters = ','.join((self.filter3, self.filter4))
+            (self.ir_trgb, self.Av, self.dmod) = \
+                angst_data.get_tab5_trgb_av_dmod(self.target, filters)
 
     def __str__(self):
         out = (
@@ -825,6 +857,11 @@ class simgalaxy(star_pop):
         try:
             diff1 = self.data.get_col('%s_cor' % self.filter1)
             diff2 = self.data.get_col('%s_cor' % self.filter2)
+            if self.get_header().count('cor') > 3:
+                self.filter3, self.filter4 = self.get_header().replace('_cor', '').split()[-2:]
+                diff3 = self.data.get_col('%s_cor' % self.filter3)
+                diff4 = self.data.get_col('%s_cor' % self.filter4)
+
         except KeyError:
             # there may not be AST corrections... everything is recovered
             logger.warning('no ast corrections.')
@@ -833,11 +870,23 @@ class simgalaxy(star_pop):
             return 0
         recovered1, = np.nonzero(abs(diff1) < 90.)
         recovered2, = np.nonzero(abs(diff2) < 90.)
+        if hasattr(self, 'filter3'):
+            recovered3, = np.nonzero(abs(diff3) < 90.)
+            recovered4, = np.nonzero(abs(diff4) < 90.)
+            self.ir_rec = list(set(recovered3) & set(recovered4))
+            self.ast_mag3 = diff3
+            self.ast_mag4 = diff4
+            self.rec3 = recovered3
+            self.rec4 = recovered4
+
         self.rec = list(set(recovered1) & set(recovered2))
         if hasattr(self, 'mag1'):
             self.ast_mag1 = diff1
             self.ast_mag2 = diff2
             self.ast_color = self.ast_mag1 - self.ast_mag2
+
+        self.rec1 = recovered1
+        self.rec2 = recovered2
         return 1
 
     def mix_modelname(self, model):
@@ -879,7 +928,7 @@ class simgalaxy(star_pop):
                                   (self.stage[self.rec] ==
                                    TrilegalUtils.get_stage_label('TPAGB')))
 
-    def normalize(self, stage_lab, mag2=None, stage=None, by_stage=True,
+    def normalize(self, stage_lab, filt1, filt2, mag=None, stage=None, by_stage=True,
                   magcut=999., useasts=False, verts=None, ndata_stars=-np.inf,
                   sinds_cut=None):
         '''
@@ -920,25 +969,38 @@ class simgalaxy(star_pop):
         '''
 
         new_attr = '%s_norm' % stage_lab.lower()
+        if hasattr(self, 'filter3'):
+            filters = [self.filter1, self.filter2, self.filter3, self.filter4]
+        else:
+            filters = [self.filter1, self.filter2]
 
+        f1 = filters.index(filt1) + 1
+        f2 = filters.index(filt2) + 1
         if useasts is True:
             if not hasattr(self, 'ast_mag2'):
                 self.load_ast_corrections()
-            smag2 = self.ast_mag2[self.rec]
-            scolor = self.ast_color[self.rec]
+            smag1 = self.__getattribute__('ast_mag%i' % f1)
+            rec1 = self.__getattribute__('rec%i' % f1)
+            smag = self.__getattribute__('ast_mag%i' % f2)
+            rec2 = self.__getattribute__('rec%i' % f2)
+            rec = list(set(rec1) & set(rec2))
+            scolor = smag1[rec] - smag[rec]
+            smag = smag[rec]
+            self.norm_rec = rec
         else:
-            smag2 = self.mag2
-            scolor = self.mag1 - self.mag2
+            smag1 = self.__getattribute__('mag%i' % f1)
+            smag = self.__getattribute__('mag%i' % f2)
+            scolor = smag1 - smag
 
         # initialize slices
-        ibright = np.arange(smag2.size)
-        st_inds = np.arange(smag2.size)
-        reg_inds = np.arange(smag2.size)
+        ibright = np.arange(smag.size)
+        st_inds = np.arange(smag.size)
+        reg_inds = np.arange(smag.size)
         if sinds_cut is None:
-            sinds_cut = np.arange(smag2.size)
+            sinds_cut = np.arange(smag.size)
 
         # mag cut
-        ibright, = np.nonzero(smag2 < magcut)
+        ibright, = np.nonzero(smag < magcut)
 
         # stage cut
         if by_stage is True:
@@ -949,7 +1011,7 @@ class simgalaxy(star_pop):
 
         # cmd space cut
         if verts is not None:
-            points = np.column_stack((scolor, smag2))
+            points = np.column_stack((scolor, smag))
             reg_inds, = np.nonzero(nxutils.points_inside_poly(points, verts))
 
         # combine all inds.
@@ -969,15 +1031,15 @@ class simgalaxy(star_pop):
                 'error! with by_stage=True, ndata_stars will be derived'
             dsinds, = np.nonzero((stage ==
                                   TrilegalUtils.get_stage_label(stage_lab)) &
-                                 (mag2 < magcut))
+                                 (mag < magcut))
             assert dsinds.size > 0, 'no data stars in stage %s' % stage_lab
             ndata_stars = float(len(dsinds))
 
         normalization = ndata_stars / nsim_stars
         # random sample the data distribution
-        rands = np.random.random(len(smag2))
+        rands = np.random.random(len(smag))
         ind, = np.nonzero(rands < normalization)
-        self.__setattr__('%s_inds' % new_attr, ind)
+        self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
         self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
 
@@ -1110,8 +1172,10 @@ class sim_and_gal(object):
         self.sgal = simgalaxy
         self.maglims = self.gal.maglims
 
-    def nrgb_nagb(self, color_cut=None):
-
+    def nrgb_nagb(self, color_cut=None, band='ir'):
+        '''
+        this is the real deal, man.
+        '''
         self.sgal.nbrighter = []
         self.gal.nbrighter = []
 
@@ -1119,11 +1183,18 @@ class sim_and_gal(object):
             ginds = None
             sinds = None
 
+        if band == 'ir' and hasattr(self.gal, 'mag4'):
+            mag = self.gal.mag4
+            smag = self.sgal.ast_mag4
+        else:
+            mag = self.gal.mag2
+            smag = self.sgal.ast_mag2
+
         for maglim in self.maglims:
-            self.gal.nbrighter.append(math_utils.brighter(self.gal.mag2, maglim,
+            self.gal.nbrighter.append(math_utils.brighter(mag, maglim,
                                                           inds=ginds).size)
 
-            self.sgal.nbrighter.append(math_utils.brighter(self.sgal.ast_mag2[self.sgal.norm_inds],
+            self.sgal.nbrighter.append(math_utils.brighter(smag[self.sgal.norm_inds],
                                        maglim, inds=sinds).size)
 
         nrgb_nagb_data = float(self.gal.nbrighter[1])/float(self.gal.nbrighter[0])
@@ -1131,46 +1202,48 @@ class sim_and_gal(object):
         print self.gal.target, nrgb_nagb_data
         print self.sgal.model, nrgb_nagb_sim
 
-    def make_LF(self, res=0.1, plt_dir=None, plot_LF_kw={}, comp50=False):
+    def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
+                comp50=False):
+
+        f1 = self.gal.filters.index(filt1) + 1
+        f2 = self.gal.filters.index(filt2) + 1
+        mag1 = self.gal.__getattribute__('mag%i' % f1)
+        mag = self.gal.__getattribute__('mag%i' % f2)
+        color = mag1 - mag
+
+        smag1 = self.sgal.__getattribute__('ast_mag%i' % f1)
+        smag = self.sgal.__getattribute__('ast_mag%i' % f2)
+        scolor = smag1 - smag
 
         if comp50 is True:
-            self.gal.rec, = np.nonzero((self.gal.mag1 < self.gal.comp50mag1) &
-                                       (self.gal.mag2 < self.gal.comp50mag2))
+            self.gal.rec, = np.nonzero((mag1 < self.gal.__getattribute__('comp50mag%i' % f1)) &
+                                       (mag < self.gal.__getattribute__('comp50mag%i' % f2)))
         else:
-            self.gal.rec = np.arange(len(self.gal.mag1))
+            self.gal.rec = np.arange(len(mag1))
 
-        self.nbins = (self.gal.mag2[self.gal.rec].max() -
-                      self.gal.mag2[self.gal.rec].min()) / res
+        self.nbins = (mag[self.gal.rec].max() - mag[self.gal.rec].min()) / res
 
-        self.gal_hist, self.bins = np.histogram(self.gal.mag2[self.gal.rec],
-                                                self.nbins)
+        self.gal_hist, self.bins = np.histogram(mag[self.gal.rec], self.nbins)
 
-        self.sgal_hist, _ = np.histogram(self.sgal.ast_mag2[self.sgal.rec],
+        self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_rec],
                                          bins=self.bins)
         self.sgal_hist *= self.sgal.rgb_norm
 
-        if not hasattr(self.sgal, 'norm_inds'):
-            self.sgal.norm_inds = np.array(self.sgal.rec)[self.sgal.rgb_norm_inds]
-
-        if hasattr(self.sgal, 'imstar'):
-            # not using this...
-            norm_inds = [self.sgal.rec][self.sgal.imstar]
-            self.mhist, _ = np.histogram(self.sgal.ast_mag2[norm_inds],
-                                         bins=self.bins)
-            self.chist, _ = np.histogram(self.sgal.ast_mag2[norm_inds],
-                                         bins=self.bins)
+        assert hasattr(self.sgal, 'norm_inds'), 'need norm_inds!'
 
         plot_LF_kw = dict({'model_plt_color': 'red',
                            'data_plt_color': 'black'}.items() +
                           plot_LF_kw.items())
 
-        fig, axs = self.plot_LF(**plot_LF_kw)
+        fig, axs = self.plot_LF(color, mag, scolor[self.sgal.norm_inds],
+                                smag[self.sgal.norm_inds], filt1, filt2,
+                                **plot_LF_kw)
 
         fig, axs = self.add_lines_LF(fig, axs)
 
         figname = '_'.join((self.gal.target, self.sgal.mix,
-                            self.sgal.model_name, self.gal.filter1,
-                            self.gal.filter2, 'LF.png'))
+                            self.sgal.model_name, filt1,
+                            filt2, 'LF.png'))
 
         if plt_dir is not None:
             figname = os.path.join(plt_dir, figname)
@@ -1178,19 +1251,25 @@ class sim_and_gal(object):
         plt.savefig(figname)
         print 'wrote %s' % figname
 
-    def plot_LF(self, model_plt_color='red', data_plt_color='black', ylim=None,
-                xlim=None, xlim2=None, model_title='Model', title=False):
+    def plot_LF(self, color, mag, scolor, smag, filt1, filt2, model_plt_color='red', data_plt_color='black', ylim=None,
+                xlim=None, xlim2=None, model_title='Model', title=False, band='opt'):
 
-        def make_title(self, fig):
+        def make_title(self, fig, band='opt'):
+
+            if band == 'opt':
+                trgb = self.gal.trgb
+            elif band == 'ir':
+                trgb = self.gal.ir_trgb
+
             text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
-            title = '$%s\ m_{TRGB}=%.3f$' % (self.gal.target, self.gal.trgb)
+            title = '$%s\ m_{TRGB}=%.3f$' % (self.gal.target, trgb)
 
             if np.isfinite(self.gal.z):
                 title += ' $Z=%.4f$' % (self.gal.z)
 
             fig.text(0.5, 0.96, title, **text_kwargs)
 
-        def setup_lfplot(self, model_title='Model', lab_kw={}):
+        def setup_lfplot(self, filt1, filt2, model_title='Model', lab_kw={}):
             fig = plt.figure(figsize=(9, 9))
             # plot limits determined by hand
             bottom, height = 0.1, 0.8
@@ -1209,9 +1288,10 @@ class sim_and_gal(object):
             axs[1].set_title('$%s$' % model_title, color=self.model_plt_color,
                              **lab_kw)
 
-            axs[0].set_xlabel('$%s-%s$' % (self.gal.filter1, self.gal.filter2),
+            axs[0].set_xlabel('$%s-%s$' % (filt1, filt2),
                               **lab_kw)
-            axs[0].set_ylabel('$%s$' % self.gal.filter2, **lab_kw)
+
+            axs[0].set_ylabel('$%s$' % filt2, **lab_kw)
             axs[1].set_xlabel(axs[0].get_xlabel(), **lab_kw)
             axs[2].set_xlabel('$\#$', **lab_kw)
 
@@ -1246,23 +1326,21 @@ class sim_and_gal(object):
         self.data_plt_color = data_plt_color
         self.model_plt_color = model_plt_color
 
-        fig, axs = setup_lfplot(self, model_title=model_title)
+        fig, axs = setup_lfplot(self, filt1, filt2, model_title=model_title)
 
         if title is True:
-            make_title(self, fig)
+            make_title(self, fig, band=band)
 
         plt_kw = {'threshold': 25, 'levels': 3, 'scatter_off': True,
+                  'filter1': filt1, 'filter2': filt2,
                   'plot_args': {'alpha': 0.5, 'color': self.data_plt_color}}
 
         # plot data
-        self.gal.plot_cmd(self.gal.color[self.gal.rec],
-                          self.gal.mag2[self.gal.rec], ax=axs[0], **plt_kw)
+        self.gal.plot_cmd(color, mag, ax=axs[0], **plt_kw)
 
         # plot simulation
         plt_kw['plot_args']['color'] = self.model_plt_color
-        self.sgal.plot_cmd(self.sgal.ast_color[self.sgal.norm_inds],
-                           self.sgal.ast_mag2[self.sgal.norm_inds], ax=axs[1],
-                           **plt_kw)
+        self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
         axs[1].set_ylabel('')
 
         # plot histogram
@@ -1344,7 +1422,7 @@ def get_fake(target, fake_loc='.'):
 
 def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
                              overwrite=False, spread_outfile=None,
-                             leo_method=False):
+                             leo_method=False, spread_outfile2=None):
     '''
     correct trilegal simulation with artificial star tests.
     options to write the a copy of the trilegal simulation with the corrected
@@ -1359,7 +1437,29 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
     spread_outfile: outfile for write_spread
     returns
     adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
+
+    if fake file is a list of opt, and ir fake files, will run this twice
+    leo's method is the only one that works so far.
     '''
+    ir_too = False
+
+    def leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile):
+        # <hit enter>
+        EOF = os.path.join(os.environ['PYTHONPATH'], 'EOF')
+
+        cmd = '%s << %s\n' % (leo_code, EOF)
+        cmd += '\n'.join((fake_file, sim_file, spread_outfile, EOF))
+
+        logger.debug("%s + %s -> %s" % (sim_file, fake_file, spread_outfile))
+        logger.debug('Running %s...' % os.path.split(leo_code)[1])
+
+        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                  close_fds=True)
+
+        stdout, stderr = (p.stdout, p.stderr)
+        p.wait()
+        return
+
     assert fake_file is not None, \
         'ast_correct_trilegal_sim: fake_file now needs to be passed'
 
@@ -1370,23 +1470,25 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         logger.info("completeness using Leo's method")
 
         sim_file = os.path.join(sgal.base, sgal.name)
-        # <hit enter>
-        EOF = os.path.join(os.environ['PYTHONPATH'], 'EOF')
 
         # special version of spread_angst made for wfc3snap photsys!
         leo_code = '/Users/phil/research/TP-AGBcalib/SNAP/models/spread_angst'
 
-        cmd = '%s << %s\n' % (leo_code, EOF)
-        cmd += '\n'.join((fake_file, sim_file, spread_outfile, EOF))
+        if type(fake_file) == list:
+            assert spread_outfile2 is not None, \
+                'need another string for spread file name with four filters'
+            fake_file_ir = fake_file[1]
+            fake_file = fake_file[0]
+            ir_too = True
 
-        logger.debug("%s + %s -> %s" % (sim_file, fake_file, spread_outfile))
-        logger.debug('Running spread_angst...')
-
-        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                  close_fds=True)
-
-        stdout, stderr = (p.stdout, p.stderr)
-        p.wait()
+        leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile)
+        if ir_too is True:
+            # run the out ast corrections through a version of spread_angst to
+            # correct the ir.
+            leo_code += '_ir'
+            leo_ast_correction(leo_code, fake_file_ir, spread_outfile, spread_outfile2)
+            # no need to keep the spread_outfile now that we have a new one.
+            os.remove(spread_outfile)
     else:
         if type(fake_file) is str:
             asts = artificial_star_tests(fake_file)
