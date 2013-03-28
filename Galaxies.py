@@ -35,7 +35,8 @@ class star_pop(object):
     def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None,
                  yfilter=None, contour_args={}, scatter_args={}, plot_args={},
                  scatter_off=False, levels=20, threshold=10, contour_lw={},
-                 color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None):
+                 color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None,
+                 hist_bin_res=0.05):
 
         set_fig, set_ax = 0, 0
         if fig is None and ax is None:
@@ -73,8 +74,8 @@ class star_pop(object):
             contour_lw = dict({'linewidths': 2, 'colors': 'white',
                                'zorder': 200}.items() + contour_lw.items())
 
-            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / 0.05)
-            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / 0.05)
+            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res)
+            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res)
             plt_pts, cs = scatter_contour(color, mag,
                                           threshold=threshold, levels=levels,
                                           hist_bins=[ncolbin, nmagbin],
@@ -1039,6 +1040,7 @@ class simgalaxy(star_pop):
         # random sample the data distribution
         rands = np.random.random(len(smag))
         ind, = np.nonzero(rands < normalization)
+        self.nsim_stars = nsim_stars
         self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
         self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
@@ -1172,38 +1174,52 @@ class sim_and_gal(object):
         self.sgal = simgalaxy
         self.maglims = self.gal.maglims
 
-    def nrgb_nagb(self, color_cut=None, band='ir'):
+    def nrgb_nagb(self, band=None, agb_verts=None):
         '''
         this is the real deal, man.
         '''
         self.sgal.nbrighter = []
         self.gal.nbrighter = []
 
-        if color_cut is None:
-            ginds = None
-            sinds = None
-
-        if band == 'ir' and hasattr(self.gal, 'mag4'):
+        if band is None and hasattr(self.gal, 'mag4'):
             mag = self.gal.mag4
             smag = self.sgal.ast_mag4
         else:
             mag = self.gal.mag2
-            smag = self.sgal.ast_mag2
+            smag = self.sgal.ast_mag2[self.sgal.norm_inds]
+            scolor = self.sgal.ast_color[self.sgal.norm_inds]
+            color = self.gal.color
 
-        for maglim in self.maglims:
-            self.gal.nbrighter.append(math_utils.brighter(mag, maglim,
-                                                          inds=ginds).size)
+        spoints = np.column_stack((scolor, smag))
+        if agb_verts is not None:
+            points = np.column_stack((color, mag))
+            ginds, = np.nonzero(nxutils.points_inside_poly(points, agb_verts))
+            sinds, = np.nonzero(nxutils.points_inside_poly(spoints, agb_verts))
+        else:
+            sinds = None
+            ginds = None
 
-            self.sgal.nbrighter.append(math_utils.brighter(smag[self.sgal.norm_inds],
-                                       maglim, inds=sinds).size)
+        # the number of rgb stars used for normalization
+        self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
+        # the number of data stars in the agb_verts polygon
+        self.gal.nbrighter.append(len(ginds))
+
+        # the number of sim stars in the rgb box set by data verts
+        srgb_norm, = np.nonzero(nxutils.points_inside_poly(spoints,
+                                                           self.gal.norm_verts))
+        self.sgal.nbrighter.append(len(srgb_norm))
+
+        # the number of sim stars in the agb_verts polygon
+        self.sgal.nbrighter.append(len(sinds))
 
         nrgb_nagb_data = float(self.gal.nbrighter[1])/float(self.gal.nbrighter[0])
         nrgb_nagb_sim = float(self.sgal.nbrighter[1])/float(self.sgal.nbrighter[0])
         print self.gal.target, nrgb_nagb_data
         print self.sgal.model, nrgb_nagb_sim
+        self.agb_verts = agb_verts
 
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
-                comp50=False):
+                comp50=False, add_boxes=True):
 
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
@@ -1240,6 +1256,17 @@ class sim_and_gal(object):
                                 **plot_LF_kw)
 
         fig, axs = self.add_lines_LF(fig, axs)
+
+        if add_boxes is True:
+            if hasattr(self, 'agb_verts'):
+                axs[1].plot(self.agb_verts[:, 0], self.agb_verts[:, 1],
+                            color='black', lw=1)
+                axs[0].plot(self.agb_verts[:, 0], self.agb_verts[:, 1],
+                            color='red', lw=1)
+            axs[1].plot(self.gal.norm_verts[:, 0], self.gal.norm_verts[:, 1],
+                        color='black', lw=1)
+            axs[0].plot(self.gal.norm_verts[:, 0], self.gal.norm_verts[:, 1],
+                        color='red', lw=1)
 
         figname = '_'.join((self.gal.target, self.sgal.mix,
                             self.sgal.model_name, filt1,
