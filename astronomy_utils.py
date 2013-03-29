@@ -91,7 +91,7 @@ def hess(color, mag, binsize, **kw):
 
 
 def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=None,
-              imshow_kw={}):
+              imshow_kw={}, imshow=True):
     '''
     Plots a hess diagram with imshow.
     default kwargs passed to imshow:
@@ -114,9 +114,11 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
 
     imshow_kw = dict(default_kw.items() + imshow_kw.items())
             
-    im = ax.imshow(hess[2], **imshow_kw)
-    rspgraph.forceAspect(ax, aspect=1)
-    #im = ax.contourf(self.hess[2], **imshow_kw)
+    if imshow is True:
+        im = ax.imshow(hess[2], **imshow_kw)
+        rspgraph.forceAspect(ax, aspect=1)
+    else:
+        im = ax.contourf(hess[2], **imshow_kw)
 
     if colorbar is True:    
         fig.colorbar(im, shrink=0.77)

@@ -518,7 +518,7 @@ class galaxies(star_pop):
     are setting attributes.
     '''
     def __init__(self, galaxy_objects):
-        self.galaxies = galaxy_objects
+        self.galaxies = np.asarray(galaxy_objects)
         # this will break if more than one filter1 or filter2... is that
         # how I want it?
         self.filter1, = np.unique([g.filter1 for g in galaxy_objects])
@@ -536,7 +536,7 @@ class galaxies(star_pop):
         [g.all_stages(*stages) for g in self.galaxies]
         return
 
-    def squish(self, *attrs):
+    def squish(self, *attrs, **kwargs):
         '''
         concatenates an attribute or many attributes and adds them to galaxies
         instance -- with an 's' at the end to pluralize them... that might
@@ -549,10 +549,28 @@ class galaxies(star_pop):
         gs.squish('color', 'mag2', 'ra', 'dec')
         gs.ras ...
         '''
-        for attr in attrs:
-            new_list = [g.__getattribute__(attr) for g in self.galaxies]
-            new_val = np.concatenate(new_list)
-            self.__setattr__('%ss' % attr, new_val)
+        inds = kwargs.get('inds', np.arange(len(self.galaxies)))
+        new_attrs = kwargs.get('new_attrs', None)
+
+        if new_attrs is not None:
+            assert len(new_attrs) == len(attrs), \
+                'new attribute titles must be list same length as given attributes.'
+
+        for i, attr in enumerate(attrs):
+            # do we have a name for the new attribute?
+            if new_attrs is not None:
+                new_attr = new_attrs[i]
+            else:
+                new_attr = '%ss' % attr
+
+            new_list = [g.__getattribute__(attr) for g in self.galaxies[inds]]
+            # is attr an array of arrays, or is it now an array?
+            try:
+                new_val = np.concatenate(new_list)
+            except ValueError:
+                new_val = np.array(new_list)
+
+            self.__setattr__(new_attr, new_val)
 
     def finite_key(self, key):
         return [g for g in self.galaxies if np.isfinite(g.__dict__[key])]
@@ -591,6 +609,8 @@ class galaxies(star_pop):
         for i in range(len(gs)):
             gs_tmp = list(set(gs_tmp) & set(gs[i]))
         return gs_tmp
+    
+    
 
 
 def hla_galaxy_info(filename):
@@ -1207,6 +1227,7 @@ class sim_and_gal(object):
         # the number of sim stars in the rgb box set by data verts
         srgb_norm, = np.nonzero(nxutils.points_inside_poly(spoints,
                                                            self.gal.norm_verts))
+
         self.sgal.nbrighter.append(len(srgb_norm))
 
         # the number of sim stars in the agb_verts polygon
