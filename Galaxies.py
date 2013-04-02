@@ -1235,9 +1235,8 @@ class sim_and_gal(object):
 
         nrgb_nagb_data = float(self.gal.nbrighter[1])/float(self.gal.nbrighter[0])
         nrgb_nagb_sim = float(self.sgal.nbrighter[1])/float(self.sgal.nbrighter[0])
-        print self.gal.target, nrgb_nagb_data
-        print self.sgal.model, nrgb_nagb_sim
         self.agb_verts = agb_verts
+        return nrgb_nagb_data, nrgb_nagb_sim
 
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
                 comp50=False, add_boxes=True):

@@ -136,8 +136,8 @@ def load_input(filename):
         else:
             val = temp[0]
             # boolean
-            true = val.upper().startswith('TR')
-            false = val.upper().startswith('FA')
+            true = val.upper().startswith('TRUE')
+            false = val.upper().startswith('FALSE')
             if true or false:
                 val = literal_eval(val)
             # string
