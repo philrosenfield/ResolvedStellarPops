@@ -292,7 +292,8 @@ class star_pop(object):
                          ha='right', fontsize=16, color='black')
 
     def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
-        text_kw = dict({'fontsize': 20}.items() + text_kw.items())
+        text_kw = dict({'fontsize': 20}.items() + text_kw.items() + 
+                         rspgraph.load_ann_kwargs().items())
         ax.text(ax.get_xlim()[0] + offset, yval - offset, string, **text_kw)
 
     def all_stages(self, *stages):
@@ -1295,10 +1296,11 @@ class sim_and_gal(object):
         if plt_dir is not None:
             figname = os.path.join(plt_dir, figname)
 
-        plt.savefig(figname)
+        plt.savefig(figname, dpi=300, bbox_to_inches='tight')
         print 'wrote %s' % figname
 
-    def plot_LF(self, color, mag, scolor, smag, filt1, filt2, model_plt_color='red', data_plt_color='black', ylim=None,
+    def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
+                model_plt_color='red', data_plt_color='black', ylim=None,
                 xlim=None, xlim2=None, model_title='Model', title=False, band='opt'):
 
         def make_title(self, fig, band='opt'):
