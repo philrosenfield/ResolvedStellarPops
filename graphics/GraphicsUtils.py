@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib
 import matplotlib.nxutils as nxutils
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc, rcParams
@@ -16,6 +16,49 @@ rcParams['xtick.labelsize'] = 'large'
 rcParams['axes.edgecolor'] = 'grey'
 rc('text', usetex=True)
 
+
+def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
+    '''
+    Code adapted from Dr. Adrienne Stilp
+    Stitch two color maps together:
+        cmap1 from 0 and stitch_frac
+        and 
+        cmap2 from stitch_frac to 1
+        with dfrac spacing inbetween
+
+    ex: stitch black to white to white to red:
+    stitched = stitch_cmap(cm.Greys_r, cm.Reds, stitch_frac=0.525, dfrac=0.05)
+    '''
+    seg1 = cmap1._segmentdata
+    seg2 = cmap2._segmentdata
+
+    frac1 = stitch_frac - dfrac
+    frac2 = stitch_frac + dfrac
+
+    blue_array_1 = [(i0 * frac1, i1, i2) for i0, i1, i2 in seg1['blue']]
+    blue_array_2 = [(i0 * (1 - frac2) + frac2, i1, i2)
+                     for i0, i1, i2 in seg2['blue']]
+
+    red_array_1 = [(i0 * frac1, i1, i2) for i0, i1, i2 in seg1['red']]
+    red_array_2 = [(i0 * (1 - frac2) + frac2, i1, i2 )
+                    for i0, i1, i2 in seg2['red']]
+
+    green_array_1 = [(i0 * frac1, i1, i2) for i0, i1, i2 in seg1['green']]
+    green_array_2 = [(i0 * (1 - frac2) + frac2, i1, i2)
+                     for i0, i1, i2 in seg2['green']]
+
+
+    new_segments = {'blue': blue_array_1 + blue_array_2,
+                    'red': red_array_1 + red_array_2,
+                    'green': green_array_1 + green_array_2}
+
+    new_cmap_name = '_'.join((cmap1.name, cmap2.name))
+    new_cmap = matplotlib.colors.LinearSegmentedColormap(new_cmap_name,
+                                                         new_segments,
+                                                         1024)
+    return new_cmap
+
+
 def arrow_on_line(ax, xarr, yarr, index, color, width=.06):
     x = xarr[index]
     dx = xarr[index + 1] - x
@@ -26,9 +69,11 @@ def arrow_on_line(ax, xarr, yarr, index, color, width=.06):
     ax.add_patch(arr)
     return arr
 
+
 def plot_lines(axs, xrange, yval, color='black'):
     x=[ax.plot((xrange), (yval, yval), color=color) for ax in axs]
     return
+
 
 def forceAspect(ax, aspect=1):
     '''
@@ -43,6 +88,7 @@ def plot_numbs(ax, item, xpos, ypos, **kwargs):
     x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20, 
                    **kwargs)
     return
+
 
 def setup_multiplot(nplots, **subplots_kwargs):
     '''
@@ -83,6 +129,7 @@ def discrete_colors(Ncolors, colormap='gist_rainbow'):
         colors.append( cmap(1.*i/Ncolors) ) # color will now be an RGBA tuple
     return colors
 
+
 def load_scatter_kwargs(color_array, cmap=cm.jet):
     kw = {'zorder': 100, 
           'alpha': 1, 
@@ -94,6 +141,7 @@ def load_scatter_kwargs(color_array, cmap=cm.jet):
           }
     
     return kw
+
 
 def scatter_colorbar(x, y, color_array, markersize = 20, ax = None):
     '''
@@ -117,8 +165,10 @@ def scatter_colorbar(x, y, color_array, markersize = 20, ax = None):
 def reverse_yaxis(ax):
     ax.set_ylim(ax.get_ylim()[::-1])
 
+
 def reverse_xaxis(ax):
     ax.set_xlim(ax.get_xlim()[::-1])
+
 
 def load_ann_kwargs():
     from matplotlib.patheffects import withStroke
@@ -127,6 +177,7 @@ def load_ann_kwargs():
     return ann_kwargs
 
 ann_kwargs = load_ann_kwargs()
+
 
 def plot_cmd(fitsfile=None, yaxis='I', upper_contour=False, **kwargs):
     '''

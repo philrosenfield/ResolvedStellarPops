@@ -10,6 +10,7 @@ from subprocess import PIPE, Popen
 from matplotlib.ticker import NullFormatter, MaxNLocator, MultipleLocator
 import pyfits
 import itertools
+import copy
 import logging
 logger = logging.getLogger()
 
@@ -1195,6 +1196,18 @@ class sim_and_gal(object):
         self.sgal = simgalaxy
         self.maglims = self.gal.maglims
 
+    def make_mini_hess(self, color, mag, scolor, smag, ax=None, hess_kw={}):
+        
+        hess_kw = dict({'binsize': 0.1, 'cbinsize': 0.05}.items() + hess_kw.items())
+        self.gal_hess = astronomy_utils.hess(color, mag, **hess_kw)
+        hess_kw['cbin'] = self.gal_hess[0]
+        hess_kw['mbin'] = self.gal_hess[1]
+        self.sgal_hess = astronomy_utils.hess(scolor, smag, **hess_kw)
+        comp_hess = copy.deepcopy(self.gal_hess)
+        comp_hess = comp_hess[:-1] + ((self.gal_hess[-1] - self.sgal_hess[-1]),)
+        self.comp_hess = comp_hess
+        #self.comp_hist = sgal_hist
+        
     def nrgb_nagb(self, band=None, agb_verts=None):
         '''
         this is the real deal, man.
@@ -1240,7 +1253,7 @@ class sim_and_gal(object):
         return nrgb_nagb_data, nrgb_nagb_sim
 
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
-                comp50=False, add_boxes=True):
+                comp50=False, add_boxes=True, color_hist=False):
 
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
@@ -1266,15 +1279,35 @@ class sim_and_gal(object):
                                          bins=self.bins)
         self.sgal_hist *= self.sgal.rgb_norm
 
+        if color_hist is True:
+            nbins = (color.max() - color.min() / 0.01)
+            maglim = self.maglims[1]
+
+            iabove, = np.nonzero(mag < maglim)            
+            siabove, = np.nonzero(smag[self.sgal.norm_rec] < maglim)
+
+            self.gal_color_hist, self.color_bins = np.histogram(color[iabove],
+                                                                bins=nbins)
+
+            scolor_above = scolor[self.sgal.norm_rec][siabove]
+            smag_above = smag[self.sgal.norm_rec][siabove]
+
+            self.sgal_color_hist, _ = np.histogram(scolor_above, bins=self.color_bins)
+            self.sgal_color_hist *= self.sgal.rgb_norm
+
+            self.make_mini_hess(color[iabove], mag[iabove], scolor_above,
+                                smag_above)
+            
         assert hasattr(self.sgal, 'norm_inds'), 'need norm_inds!'
 
         plot_LF_kw = dict({'model_plt_color': 'red',
-                           'data_plt_color': 'black'}.items() +
+                           'data_plt_color': 'black',
+                           'color_hist': color_hist}.items() +
                           plot_LF_kw.items())
 
-        fig, axs = self.plot_LF(color, mag, scolor[self.sgal.norm_inds],
+        fig, axs, top_axs = self.plot_LF(color, mag, scolor[self.sgal.norm_inds],
                                 smag[self.sgal.norm_inds], filt1, filt2,
-                                **plot_LF_kw)
+                                **plot_LF_kw)            
 
         fig, axs = self.add_lines_LF(fig, axs)
 
@@ -1298,10 +1331,12 @@ class sim_and_gal(object):
 
         plt.savefig(figname, dpi=300, bbox_to_inches='tight')
         print 'wrote %s' % figname
+        return fig, axs, top_axs
 
     def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
                 model_plt_color='red', data_plt_color='black', ylim=None,
-                xlim=None, xlim2=None, model_title='Model', title=False, band='opt'):
+                xlim=None, xlim2=None, model_title='Model', title=False,
+                band='opt', color_hist=False):
 
         def make_title(self, fig, band='opt'):
 
@@ -1318,15 +1353,28 @@ class sim_and_gal(object):
 
             fig.text(0.5, 0.96, title, **text_kwargs)
 
-        def setup_lfplot(self, filt1, filt2, model_title='Model', lab_kw={}):
+        def setup_lfplot(self, filt1, filt2, model_title='Model',
+                         color_hist=False, lab_kw={}):
+
             fig = plt.figure(figsize=(9, 9))
             # plot limits determined by hand
-            bottom, height = 0.1, 0.8
+            if color_hist is False:
+                bottom, height = 0.1, 0.8
+            else:
+                bottom, height = 0.1, 0.6
+
             widths = [0.29, 0.28, 0.22]
             lefts = [0.1, 0.42, 0.73]
 
             axs = [plt.axes([lefts[i], bottom, widths[i], height])
                    for i in range(3)]
+            
+            if color_hist is False:
+                top_axs = []
+            else:
+                bottom, height = 0.7, 0.2
+                top_axs = [plt.axes([lefts[i], bottom, widths[i], height])
+                           for i in range(3)]
 
             lab_kw = dict({'fontsize': 20}.items() + lab_kw.items())
 
@@ -1347,9 +1395,9 @@ class sim_and_gal(object):
             for ax in axs:
                 ax.tick_params(labelsize=20)
 
-            return fig, axs
+            return fig, axs, top_axs
 
-        def fix_plot(axs, xlim=None, xlim2=None, ylim=None):
+        def fix_plot(axs, xlim=None, xlim2=None, ylim=None, top_axs=[]):
             # fix axes
             if xlim is not None:
                 axs[0].set_xlim(xlim)
@@ -1372,10 +1420,29 @@ class sim_and_gal(object):
             # no formatters on mid and right plots
             [ax.yaxis.set_major_formatter(NullFormatter()) for ax in axs[1:]]
 
+            if len(top_axs) > 0:
+                [ax.set_xlim(axs[0].get_xlim()) for ax in top_axs]
+                # Set the top histograms ylims to the ylim that is bigger
+                ymax1 = top_axs[0].get_ylim()[1]
+                ymax2 = top_axs[1].get_ylim()[1]
+                ylim, = [ymax1 if ymax1 > ymax2 else ymax2]
+                [ax.set_ylim(top_axs[0].get_ylim()[0], ylim) for ax in top_axs[:-1]]
+                top_axs[1].xaxis.set_major_formatter(NullFormatter())
+                [ax.xaxis.set_major_formatter(NullFormatter()) for ax in top_axs[:-1]]
+                top_axs[-1].xaxis.set_major_locator(MaxNLocator(integer=True))
+                top_axs[-1].xaxis.set_minor_locator(MultipleLocator(0.2))
+                top_axs[-1].set_ylim(axs[0].get_ylim())
+                top_axs[-1].yaxis.set_major_locator(MultipleLocator(2))
+                top_axs[-1].yaxis.set_minor_locator(MultipleLocator(0.5))                
+                top_axs[-1].set_ylim(self.comp_hess[1].max(), self.comp_hess[1].min())
+                top_axs[-1].set_xlim(self.comp_hess[0].min(), self.comp_hess[0].max())
+
         self.data_plt_color = data_plt_color
         self.model_plt_color = model_plt_color
 
-        fig, axs = setup_lfplot(self, filt1, filt2, model_title=model_title)
+        fig, axs, top_axs = setup_lfplot(self, filt1, filt2,
+                                         model_title=model_title,
+                                         color_hist=color_hist)
 
         if title is True:
             make_title(self, fig, band=band)
@@ -1395,13 +1462,39 @@ class sim_and_gal(object):
         # plot histogram
         hist_kw = {'drawstyle': 'steps', 'color': self.data_plt_color, 'lw': 2}
         axs[2].semilogx(self.gal_hist, self.bins[1:], **hist_kw)
+        if color_hist is True:
+            top_axs[0].plot(self.color_bins[1:], self.gal_color_hist, **hist_kw)
 
         hist_kw['color'] = self.model_plt_color
         axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
 
-        fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim)
+        if color_hist is True:
+            top_axs[1].plot(self.color_bins[1:], self.sgal_color_hist, 
+                            **hist_kw)
+            
+            vmax = self.comp_hess[-1].max()
+            vmin = self.comp_hess[-1].min()
 
-        return fig, axs
+            stitch_frac = np.abs(vmin) / (vmax - vmin)
+            dfrac = 1e-5
+            print vmin, vmax, stitch_frac, dfrac
+            assert (1. - stitch_frac) > dfrac, 'fuck up.'
+            black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys, 
+                                             stitch_frac=stitch_frac,
+                                             dfrac=dfrac)
+
+            astronomy_utils.hess_plot(self.comp_hess, ax=top_axs[2],
+                                      imshow_kw={'cmap': black2red,
+                                                 'interpolation': 'nearest',
+                                                 'aspect': 'equal'},
+                                                 #'norm': None},#,
+                                                 #'vmax': vmax,
+                                                 #'vmin': vmin},
+                                      imshow=True)
+
+        fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim, top_axs=top_axs)
+
+        return fig, axs, top_axs
 
     def add_lines_LF(self, fig, axs):
         '''

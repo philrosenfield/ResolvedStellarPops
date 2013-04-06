@@ -100,15 +100,13 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
                   'extent': [hess[0][0], hess[0][-1],
                              hess[1][-1], hess[1][0]]}
     '''
-    if fig is None:
-        fig = plt.figure(figsize=(9,9))
-
-    if ax is None:
+    if fig is None and ax is None:
+        fig = plt.figure(figsize=(9, 9))
         ax = plt.axes()
 
     default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max()),
                   'cmap': cm.gray,
-                  'interpolation': 'gaussian',
+                  'interpolation': 'nearest',
                   'extent': [hess[0][0], hess[0][-1],
                              hess[1][-1], hess[1][0]]}
 
@@ -129,7 +127,6 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
         ax.tick_params(labelsize=16)
 
     return ax
-
 
 
 def parse_mag_tab(photsys, filter, bcdir=None):
@@ -153,7 +150,8 @@ def parse_mag_tab(photsys, filter, bcdir=None):
         logger.error('%s not in list' % filter)
         logger.errot(tab_mag, mags)
     return Alam_Av[mags.index(filter)]
-    
+
+
 def Mag2mag(Mag, filter, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
@@ -183,6 +181,7 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
         logger.warning('Mag2mag did nothing.')
     return Mag+dmod+A
 
+
 def mag2Mag(mag, filter, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
@@ -207,6 +206,7 @@ def mag2Mag(mag, filter, photsys, **kwargs):
         A = Alam_Av * Av
     
     return mag-dmod-A
+
 
 def get_dmodAv(gal=None, **kwargs):
     '''
