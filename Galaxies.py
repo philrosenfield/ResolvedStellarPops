@@ -611,8 +611,6 @@ class galaxies(star_pop):
         for i in range(len(gs)):
             gs_tmp = list(set(gs_tmp) & set(gs[i]))
         return gs_tmp
-    
-    
 
 
 def hla_galaxy_info(filename):
@@ -1014,6 +1012,7 @@ class simgalaxy(star_pop):
             smag1 = self.__getattribute__('mag%i' % f1)
             smag = self.__getattribute__('mag%i' % f2)
             scolor = smag1 - smag
+            rec = np.arange(smag.size)
 
         # initialize slices
         ibright = np.arange(smag.size)
@@ -1027,10 +1026,10 @@ class simgalaxy(star_pop):
 
         # stage cut
         if by_stage is True:
-            stage = 'i%s' % stage_lab
-            if not hasattr('self', stage):
+            istage = 'i%s' % stage_lab
+            if not hasattr('self', istage):
                 self.all_stages(stage_lab)
-            st_inds = self.__dict__[stage]
+            st_inds = self.__dict__[istage]
 
         # cmd space cut
         if verts is not None:
@@ -1207,7 +1206,7 @@ class sim_and_gal(object):
         comp_hess = comp_hess[:-1] + ((self.gal_hess[-1] - self.sgal_hess[-1]),)
         self.comp_hess = comp_hess
         #self.comp_hist = sgal_hist
-        
+
     def nrgb_nagb(self, band=None, agb_verts=None):
         '''
         this is the real deal, man.
@@ -1253,7 +1252,7 @@ class sim_and_gal(object):
         return nrgb_nagb_data, nrgb_nagb_sim
 
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
-                comp50=False, add_boxes=True, color_hist=False):
+                comp50=False, add_boxes=True, color_hist=False, plot_tpagb=False):
 
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
@@ -1261,9 +1260,16 @@ class sim_and_gal(object):
         mag = self.gal.__getattribute__('mag%i' % f2)
         color = mag1 - mag
 
-        smag1 = self.sgal.__getattribute__('ast_mag%i' % f1)
-        smag = self.sgal.__getattribute__('ast_mag%i' % f2)
+        smag1 = self.sgal.__getattribute__('ast_mag%i' % f1)[self.sgal.norm_inds]
+        smag = self.sgal.__getattribute__('ast_mag%i' % f2)[self.sgal.norm_inds]
         scolor = smag1 - smag
+ 
+        if plot_tpagb is True:
+            self.sgal.all_stages('TPAGB')
+            itpagb = [list(self.sgal.norm_inds).index(i) for i in self.sgal.itpagb if i in self.sgal.norm_inds]
+        else:
+            itpagb = None
+
 
         if comp50 is True:
             self.gal.rec, = np.nonzero((mag1 < self.gal.__getattribute__('comp50mag%i' % f1)) &
@@ -1275,26 +1281,33 @@ class sim_and_gal(object):
 
         self.gal_hist, self.bins = np.histogram(mag[self.gal.rec], self.nbins)
 
-        self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_rec],
-                                         bins=self.bins)
-        self.sgal_hist *= self.sgal.rgb_norm
+        # using all ast recovered stars for the histogram and normalizing 
+        # by a multiplicative factor.
+        #self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_rec],
+        #                                 bins=self.bins)
+        #self.sgal_hist *= self.sgal.rgb_norm
+        # hist of what's plotted (cmd)
+        self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
 
         if color_hist is True:
+            # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec) 
             nbins = (color.max() - color.min() / 0.01)
             maglim = self.maglims[1]
 
             iabove, = np.nonzero(mag < maglim)            
-            siabove, = np.nonzero(smag[self.sgal.norm_rec] < maglim)
+            siabove, = np.nonzero(smag < maglim)
 
             self.gal_color_hist, self.color_bins = np.histogram(color[iabove],
                                                                 bins=nbins)
 
-            scolor_above = scolor[self.sgal.norm_rec][siabove]
-            smag_above = smag[self.sgal.norm_rec][siabove]
+            scolor_above = scolor[siabove]
+            smag_above = smag[siabove]
 
             self.sgal_color_hist, _ = np.histogram(scolor_above, bins=self.color_bins)
-            self.sgal_color_hist *= self.sgal.rgb_norm
-
+            
+            if itpagb is not None:
+                self.sgal_tpagb_color_hist, _ = np.histogram(scolor[itpagb], bins=self.color_bins)
+            
             self.make_mini_hess(color[iabove], mag[iabove], scolor_above,
                                 smag_above)
             
@@ -1305,8 +1318,8 @@ class sim_and_gal(object):
                            'color_hist': color_hist}.items() +
                           plot_LF_kw.items())
 
-        fig, axs, top_axs = self.plot_LF(color, mag, scolor[self.sgal.norm_inds],
-                                smag[self.sgal.norm_inds], filt1, filt2,
+        fig, axs, top_axs = self.plot_LF(color, mag, scolor,
+                                smag, filt1, filt2, itpagb=itpagb,
                                 **plot_LF_kw)            
 
         fig, axs = self.add_lines_LF(fig, axs)
@@ -1336,7 +1349,7 @@ class sim_and_gal(object):
     def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
                 model_plt_color='red', data_plt_color='black', ylim=None,
                 xlim=None, xlim2=None, model_title='Model', title=False,
-                band='opt', color_hist=False):
+                band='opt', color_hist=False, itpagb=None):
 
         def make_title(self, fig, band='opt'):
 
@@ -1457,6 +1470,9 @@ class sim_and_gal(object):
         # plot simulation
         plt_kw['plot_args']['color'] = self.model_plt_color
         self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
+        if itpagb is not None:
+            plt_kw['plot_args']['color'] = 'royalblue'
+            self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
         axs[1].set_ylabel('')
 
         # plot histogram
@@ -1469,27 +1485,21 @@ class sim_and_gal(object):
         axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
 
         if color_hist is True:
-            top_axs[1].plot(self.color_bins[1:], self.sgal_color_hist, 
+            top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
                             **hist_kw)
-            
-            vmax = self.comp_hess[-1].max()
-            vmin = self.comp_hess[-1].min()
-
-            stitch_frac = np.abs(vmin) / (vmax - vmin)
-            dfrac = 1e-5
-            print vmin, vmax, stitch_frac, dfrac
-            assert (1. - stitch_frac) > dfrac, 'fuck up.'
+            hist_kw['color'] = 'royalblue'
+            top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist, 
+                            **hist_kw)
             black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys, 
-                                             stitch_frac=stitch_frac,
-                                             dfrac=dfrac)
+                                             stitch_frac=0.555, dfrac=0.05)
 
             astronomy_utils.hess_plot(self.comp_hess, ax=top_axs[2],
                                       imshow_kw={'cmap': black2red,
                                                  'interpolation': 'nearest',
-                                                 'aspect': 'equal'},
-                                                 #'norm': None},#,
-                                                 #'vmax': vmax,
-                                                 #'vmin': vmin},
+                                                 'aspect': 'equal',
+                                                 'norm': None,
+                                                 'vmax': np.abs(self.comp_hess[-1]).max(),
+                                                 'vmin': -np.abs(self.comp_hess[-1]).max()},
                                       imshow=True)
 
         fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim, top_axs=top_axs)
