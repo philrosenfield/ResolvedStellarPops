@@ -12,7 +12,7 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
     
     initial args can be oh_sun, z_sun, y0, and dy_dz
     
-    returns z, y, x, feh, mh where y = He and X = H mass fractions
+    returns oh, z, y, x, feh, mh where y = He and X = H mass fractions
     '''
 
     if oh is not None:

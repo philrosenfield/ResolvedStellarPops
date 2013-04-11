@@ -8,12 +8,54 @@ import os
 import logging
 logger = logging.getLogger()
 
+
 def make_exclude_gates(gal, outfile=None):
     if outfile is None:
         outfile = gal.name + 'exclude_gate'
     pass
     # i just did this by hand looking at a cmd...
 
+
+def read_zctmp(filename):
+    data = {'To': np.array([]), 
+            'Tf': np.array([]),
+            'sfr': np.array([]),
+            'logz': np.array([])}
+
+    with open(filename,'r') as f:
+        lines = f.readlines()
+    
+    nrow, ncol = map(int, lines[0].split())
+
+    data['logz'] = np.array(lines[1].split(), dtype=float)
+    for line in lines[2:]:
+        to = float(line.split()[0])
+        tf = float(line.split()[1])
+        sfr = map(float,line.split()[2:])
+        data['To'] = np.append(data['To'], to)
+        data['Tf'] = np.append(data['Tf'], tf)
+        data['sfr'] = np.append(data['sfr'], sfr)
+    
+    data['sfr'] = data['sfr'].reshape(nrow, ncol)
+    return data
+
+
+def plot_zctmp(filename):
+    data = read_zctmp(filename)
+    from ResolvedStellarPops.convertz import convertz
+    z = np.round(convertz(feh=data['logz'])[1], 4)
+    z_plt_arr = np.array([0.0002, 0.0008, 0.001, 0.004, 0.008, 0.010, 0.015, 0.02, 0.03])
+
+    inds = [np.nonzero(z < zp)[0] for zp in z_plt_arr]
+    binned_sfr = np.array([[np.sum(data['sfr'][i][inds[j]]) for i in range(len(data['sfr']))] for j in range(len(inds))])
+    fig, ax = plt.subplots()
+
+    [ax.plot(data['To'], binned_sfr[i], ls='steps', lw=2, label='%.4f' % z_plt_arr[i])
+        for i in range(len(z_plt_arr))[::-1]]
+    plt.legend(loc=0)
+    ax.set_xlabel('$Gyr\ ago$', fontsize=20)
+    ax.set_ylabel('$SFR\ M_\odot/yr$', fontsize=20)
+    plt.savefig(filename + '.png')
 
 def read_match_sfh(filename, bgfile=False):
     footer = 2

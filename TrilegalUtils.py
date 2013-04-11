@@ -320,7 +320,6 @@ kind_rgbmloss: 0=off
                1=on (with law=Reimers for the moment)"""
     return fmt
 
-
 def cmd_input_dict():
     return {'kind_tracks': 2,
             'file_isotrack': 'isotrack/parsec/CAF09_S12D_NS.dat',
@@ -358,9 +357,10 @@ class trilegal_sfh(object):
             self.current_sfh_file = self.sfh_file[:]
             self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
 
-        self.age, self.sfr, self.z = np.loadtxt(self.sfh_file, unpack=True)
+        self.age, self.sfr, z = np.loadtxt(self.sfh_file, unpack=True)
         # should I do this with dtype?
-        self.z = np.round(self.z, 4)
+        self.z_raw = z
+        self.z = np.round(z, 4)
 
     def __format_cut_age(self, cut1_age):
         '''
