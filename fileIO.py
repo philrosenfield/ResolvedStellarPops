@@ -145,6 +145,19 @@ def load_input(filename):
     return d
 
 
+def readfile(filename, col_key_line=0, comment_char='#'):
+    if col_key_line == 0:
+        with open(filename, 'r') as f:
+            line = f.readline()
+        col_keys = line.replace(comment_char, '').strip().split()    
+    else:
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+        col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
+    
+    data = np.genfromtxt(filename, names=col_keys, invalid_raise=False)
+    return data
+
 def replace_ext(filename, ext):
     '''
     input 
