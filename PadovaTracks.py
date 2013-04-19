@@ -163,8 +163,14 @@ class Track(object):
 
 class DefineEeps(object):
     def __init__(self):
-        pass
+        self.setup_eep_info()
 
+    def setup_eep_info(self):
+        self.eep_info = {'MS_TMIN_XCEN': [],
+                         'SG_MAXL_XCEN': [],
+                         'MS_TO_parametric': [],
+                         'MS_BUSTED': []}
+        
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True):
         '''
@@ -199,7 +205,10 @@ class DefineEeps(object):
         x The maximum luminosity before the first Thermal Pulse
         x The AGB termination
         '''
-        logger.info('\n\n          Current Mass: %.3f' % track.mass)
+        if hb is True:
+            logger.info('\n\n       HB Current Mass: %.3f' % track.hbmass)
+        else:
+            logger.info('\n\n          Current Mass: %.3f' % track.mass)
         ptcri = self.ptcri
 
         if hb is True:
@@ -285,13 +294,15 @@ class DefineEeps(object):
         inds = track.ptcri.inds_between_ptcris('RG_TIP', ycen1, sandro=False)
         if len(inds) == 0:
             return
-
-        peak_dict = math_utils.find_peaks(track.data.YCEN[inds])
+        
+        ycen = track.data.YCEN[inds]
+        peak_dict = math_utils.find_peaks(ycen)
         if len(peak_dict['maxima_locations']) == 0:
             tckp, u = splprep([np.arange(len(ycen)), ycen], s=0, k=3, nest=-1)
             xnew, ynew = splev(np.linspace(0, 1, 500), tckp)
             dxnew, dynew = splev(np.linspace(0, 1, 500), tckp, der=1)
-            ymax = np.argmax(dynew/dxnew)     
+            almost_ymax = np.argmax(dynew/dxnew)
+            ymax, dif = math_utils.closest_match(ynew[almost_ymax], ycen)
         else:
             ymax = peak_dict['maxima_locations'][0]
         he_beg = inds[ymax]
@@ -362,7 +373,6 @@ class DefineEeps(object):
     def hb_eeps(self, track, cens=None):
         '''
         '''
-
         self.add_hb_beg(track)
         if cens is None:
             cens = [0.5, 0.4, 0.2, 0.1, 0.005]
@@ -483,7 +493,30 @@ class DefineEeps(object):
 
         If no MS_TO, assumes no MS_TMIN coming after it.
         '''
+        def use_xcen(track, val=0.3, error_mass=1.2,  ex_inds=None):
+            '''
+            method to use XCEN == val to define ms_tmin
+            '''
+            if track.mass >= error_mass:
+                logger.error('Using XCEN=0.3 for T_MIN: M=%.3f' % track.mass)
 
+            inds = track.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1',
+                                                   sandro=False)
+            inds = list(set(ex_inds) & set(inds))
+
+            if len(inds) == 0:
+                ms_tmin = 0
+            else:
+                ind, dif = math_utils.closest_match(val, track.data.XCEN[inds])
+                ms_tmin = inds[ind]
+                if ind == -1:
+                    logger.error('no ms_tmin!')
+                    ms_tmin = 0
+                if dif > 0.01:
+                    logger.error('MS_TMIN: bad match for xcen = %.1f.' % val)
+            self.eep_info['MS_TMIN_XCEN'].append(track.mass)
+            return ms_tmin
+ 
         ex_inds, = np.nonzero(track.data.XCEN > 0.)
 
         ms_tmin = self.peak_finder(track, 'LOG_TE', 'MS_BEG', 'POINT_C',
@@ -491,22 +524,7 @@ class DefineEeps(object):
                                    extra_inds=ex_inds, parametric_interp=False)
 
         if ms_tmin == -1 or track.mass < 0.98:
-            if track.mass >= 1.2:
-                logger.error('Using XCEN=0.3 for T_MIN: M=%.3f' % track.mass)
-            inds = self.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1',
-                                                  sandro=False)
-            inds = list(set(ex_inds) & set(inds))
-            # low mass, no ms_tmin, use xcen = 0.3
-            if len(inds) == 0:
-                ms_tmin = 0
-            else:
-                ind, dif = math_utils.closest_match(0.3, track.data.XCEN[inds])
-                ms_tmin = inds[ind]
-                if ind == -1:
-                    logger.error('no ms_tmin!')
-                    ms_tmin = 0
-                if dif > 0.01:
-                    logger.error('bad match for xcen here.')
+            ms_tmin = use_xcen(track, ex_inds=ex_inds)
 
         self.add_eep('MS_TMIN', ms_tmin)
 
@@ -515,18 +533,14 @@ class DefineEeps(object):
         else:
             if track.mass > 8.:
                 ex_inds = None
+            pf_kw = {'max': True, 'sandro': False, 'more_than_one': 'max of max', 
+                     'extra_inds': ex_inds, 'parametric_interp': False}
             ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
-                                     max=True, sandro=False,
-                                     more_than_one='max of max',
-                                     extra_inds=ex_inds,
-                                     parametric_interp=False)
+                                     **pf_kw)
             if ms_to == -1:
+                pf_kw['parametric_interp'] = True
                 ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
-                                         max=True, sandro=False,
-                                         more_than_one='max of max',
-                                         extra_inds=ex_inds,
-                                         parametric_interp=True)
-
+                                         **pf_kw)
             if ms_to == -1 or ms_to == ms_tmin:
                 logger.warning(
                     'Finding MS_TO (%i) by inflections in the HRD slope. M=%.3f'
@@ -547,18 +561,31 @@ class DefineEeps(object):
                 peak_dict = math_utils.find_peaks(highc_lnew)
                 # if more than one max is found, take the max of the maxes.
                 imax = peak_dict['maxima_locations']
-                # this index refers to interpolation
-                almost_ind = imax[np.argmax(highc_lnew[imax])]
-                # find equiv point on track grid
-                ind, diff = math_utils.closest_match2d(almost_ind,
-                                                       track.data.LOG_TE[inds],
-                                                       track.data.LOG_L[inds],
-                                                       tenew, lnew)
-                ms_to = inds[ind]
+                if len(imax) == 0:
+                    logger.warning('inflections in HRD slope did not work. Forcing ms_tmin to be at xcen val.')
+                    ms_tmin = use_xcen(track, ex_inds=ex_inds)
+                    pf_kw['parametric_interp'] = False
+                    ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
+                                             **pf_kw)
+                    if ms_to == -1 or ms_tmin == ms_to:
+                        logger.error('Can not find ms_to for %s. Skipping.' % track.name)
+                        ms_to = 0
+                        self.add_eep('MS_TMIN', 0)
+                        self.eep_info['MS_BUSTED'].append(track.mass)
+                else:
+                    # this index refers to interpolation
+                    almost_ind = imax[np.argmax(highc_lnew[imax])]
+                    # find equiv point on track grid
+                    ind, diff = math_utils.closest_match2d(almost_ind,
+                                                           track.data.LOG_TE[inds],
+                                                           track.data.LOG_L[inds],
+                                                           tenew, lnew)
+                    ms_to = inds[ind]
 
+            self.eep_info['MS_TO_parametric'].append(pf_kw['parametric_interp'])
+            
         self.add_eep('MS_TO', ms_to)
         return
-
     
     def add_min_l_eep(self, track):
         '''
@@ -617,7 +644,6 @@ class DefineEeps(object):
         Adds SG_MAXL between MS_TO and RG_BASE. For low mass, there will be no
         SG_MAXL and will add XCEN = 0.0 (0.0 is hard coded)
         '''
-
         max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', 'RG_MINL', max=True,
                                  sandro=False, more_than_one='last',
                                  parametric_interp=False)
@@ -636,7 +662,7 @@ class DefineEeps(object):
                 max_l = 0
             else:
                 max_l = inds[0]
-
+                self.eep_info['SG_MAXL_XCEN'].append(track.mass)
             msto = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
                                                                sandro=False)]
             if max_l == msto:
@@ -702,48 +728,63 @@ class DefineEeps(object):
                     sandro=True, more_than_one='max of max', mess_err=None,
                     ind_tol=3, dif_tol=0.01, extra_inds=None,
                     parametric_interp=True):
-
+        '''
+        finds some peaks! Usually interpolates and calls a basic diff finder,
+        though some higher order derivs of the interpolation are sometimes used.
+        '''
+        
+        # slice the array
         inds = self.ptcri.inds_between_ptcris(eep1, eep2, sandro=sandro)
-
+        # burn in
+        inds = inds[5: -5]
         if extra_inds is not None:
             inds = list(set(inds) & set(extra_inds))
 
         if len(inds) < ind_tol:
-            logger.warning('Peak finder %s-%s M%.3f: less than %i points, %i'
-                           % (eep1, eep2, track.mass, ind_tol, len(inds)))
+            # sometimes there are not enough inds to interpolate
+            if track.mass > 0.5:
+                logger.warning('Peak finder %s-%s M%.3f: less than %i points = %i. Skipping.'
+                               % (eep1, eep2, track.mass, ind_tol, len(inds)))
             return 0
 
         if parametric_interp is True:
-            tckp = self.interpolate_te_l_age(track, inds)
-            tenew, lnew, agenew = splev(np.linspace(0, 1, 500), tckp)
+            # use age, so logl(age), logte(age) for parametric interpolation
+            tckp, step_size, non_dupes = self.interpolate_te_l_age(track, inds)
+            tenew, lnew, agenew = splev(np.arange(0, 1, step_size), tckp)
+            dtnew, dlnew, dagenew = splev(np.arange(0, 1, step_size), tckp, der=1)
             intp_col = lnew
-            nintp_col = tenew
+            dydx = dtnew / dlnew
             if col == 'LOG_TE':
                 intp_col = tenew
-                nintp_col = lnew
-            dynew = None
+                dydx = dlnew / dtnew
         else:
+            # interpolate logl, logte.
             cols = ['LOG_L', 'LOG_TE']
             ycol, = [a for a in cols if a != col]
             xdata = track.data[col][inds]
             ydata = track.data[ycol][inds]
 
             non_dupes = self.remove_dupes(xdata, ydata, 'lixo', just_two=True)
-
+            xdata = xdata[non_dupes]
+            ydata = ydata[non_dupes]
             k = 3
             if len(non_dupes) <= k:
                 k = len(non_dupes) - 1
                 logger.warning('only %i indices to fit... %s-%s' % (len(non_dupes), eep1, eep2))
                 logger.warning('new spline_level %i' % k)
 
-            tckp, u = splprep([xdata[non_dupes], ydata[non_dupes]], s=0, k=k,
+            tckp, u = splprep([xdata, ydata], s=0, k=k,
                               nest=-1)
-
-            xnew, ynew = splev(np.linspace(0, 1, 500), tckp)
-            dxnew, dynew = splev(np.linspace(0, 1, 500), tckp, der=1)
+            
+            ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
+            min_step = 1e-4
+            step_size = np.max([ave_data_step, min_step])
+            xnew, ynew = splev(np.arange(0, 1, step_size), tckp)
+            dxnew, dynew = splev(np.arange(0, 1, step_size), tckp, der=1)
             intp_col = xnew
-            nintp_col = ynew
+            dydx = dynew / dxnew
 
+        # find the peaks!
         peak_dict = math_utils.find_peaks(intp_col)
 
         if max is True:
@@ -757,9 +798,8 @@ class DefineEeps(object):
                     almost_ind = imax[-1]
                 else:
                     logger.error('not ready yet...')
-
             else:
-                #almost_ind = np.argmax(dynew/dxnew)
+                # no maxs found.
                 if mess_err is not None:
                     logger.error(mess_err)
                 return -1
@@ -769,18 +809,11 @@ class DefineEeps(object):
                 if more_than_one == 'first':
                     almost_ind = np.min(peak_dict['minima_locations'])
                 elif more_than_one == 'min of min':
-                    mins = peak_dict['minima_locations']
-                    # subtract off a straight line fit to get more contrast...
-                    #slope, intercept = np.polyfit(intp_col, nintp_col, 1)
-                    #high_contrast = intp_col - (slope * intp_col + intercept)
-                    #peak_dict = math_utils.find_peaks(high_contrast)
-                    if dynew is None:
-                        almost_ind = mins[np.argmin(intp_col[mins])]
-                    else:               
-                        almost_ind = np.argmax(dynew/dxnew)
+                    almost_ind = np.argmax(dydx)
                 elif more_than_one == 'last':
                     almost_ind = peak_dict['minima_locations'][-1]
             else:
+                # no mins found
                 if mess_err is not None:
                     logger.error(mess_err)
                 return -1
@@ -788,8 +821,8 @@ class DefineEeps(object):
         if parametric_interp is True:
             # closest point in interpolation to data
             ind, dif = math_utils.closest_match2d(almost_ind,
-                                                  track.data[col][inds],
-                                                  np.log10(track.data.AGE[inds]),
+                                                  track.data[col][inds][non_dupes],
+                                                  np.log10(track.data.AGE[inds][non_dupes]),
                                                   intp_col, agenew)
         else:
             # closest point in interpolation to data
@@ -797,9 +830,11 @@ class DefineEeps(object):
                                                   xnew, ynew)
 
         if ind == -1:
+            # didn't find anything.
             return ind
 
         if dif > dif_tol:
+            # closest match was too far away from orig.
             if diff_err is not None:
                 logger.debug(diff_err)
             else:
@@ -809,7 +844,8 @@ class DefineEeps(object):
         return inds[ind]
 
     def load_critical_points(self, track, filename=None, ptcri=None,
-                             eep_obj=None, hb=False, plot_dir=None):
+                             eep_obj=None, hb=False, plot_dir=None,
+                             diag_plot=True):
         '''
         iptcri is the critical point index rel to track.data
         mptcri is the model number of the critical point
@@ -867,10 +903,16 @@ class DefineEeps(object):
                             iorig, = np.nonzero(track.data.MODE == mode_num)
                             logger.debug('new ptcri %s %i' % (eep_name, iorig))
                         self.ptcri.iptcri[ieep] = iorig
-
-            self.define_eep_stages(track, hb=hb, plot_dir=plot_dir)
+                        
             track.ptcri = deepcopy(self.ptcri)
 
+            self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
+                                   diag_plot=diag_plot)
+            track.ptcri = deepcopy(self.ptcri)
+
+        else:
+            self.ptcri.iptcri = ptcri.data_dict['M%.3f' % track.mass]
+            
         assert ptcri.Z == track.Z, \
             'Zs do not match between track and ptcri file'
 
@@ -898,7 +940,7 @@ class DefineEeps(object):
                           s=s, k=k, nest=nest)
         return tckp
 
-    def interpolate_te_l_age(self, track, inds, k=3, nest=-1, s=0.):
+    def interpolate_te_l_age(self, track, inds, k=3, nest=-1, s=0., min_step=1e-4):
         '''
         a caller for scipy.optimize.splprep. Will also rid the array
         of duplicate values. Returns tckp, an input to splev.
@@ -916,7 +958,12 @@ class DefineEeps(object):
                            track.data.LOG_L[inds][non_dupes],
                            np.log10(track.data.AGE[inds][non_dupes])],
                           s=s, k=k, nest=nest)
-        return tckp
+
+        xdata = track.data.LOG_TE[inds][non_dupes]
+        ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
+        step_size = np.max([ave_data_step, min_step])
+
+        return tckp, step_size, non_dupes
 
 
 class TrackDiag(object):
@@ -1311,7 +1358,7 @@ class critical_point(object):
             self.please_define = []
             self.key_dict = self.sandros_dict
 
-
+        
 class eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to ptcri class.
@@ -1329,9 +1376,10 @@ class TrackSet(object):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None, masses=None,
-                 **kwargs):
+                 ptcri_file=None, **kwargs):
 
-        self.load_ptcri_eep(prefix=prefix, ptcrifile_loc=ptcrifile_loc,
+        self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
+                            ptcrifile_loc=ptcrifile_loc,
                             eep_list=eep_list, eep_lengths=eep_lengths, 
                             eep_list_hb=eep_list_hb,
                             eep_lengths_hb=eep_lengths_hb)
@@ -1339,27 +1387,37 @@ class TrackSet(object):
         self.tracks_base = os.path.join(tracks_dir, prefix)
         self.load_tracks(track_search_term=track_search_term, masses=masses)
         if hb is True:
-            self.load_tracks(track_search_term=hbtrack_search_term, hb=hb, masses=masses)
+            self.load_tracks(track_search_term=hbtrack_search_term, hb=hb,
+                             masses=masses)
 
-    def load_ptcri_eep(prefix=None, ptcrifile_loc=None, eep_list=None,
-                       eep_lengths=None, eep_list_hb=None, eep_lengths_hb=None):
+    def load_ptcri_eep(self, prefix=None, ptcri_file=None, ptcrifile_loc=None,
+                       eep_list=None, eep_lengths=None, eep_list_hb=None,
+                       eep_lengths_hb=None, from_p2m=False):
         '''
         load the ptcri and eeps, simple call to the objects.
         '''
         self.ptcri = None
         self.eep = None
-        self.prefix = prefix
-        search_term = '*%s*dat' % prefix
-        if ptcrifile_loc is not None:
-            self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
-            if eep_list is not None:
-                eep_kw = {'eep_lengths': eep_lengths,
-                          'eep_list_hb': eep_list_hb,
-                          'eep_lengths_hb': eep_lengths_hb}
-                self.eep = eep(eep_list, **eep_kw)
+        if ptcri_file is not None:
+            self.ptcri_file = ptcri_file
+        else:
+            self.prefix = prefix
+            if from_p2m is True:
+                search_term = 'p2m*%s*dat' % prefix
+                self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
+                print 'reading ptcri from saved p2m file.'
+            else:        
+                search_term = 'pt*%s*dat' % prefix        
+                self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
 
-            self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
+        if eep_list is not None:
+            eep_kw = {'eep_lengths': eep_lengths,
+                      'eep_list_hb': eep_list_hb,
+                      'eep_lengths_hb': eep_lengths_hb}
+            self.eep = eep(eep_list, **eep_kw)
 
+        self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
+            
     def load_tracks(self, track_search_term='*F7_*PMS', hb=False, masses=None):
         '''
         loads tracks or hb tracks, can load subset if masses (list or float)
@@ -1392,10 +1450,34 @@ class TrackSet(object):
                                    self.__getattribute__('%ss' % track_str)],
                                    3))
 
+    def save_ptcri(self, filename=None):
+        #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
+        if filename is None:
+            base, name = os.path.split(self.ptcri_file)
+            filename = os.path.join(base, 'p2m_%s' % name)
+
+        sorted_keys, inds = zip(*sorted(self.ptcri.key_dict.items(),
+                                        key=lambda (k, v): (v, k)))
+
+        header = '# critical points in F7 files defined by sandro, basti, and phil \n'
+        header += '# i mass lixo %s fname \n' % (' '.join(sorted_keys))
+        with open(filename, 'w') as f:
+            f.write(header)
+            linefmt = '%2i %.3f 0.0 %s %s \n'
+            for i, track in enumerate(self.tracks):
+                self.ptcri.please_define = []
+                self.load_critical_points(track, eep_obj=self.eep,
+                                          ptcri=self.ptcri, diag_plot=False)
+                ptcri_str = ' '.join(['%5d' % p for p in track.ptcri.iptcri])
+                f.write(linefmt % (i+1, track.mass, ptcri_str,
+                                   os.path.join(track.base, track.name)))
+        
+        logger.info('wrote %s' % filename)
+
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
                         convert_mag_kw={}, hb=False, plot_dir=None,
-                        zoomin=True):
+                        zoomin=True, one_plot=False):
         '''
         It would be much easier to discern breaks in the sequences if you did
         three separate plots: PMS_BEG to MS_BEG,
@@ -1407,6 +1489,15 @@ class TrackSet(object):
         I see a sharp break in the RGB bump and RGB tip sequences.
         Are those visible in the isochrones?
         '''
+        line_pltkw = {'color': 'black', 'alpha': 0.3}
+
+        if one_plot is True:
+            for t in tracks:
+                all_inds, = np.nonzero(t.data.AGE > 0.2)
+                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
+                                     plt_kw=line_pltkw, cmd=cmd,
+                                     convert_mag_kw=convert_mag_kw, hb=hb)
+            return ax
 
         ptcri_kw = {'sandro': sandro, 'hb': hb}
 
@@ -1428,7 +1519,6 @@ class TrackSet(object):
             ptcri_kw['sandro'] = False
             fig_extra = ['hb']
 
-        line_pltkw = {'color': 'black', 'alpha': 0.3}
 
         xlims = np.array([])
         ylims = np.array([])
@@ -1535,9 +1625,10 @@ class MatchTracks(object):
         self.eep_list_hb = eep_list_hb
         self._plot_all_tracks(self.tracks, eep_list=eep_list,
                               eep_lengths=eep_lengths, plot_dir=outfile_dir)
-        self._plot_all_tracks(self.hbtracks, eep_list=eep_list_hb,
-                              eep_lengths=eep_lengths_hb, plot_dir=outfile_dir,
-                              extra='_HB')
+        if self.eep_list_hb is not None:
+            self._plot_all_tracks(self.hbtracks, eep_list=eep_list_hb,
+                                  eep_lengths=eep_lengths_hb, 
+                                  plot_dir=outfile_dir, extra='_HB')
 
     def _load_track(self, filename):
         '''
@@ -1602,13 +1693,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                           track_search_term=track_search_term,
                           hbtrack_search_term=hbtrack_search_term,
                           plot_dir=plot_dir, outfile_dir=outfile_dir)
+        DefineEeps.__init__(self)
 
         for track in self.tracks:
             # do the work! Assign eeps either from sandro, or eep_list and
             # make some diagnostic plots.
             track = self.load_critical_points(track, ptcri=self.ptcri,
                                               plot_dir=plot_dir)
-            self.tracks.append(track)
 
             # make match output files.
             self.prepare_track(track, outfile_dir=outfile_dir)
@@ -1626,15 +1717,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             self.hbtrack_names = fileIO.get_files(self.tracks_base,
                                                   hbtrack_search_term)
             for track in self.hbtrack_names:
-                track = self.load_critical_points(track,
-                                                  ptcri=self.ptcri,
-                                                  hb=True,
-                                                  plot_dir=plot_dir)
+                track = self.load_critical_points(track, ptcri=self.ptcri,
+                                                  hb=hb, plot_dir=plot_dir)
                 self.hbtracks.append(track)
                 self.prepare_track(track, outfile_dir=outfile_dir, hb=hb)
                 self.check_ptcris(track, hb=hb, plot_dir=plot_dir)
 
-            self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=True,
+            self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=hb,
                                  reverse_x=True, plot_dir=plot_dir)
         fh.close()
         ch.close()
@@ -1727,25 +1816,118 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 class ExamineTracks(TrackSet, DefineEeps, TrackDiag):
     def __init__(self, trackset_kw={}, masses=None):
         trackset_kw.update({'masses': masses})
-        self.load_one_track(mass, **trackset_kw)
+        TrackSet.__init__(self, **trackset_kw)
+        DefineEeps.__init__(self)
 
     def select_track(self, mass, hb=False):
         return self.tracks[list(self.masses).index(mass)]
 
+    def ptcri_inds(self, eep, hb=False, sandro=False):
+        '''
+        makes a new attribute 'eep'_inds which is a list of the data index 
+        for a critical point at each mass.
+        example, 
+        '''
+        assert self.ptcri is not None, 'must have critical points loaded'
+        
+        eep_inds = []
+        for track in self.tracks:
+            self.load_critical_points(track, eep_obj=self.eep, ptcri=self.ptcri)
+            pind = track.ptcri.get_ptcri_name(eep, hb=hb, sandro=sandro)
+            eep_inds.append(track.ptcri.iptcri[pind])
+        
+        self.__setattr__('%s_inds' % eep.lower(), eep_inds)
 
-def do_entire_set(input_obj={}):
-    tracks_dir = input_obj['tracks_dir']
+    def eep_on_plots(self, eep, xcol, ycol, hb=False, sandro=False, ax=None,
+                     write_mass=False):
+        if not hasattr(self, '%s_inds' % eep.lower()):
+            self.ptcri_inds(eep, hb=hb, sandro=sandro)
+
+        inds = self.__getattribute__('%s_inds' % eep.lower())
+        
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        ax = self.plot_all_tracks(self.tracks, xcol, ycol, annotate=False,
+                                  ax=ax, sandro=sandro, hb=hb, plot_dir=None,
+                                  one_plot=True)
+
+        for i, track in enumerate(self.tracks):
+            if inds[i] == 0:
+                # track is too short (probably too low mass) to have this eep.
+                continue
+            xdata = track.data[xcol]
+            ydata = track.data[ycol]
+            ax.plot(xdata[inds[i]], ydata[inds[i]], 'o')
+            if write_mass is True:
+                ax.text(xdata[inds[i]], ydata[inds[i]], '%.3f' % track.mass)
+        return ax
+
+def all_sets_eep_plots(eep, input_dict={}):
+    tracks_dir = input_dict['tracks_dir']
     prefixs = [d for d in os.listdir(tracks_dir)
                if os.path.isdir(os.path.join(tracks_dir, d))]
+    axs = []
     for prefix in prefixs:
-        if prefix == 'S12D_NS_Z0.0002_Y0.249':
-            continue
-        input_obj['prefix'] = prefix
-        input_obj['plot_dir'] = os.path.join(tracks_dir, prefix, 'plots')
-        input_obj['outfile_dir'] = os.path.join(tracks_dir, prefix, 'match')
-        TracksForMatch(**input_obj)
-        MatchTracks(**input_obj)
+        input_dict['prefix'] = prefix
+        print prefix
+        et = ExamineTracks(trackset_kw = input_dict)
+        ax = et.eep_on_plots(eep, 'LOG_TE', 'LOG_L')
+        ax.set_title('$%s$' % prefix.replace('_', '\ '))
+        axs.append(ax)
+    return axs
 
+
+def do_entire_set(input_dict={}):
+    tracks_dir = input_dict['tracks_dir']
+    if input_dict['prefixs'] == 'all':
+        prefixs = [d for d in os.listdir(tracks_dir)
+                   if os.path.isdir(os.path.join(tracks_dir, d))]
+    else:
+        prefixs = input_dict['prefixs']
+
+    del input_dict['prefixs']
+    assert type(prefixs) == list, 'prefixs must be a list'
+
+    for prefix in prefixs:
+        logger.info('\n\n Current mix: %s \n\n' % prefix)
+        this_dict = set_outdirs(input_dict, prefix)
+        tm = TracksForMatch(**this_dict)
+        tm.save_ptcri()
+        MatchTracks(**this_dict)
+
+def set_outdirs(indict, prefix):
+    newdict = deepcopy(indict)
+    newdict['prefix'] = prefix
+    wkd = os.path.join(indict['tracks_dir'], newdict['prefix'])
+    if indict['plot_dir'] == 'default':
+        newdict['plot_dir'] = os.path.join(wkd, 'plots')
+
+    if indict['outfile_dir'] == 'default':
+        newdict['outfile_dir'] = os.path.join(wkd, 'match')
+    return newdict
+
+def default_params(input_dict):
+    # if prefix not prefixs, set the location of plots if given default.
+    if input_dict.has_key('prefix'):
+        set_outdirs(input_dict)
+
+    input_dict['eep_list'] = ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
+                              'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
+                              'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
+                              'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
+                              'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.000', 'C_BUR']
+
+    input_dict['eep_lengths'] = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
+                                 10, 150, 100, 100, 80, 80, 140, 150]
+
+    if input_dict.has_key('hb') and input_dict['hb'] is True:
+        input_dict['eep_list_hb'] = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 
+                                     'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
+                                     'AGB_LY1', 'AGB_LY2']
+        eep_lengths_hb = [129, 50, 120, 70, 80, 150, 250]
+
+    return input_dict
 
 def check_basti():
     track_base = '/Users/phil/research/parsec2match/stellarmodels/msz83sss_eta02_wfc3ir'
@@ -1764,8 +1946,7 @@ def check_basti():
 
 if __name__ == '__main__':
     import pdb
-    input_obj = fileIO.load_input(sys.argv[1])
-    pdb.set_trace()
+    input_dict = default_params(fileIO.load_input(sys.argv[1]))
     logfile = sys.argv[1].replace('inp', 'log')
     fh = logging.FileHandler(logfile)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -1777,6 +1958,10 @@ if __name__ == '__main__':
     ch.setLevel(logging.INFO)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    #do_entire_set(input_obj=input_obj)
-    TracksForMatch(**input_obj)
-    MatchTracks(**input_obj)
+    pdb.set_trace()
+    if input_dict.has_key('prefixs'):
+        do_entire_set(input_dict=input_dict)
+    else:
+        tm = TracksForMatch(**input_dict)
+        tm.save_ptcri()
+        MatchTracks(**input_dict)
