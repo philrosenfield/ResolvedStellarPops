@@ -8,7 +8,62 @@ import fileIO
 import math_utils
 import graphics.GraphicsUtils as rspg
 import logging
+import pprint
 logger = logging.getLogger()
+
+
+def quick_color_em(tracks_base, prefix, photsys='UVbright', search_term='*F7_*PMS'):
+    '''
+    This goes quickly through each directory and adds a [search_term].dat file
+    that has # in the header and a [search_term].dat.[photsys]] file that is
+    the output of Leo's fromHR2mags.
+    
+    sometimes leo's code has bad line endings or skips lines, i donno. so
+    when reading in as TrackSet, you'll get loads of warnings...
+    
+    ex:
+    tracks_base = '/Users/phil/research/parsec2match/S12_set/CAF09_S12D_NS/'
+    prefix = 'S12D_NS_Z0.0001_Y0.249'
+    quick_color_em(tracks_base, prefix)
+    '''
+    def add_comments_to_header(tracks_base, prefix, search_term):
+        '''
+        insert a # at every line
+        '''
+        tracks = os.path.join(tracks_base, prefix)
+        track_names = fileIO.get_files(tracks, search_term)
+
+        for name in track_names:
+            with open(name, 'r') as t:
+                lines = t.readlines()
+            try:
+                imode, = [i for (i, l) in enumerate(lines)
+                          if l.strip().startswith('MODE ')]
+            except ValueError:
+                print '\n %s \n' % name
+
+            lines[:imode + 1] = ['# ' + l for l in lines[:imode + 1]]
+
+            oname = '%s.dat' % name
+
+            with open(oname, 'w') as t:
+                t.writelines(lines)
+
+
+    def color_tracks(tracks_base, prefix, cmd):
+        tracks = os.path.join(tracks_base, prefix)
+        track_names = fileIO.get_files(tracks, search_term)
+
+        for name in track_names:
+            z = float(name.split('Z')[1].split('_Y')[0])
+            os.system(cmd % (name, z))
+
+    cmd = '/Users/phil/research/Italy/fromHR2mags/fromHR2mags %s ' % photsys
+    # this is set for .PMS and .PMS.HB tracks
+    cmd += '%s 5 6 2 %.3f'
+    add_comments_to_header(tracks_base, prefix, search_term)
+    search_term += '.dat'
+    color_tracks(tracks_base, prefix, cmd)
 
 
 class Track(object):
@@ -18,6 +73,16 @@ class Track(object):
         self.filename_info()
         self.mass = self.data.MASS[0]
         self.ptcri = ptcri
+
+    def calc_Mbol(self):
+        Mbol = 4.77 - 2.5 * self.data.LOG_L
+        self.Mbol = Mbol
+        return Mbol
+    
+    def calc_logg(self):
+        logg = -10.616 + np.log10(self.mass) + 4.0 * self.data.LOG_TE - self.data.LOG_L
+        self.logg = logg
+        return logg
 
     def filename_info(self):
         (pref, __, smass) = self.name.split('.PMS')[0].split('_')
@@ -91,7 +156,8 @@ class Track(object):
         except ValueError:
             data = np.genfromtxt(filename,
                                  skiprows=begin_track + begin_track_skip,
-                                 names=col_keys, skip_footer=2)
+                                 names=col_keys, skip_footer=2,
+                                 invalid_raise=False)
 
         # cut non-physical part of the model
         # NOTE it should be >= but sometimes Sandro's PMS_BEG
@@ -1378,11 +1444,14 @@ class TrackSet(object):
                  hbtrack_search_term='*F7_*HB', plot_dir=None, masses=None,
                  ptcri_file=None, **kwargs):
 
-        self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
-                            ptcrifile_loc=ptcrifile_loc,
-                            eep_list=eep_list, eep_lengths=eep_lengths, 
-                            eep_list_hb=eep_list_hb,
-                            eep_lengths_hb=eep_lengths_hb)
+        if ptcrifile_loc is not None or ptcri_file is not None:
+            self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
+                                ptcrifile_loc=ptcrifile_loc,
+                                eep_list=eep_list, eep_lengths=eep_lengths, 
+                                eep_list_hb=eep_list_hb,
+                                eep_lengths_hb=eep_lengths_hb)
+        else:
+            self.ptcri = None
 
         self.tracks_base = os.path.join(tracks_dir, prefix)
         self.load_tracks(track_search_term=track_search_term, masses=masses)
@@ -1425,6 +1494,8 @@ class TrackSet(object):
         '''
         track_names = np.array(fileIO.get_files(self.tracks_base,
                                track_search_term))
+        assert len(track_names) != 0, \
+            'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
         track_masses = np.argsort(map(float, [t.split('_')[-1].split('.P')[0].replace('M', '') for t in track_names]))
 
         # only do a subset of masses
@@ -1600,6 +1671,49 @@ class TrackSet(object):
             plt.close()
         return
 
+    def squish(self, *attrs, **kwargs):
+        '''
+        bad coder: I took this from Galaxies.galaxy. Some day I can make
+        it all great, but first I need to have the same data fmts for all these
+        things...
+        
+        concatenates an attribute or many attributes and adds them to galaxies
+        instance -- with an 's' at the end to pluralize them... that might
+        be stupid.
+        ex
+        for gal in gals:
+            gal.ra = gal.data['ra']
+            gal.dec = gal.data['dec']
+        gs =  Galaxies.galaxies(gals)
+        gs.squish('color', 'mag2', 'ra', 'dec')
+        gs.ras ...
+        
+        kwargs: inds choose which tracks to include (all by default)
+        new_attrs: if you don't like the attributes set.
+        '''
+        inds = kwargs.get('inds', np.arange(len(self.tracks)))
+        new_attrs = kwargs.get('new_attrs', None)
+
+        if new_attrs is not None:
+            assert len(new_attrs) == len(attrs), \
+                'new attribute titles must be list same length as given attributes.'
+
+        for i, attr in enumerate(attrs):
+            # do we have a name for the new attribute?
+            if new_attrs is not None:
+                new_attr = new_attrs[i]
+            else:
+                new_attr = '%ss' % attr
+
+            new_list = [self.tracks[j].data[attr] for j in inds]
+            # is attr an array of arrays, or is it now an array?
+            try:
+                new_val = np.concatenate(new_list)
+            except ValueError:
+                new_val = np.array(new_list)
+
+            self.__setattr__(new_attr, new_val)
+
 
 class MatchTracks(object):
     '''
@@ -1711,6 +1825,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
                              reverse_x=True, plot_dir=plot_dir)
 
+        logger.info(pprint.pprint(self.eep_info))
+
         # do the same as above but for HB.
         if hb is True:
             self.hbtracks = []
@@ -1782,7 +1898,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 # include the last ind.
                 inds = np.arange(ithis_eep, inext_eep + 1)
 
-            tckp = self.interpolate_te_l_age(track, inds)
+            tckp, _, _ = self.interpolate_te_l_age(track, inds)
             tenew, lnew, agenew = splev(np.linspace(0, 1, nticks[i]), tckp)
             new_eep_dict[this_eep] = tot_pts
             tot_pts += nticks[i]
@@ -1797,8 +1913,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         #line += '\t !M=%.6f' % track.mass
         #print line
 
-        Mbol = 4.77 - 2.5 * logL
-        logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
+        logg = track.calc_logg()
+        Mbol = track.calc_Mbol()
         logAge = np.log10(Age)
         # CO place holder!
         CO = np.zeros(len(logL))

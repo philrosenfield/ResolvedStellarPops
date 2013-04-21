@@ -80,7 +80,8 @@ def hess(color, mag, binsize, **kw):
         mbin = np.array(kw['mbin']).copy()
     if kw['cbin'] is None:
         cbinsize = kw.get('cbinsize')
-        if cbinsize is None: cbinsize=binsize
+        if cbinsize is None: 
+            cbinsize=binsize
         cbin = np.arange(color.min(), color.max(), cbinsize)
     else:
         cbin = np.array(kw['cbin']).copy()
