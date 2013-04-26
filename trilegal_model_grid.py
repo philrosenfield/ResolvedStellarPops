@@ -44,6 +44,7 @@ class model_grid(object):
         self.out_pref = out_pref
         self.inp_pref = inp_pref
         self.over_write = over_write
+        self.zs = kwargs.get('zs')
 
         if location is None:
             location = os.getcwd()
@@ -122,6 +123,8 @@ class model_grid(object):
             ages = np.arange(*self.logtrange, step=self.dlogt)
         if zs is None:
             zs = np.arange(*self.logzrange, step=self.dlogz)
+        if type(zs) == float:
+            zs = [zs]
 
         for age, z in itertools.product(ages, zs):
             to = age
@@ -584,4 +587,5 @@ if __name__ == '__main__':
     mg = model_grid(**indict)
     import pdb
     pdb.set_trace()
-    mg.make_grid()
+    mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
+                 clean_up=indict.get('clean_up', True))

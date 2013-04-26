@@ -235,8 +235,24 @@ class DefineEeps(object):
         self.eep_info = {'MS_TMIN_XCEN': [],
                          'SG_MAXL_XCEN': [],
                          'MS_TO_parametric': [],
-                         'MS_BUSTED': []}
-        
+                         'MS_BUSTED': [],
+                         'ms_tmin_xcen': {'S12D_NS_Z0.0001_Y0.249': 1.2,
+                                          'S12D_NS_Z0.0002_Y0.249': 1.15,
+                                          'S12D_NS_Z0.0005_Y0.249': 1.15,
+                                          'S12D_NS_Z0.001_Y0.25': 1.10,
+                                          'S12D_NS_Z0.002_Y0.252': 1.15,
+                                          'S12D_NS_Z0.004_Y0.256': 1.15,
+                                          'S12D_NS_Z0.006_Y0.259': 1.15,
+                                          'S12D_NS_Z0.008_Y0.263': 1.20,
+                                          'S12D_NS_Z0.014_Y0.273': 1.20,
+                                          'S12D_NS_Z0.017_Y0.279': 1.20,
+                                          'S12D_NS_Z0.01_Y0.267': 1.20,
+                                          'S12D_NS_Z0.02_Y0.284': 1.20,
+                                          'S12D_NS_Z0.03_Y0.302': 1.20,
+                                          'S12D_NS_Z0.04_Y0.321': 1.15,
+                                          'S12D_NS_Z0.05_Y0.339': 1.10,
+                                          'S12D_NS_Z0.06_Y0.356': 1.10}}
+    
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True):
         '''
@@ -356,46 +372,31 @@ class DefineEeps(object):
         was burned for massive stars. I decided to find a place after the RGB
         where there was a bump in YCEN, a little spurt before it started
         burning He at a more consistent rate.
+        
+        The above method was not stable for all Z. I've instead moved to 
+        where there is a min after the TRGB in LY, that is it dips as the 
+        star contracts, and then ramps up.
         '''
         inds = track.ptcri.inds_between_ptcris('RG_TIP', ycen1, sandro=False)
+
         if len(inds) == 0:
             return
-        
-        ycen = track.data.YCEN[inds]
-        peak_dict = math_utils.find_peaks(ycen)
-        if len(peak_dict['maxima_locations']) == 0:
-            tckp, u = splprep([np.arange(len(ycen)), ycen], s=0, k=3, nest=-1)
-            xnew, ynew = splev(np.linspace(0, 1, 500), tckp)
-            dxnew, dynew = splev(np.linspace(0, 1, 500), tckp, der=1)
-            almost_ymax = np.argmax(dynew/dxnew)
-            ymax, dif = math_utils.closest_match(ynew[almost_ymax], ycen)
-        else:
-            ymax = peak_dict['maxima_locations'][0]
-        he_beg = inds[ymax]
+
+        min = np.argmin(track.data.LY[inds])
+        # Sometimes there is a huge peak in LY before the min, find it...
+        npts = inds[-1] - inds[0] + 1
+        subset = npts/3
+        max = np.argmax(track.data.LY[inds[:subset]])
+        # Peak isn't as important as the ratio between the start and end
+        rat = track.data.LY[inds[max]]/track.data.LY[inds[0]]
+        # If the min is at the point next to the TRGB, or the ratio is huge,
+        # get the min after the peak.
+        if min == 0 or rat > 10:
+            amin = np.argmin(track.data.LY[inds[max+1:]])
+            min = max + 1 + amin
+        he_beg = inds[min]
         eep_name = 'HE_BEG'
         self.add_eep(eep_name, he_beg)
-
-        if diag_plot is True:
-            td = TrackDiag()
-            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 6))
-            for ax, (x, y) in zip((ax1, ax2), (('AGE', 'YCEN'),
-                                               ('LOG_TE', 'LOG_L'))):
-                td.plot_track(track, x, y, sandro=False, ax=ax, annotate=True)
-                td.plot_track(track, x, y, ax=ax, inds=inds)
-                td.plot_track(track, x, y, ax=ax, inds=[he_beg],
-                              plt_kw={'marker': 'o'})
-                ax.set_title(track.mass)
-                ax.set_xlabel('$%s$' % x.replace('_', '\_'))
-                ax.set_ylabel('$%s$' % y.replace('_', '\_'))
-                ax.set_xlim(track.data[x][inds[0]], track.data[x][inds[-1]])
-                if x == 'LOG_TE':
-                    ax.set_xlim(ax.get_xlim()[::-1])
-            figname = 'diag_HE_BEG_%.3f.png' % track.mass
-            if plot_dir is not None:
-                figname = os.path.join(plot_dir, figname)
-            plt.savefig(figname)
-            logger.info('wrote %s' % figname)
-            plt.close()
 
     def add_cen_eeps(self, track, xcen_eeps=False, xcen=False, cens=None,
                      hb=False):
@@ -567,8 +568,9 @@ class DefineEeps(object):
                 logger.error('Using XCEN=0.3 for T_MIN: M=%.3f' % track.mass)
 
             inds = track.ptcri.inds_between_ptcris('MS_BEG', 'RG_BMP1',
-                                                   sandro=False)
-            inds = list(set(ex_inds) & set(inds))
+                                                   sandro=True)
+            if ex_inds is not None:
+                inds = list(set(ex_inds) & set(inds))
 
             if len(inds) == 0:
                 ms_tmin = 0
@@ -583,24 +585,34 @@ class DefineEeps(object):
             self.eep_info['MS_TMIN_XCEN'].append(track.mass)
             return ms_tmin
  
-        ex_inds, = np.nonzero(track.data.XCEN > 0.)
+        inds = track.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
+        if len(inds) == 0:
+            ms_tmin = 0
+        else:
+            tmin_ind = np.argmin(track.data.LOG_TE[inds])
+            ms_tmin = inds[tmin_ind]
 
-        ms_tmin = self.peak_finder(track, 'LOG_TE', 'MS_BEG', 'POINT_C',
-                                   max=False, more_than_one='min of min',
-                                   extra_inds=ex_inds, parametric_interp=False)
+            if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
+                tmin_ind = np.argmin(np.abs(track.data.XCEN[inds] - 0.3))
+                dif = np.abs(track.data.XCEN[inds[tmin_ind]] - 0.3)
+            elif tmin_ind < 10:
+                tckp, u = splprep([np.arange(len(xdata[inds])), xdata[inds]], s=0, k=k, nest=-1)
+                xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
+                dxnew, dynew = splev(np.arange(0, 1, 1e-2), tckp, der=1)
+                ddxnew, ddynew = splev(np.arange(0, 1, 1e-2), tckp, der=2)
+                dydx = dynew / dxnew
+                aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
+                tmin_ind, dif = rsp.math_utils.closest_match(ynew[aind], xdata[inds])
 
-        if ms_tmin == -1 or track.mass < 0.98:
-            ms_tmin = use_xcen(track, ex_inds=ex_inds)
-
+        ms_tmin = inds[tmin_ind]
         self.add_eep('MS_TMIN', ms_tmin)
 
         if ms_tmin == 0:
             ms_to = 0
         else:
             if track.mass > 8.:
-                ex_inds = None
             pf_kw = {'max': True, 'sandro': False, 'more_than_one': 'max of max', 
-                     'extra_inds': ex_inds, 'parametric_interp': False}
+                     'parametric_interp': False}
             ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
                                      **pf_kw)
             if ms_to == -1:
@@ -614,7 +626,8 @@ class DefineEeps(object):
 
                 inds = self.ptcri.inds_between_ptcris('MS_TMIN', 'RG_BMP1',
                                                       sandro=False)
-                inds = list(set(ex_inds) & set(inds))
+                if ex_inds is not None:
+                    inds = list(set(ex_inds) & set(inds))
                 non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
                                               track.data.LOG_L[inds],
                                               'lixo', just_two=True)
@@ -802,7 +815,8 @@ class DefineEeps(object):
         # slice the array
         inds = self.ptcri.inds_between_ptcris(eep1, eep2, sandro=sandro)
         # burn in
-        inds = inds[5: -5]
+        inds = inds[5:]
+
         if extra_inds is not None:
             inds = list(set(inds) & set(extra_inds))
 
@@ -839,9 +853,8 @@ class DefineEeps(object):
                 logger.warning('only %i indices to fit... %s-%s' % (len(non_dupes), eep1, eep2))
                 logger.warning('new spline_level %i' % k)
 
-            tckp, u = splprep([xdata, ydata], s=0, k=k,
-                              nest=-1)
-            
+            tckp, u = splprep([xdata, ydata], s=0, k=k, nest=-1)
+
             ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
             min_step = 1e-4
             step_size = np.max([ave_data_step, min_step])
@@ -876,6 +889,7 @@ class DefineEeps(object):
                     almost_ind = np.min(peak_dict['minima_locations'])
                 elif more_than_one == 'min of min':
                     almost_ind = np.argmax(dydx)
+                    print 'a', almost_ind
                 elif more_than_one == 'last':
                     almost_ind = peak_dict['minima_locations'][-1]
             else:
@@ -907,7 +921,7 @@ class DefineEeps(object):
                 logger.error('bad match %s-%s M=%.3f' % (eep1, eep2,
                                                          track.mass))
             return -1
-        return inds[ind]
+        return inds[non_dupes][ind]
 
     def load_critical_points(self, track, filename=None, ptcri=None,
                              eep_obj=None, hb=False, plot_dir=None,
@@ -1086,7 +1100,7 @@ class TrackDiag(object):
     def plot_track(self, track, xcol, ycol, reverse_x=False, reverse_y=False,
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=True,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
-                   xdata=None, ydata=None, hb=False):
+                   xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -1129,8 +1143,14 @@ class TrackDiag(object):
             else:
                 xdata = track.data[xcol]
 
+        if xnorm is True:
+            xdata /= np.max(xdata)
+
+        if ynorm is True:
+            ydata /= np.max(ydata)
+
         if inds is not None:
-            inds = [i for i in inds if i > 0]
+            inds = [i for i in inds if i > 0]      
             ax.plot(xdata[inds], ydata[inds], **plt_kw)
         else:
             ax.plot(xdata, ydata, **plt_kw)
@@ -1142,7 +1162,7 @@ class TrackDiag(object):
             ax.set_ylim(ax.get_ylim()[::-1])
 
         if annotate:
-            ax = self.annotate_plot(track, ax, xcol, ycol, inds=ainds,
+            ax = self.annotate_plot(track, ax, xdata, ydata, inds=ainds,
                                     sandro=sandro, hb=hb, cmd=cmd)
 
         return ax
@@ -1179,14 +1199,19 @@ class TrackDiag(object):
         else:
             xdata = xcol
 
+        if type(ycol) == str:
+            ydata = track.data[ycol]
+        else:
+            ydata = ycol
+
         if cmd is True:
-            xdata = xdata - track.data[ycol]
+            xdata = xdata - ydata
         # label stylings
         bbox = dict(boxstyle='round, pad=0.5', fc=fc, alpha=0.5)
         arrowprops = dict(arrowstyle='->', connectionstyle='arc3, rad=0')
 
         for i, (label, x, y) in enumerate(zip(labels, xdata[inds],
-                                          track.data[ycol][inds])):
+                                          ydata[inds])):
             # varies the labels placement... default is 20, 20
             xytext = ((-1.) ** (i - 1.) * 20, (-1.) ** (i + 1.) * 20)
             ax.annotate(label, xy=(x, y), xytext=xytext, fontsize=10,
@@ -1496,13 +1521,14 @@ class TrackSet(object):
                                track_search_term))
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-        track_masses = np.argsort(map(float, [t.split('_')[-1].split('.P')[0].replace('M', '') for t in track_names]))
+        mass = map(float, [t.split('_')[-1].split('.P')[0].replace('M', '') for t in track_names])
+        track_masses = np.argsort(mass)
 
         # only do a subset of masses
         if masses is not None:
             if type(masses) == float:
                 masses = [masses]
-            track_masses = [t for t in track_masses if t in masses]
+            track_masses = [t for t in mass if t in masses]
 
         # ordered by mass
         track_str = 'track'
@@ -1604,7 +1630,7 @@ class TrackSet(object):
             xlimi = np.array([])
             ylimi = np.array([])
             for t in tracks:
-
+                print t.name
                 all_inds, = np.nonzero(t.data.AGE > 0.2)
 
                 ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
@@ -1790,7 +1816,7 @@ class MatchTracks(object):
         figname = 'match_%s%s.png' % (self.prefix, extra)
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
-        plt.savefig(figname)
+        plt.savefig(figname, dpi=300)
 
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
@@ -1798,12 +1824,12 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None,
-                 outfile_dir=None):
+                 outfile_dir=None, masses=None, diag_plot=None):
 
         TrackSet.__init__(self, tracks_dir=tracks_dir, prefix=prefix,
                           ptcrifile_loc=ptcrifile_loc, eep_list=eep_list,
                           eep_lengths=eep_lengths, eep_list_hb=eep_list_hb,
-                          eep_lengths_hb=eep_lengths_hb, hb=hb,
+                          eep_lengths_hb=eep_lengths_hb, hb=hb, masses=masses,
                           track_search_term=track_search_term,
                           hbtrack_search_term=hbtrack_search_term,
                           plot_dir=plot_dir, outfile_dir=outfile_dir)
@@ -1813,7 +1839,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             # do the work! Assign eeps either from sandro, or eep_list and
             # make some diagnostic plots.
             track = self.load_critical_points(track, ptcri=self.ptcri,
-                                              plot_dir=plot_dir)
+                                              plot_dir=plot_dir,diag_plot=diag_plot)
 
             # make match output files.
             self.prepare_track(track, outfile_dir=outfile_dir)
@@ -1847,7 +1873,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     def prepare_track(self, track, outfile='default', hb=False,
                       outfile_dir=None):
         if outfile == 'default':
-            if outfile_dir is None:
+            if outfile_dir is None or outfile_dir is 'default':
                 outfile_dir = track.base
             outfile = os.path.join('%s' % outfile_dir,
                                    'match_%s.dat' % track.name.replace('.PMS', ''))
@@ -1913,13 +1939,12 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         #line += '\t !M=%.6f' % track.mass
         #print line
 
-        logg = track.calc_logg()
-        Mbol = track.calc_Mbol()
+        Mbol = 4.77 - 2.5 * logL
+        logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
         logAge = np.log10(Age)
         # CO place holder!
         CO = np.zeros(len(logL))
         mass_arr = np.repeat(track.mass, len(logL))
-
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
 
         with open(outfile, 'w') as f:
@@ -1948,11 +1973,12 @@ class ExamineTracks(TrackSet, DefineEeps, TrackDiag):
         
         eep_inds = []
         for track in self.tracks:
-            self.load_critical_points(track, eep_obj=self.eep, ptcri=self.ptcri)
+            if not hasattr(track.ptcri, 'iptcri'):
+                self.load_critical_points(track, eep_obj=self.eep, ptcri=self.ptcri)
             pind = track.ptcri.get_ptcri_name(eep, hb=hb, sandro=sandro)
             eep_inds.append(track.ptcri.iptcri[pind])
         
-        self.__setattr__('%s_inds' % eep.lower(), eep_inds)
+        self.__setattr__('%s_inds' % eep.lower().replace('.', '_'), eep_inds)
 
     def eep_on_plots(self, eep, xcol, ycol, hb=False, sandro=False, ax=None,
                      write_mass=False):
@@ -1963,6 +1989,8 @@ class ExamineTracks(TrackSet, DefineEeps, TrackDiag):
         
         if ax is None:
             fig, ax = plt.subplots()
+            if xcol == 'LOG_TE':
+                ax.set_xlim(ax.get_xlim()[::-1])
 
         ax = self.plot_all_tracks(self.tracks, xcol, ycol, annotate=False,
                                   ax=ax, sandro=sandro, hb=hb, plot_dir=None,
@@ -1977,7 +2005,12 @@ class ExamineTracks(TrackSet, DefineEeps, TrackDiag):
             ax.plot(xdata[inds[i]], ydata[inds[i]], 'o')
             if write_mass is True:
                 ax.text(xdata[inds[i]], ydata[inds[i]], '%.3f' % track.mass)
+        
+
+        ax.set_xlabel('$%s$' % xcol.replace('_', '\ '))
+        ax.set_ylabel('$%s$' % ycol.replace('_', '\ '))
         return ax
+    
 
 def all_sets_eep_plots(eep, input_dict={}):
     tracks_dir = input_dict['tracks_dir']
@@ -2016,17 +2049,17 @@ def set_outdirs(indict, prefix):
     newdict = deepcopy(indict)
     newdict['prefix'] = prefix
     wkd = os.path.join(indict['tracks_dir'], newdict['prefix'])
-    if indict['plot_dir'] == 'default':
+    if indict.has_key('plot_dir') and indict['plot_dir'] == 'default':
         newdict['plot_dir'] = os.path.join(wkd, 'plots')
 
-    if indict['outfile_dir'] == 'default':
+    if indict.has_key('outfile_dir') and indict['outfile_dir'] == 'default':
         newdict['outfile_dir'] = os.path.join(wkd, 'match')
     return newdict
 
 def default_params(input_dict):
     # if prefix not prefixs, set the location of plots if given default.
     if input_dict.has_key('prefix'):
-        set_outdirs(input_dict)
+        input_dict = set_outdirs(input_dict, input_dict.get('prefix'))
 
     input_dict['eep_list'] = ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
                               'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
@@ -2071,7 +2104,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    ch.setLevel(logging.ERROR)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
     pdb.set_trace()
