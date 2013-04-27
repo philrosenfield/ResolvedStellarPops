@@ -390,7 +390,7 @@ class DefineEeps(object):
         where there is a min after the TRGB in LY, that is it dips as the 
         star contracts, and then ramps up.
         '''
-        inds = self.ptcri.inds_between_ptcris('RG_BMP2', ycen1, sandro=False)
+        inds = self.ptcri.inds_between_ptcris('RG_TIP', ycen1, sandro=False)
 
         if len(inds) == 0:
             print self.ptcri.iptcri

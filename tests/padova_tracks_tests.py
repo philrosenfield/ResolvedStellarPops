@@ -80,7 +80,7 @@ def test_rgminl(ets, Zsubset=None):
             if et.tracks[0].Z not in Zsubset:
                 continue
         et.ptcri_inds('RG_MINL')
-        inds = et.rg_minl_inds
+        rinds = et.rg_minl_inds
         et.ptcri_inds('SG_MAXL')
         inds = et.sg_maxl_inds
 
@@ -91,7 +91,8 @@ def test_rgminl(ets, Zsubset=None):
             tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_TIP', sandro=False)
             ax.plot(track.data.LOG_TE, track.data.LOG_L, color='black', alpha=0.2)
             ax.plot(track.data.LOG_TE[tinds], track.data.LOG_L[tinds], color='red')
-            ax.plot(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], 'o')
+            ax.plot(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], 'o', color='black')
+            ax.plot(track.data.LOG_TE[rinds[i]], track.data.LOG_L[rinds[i]], 'o', color='blue')
             ax.text(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], '%.3g' % track.mass)
         ax.set_title('Z=%.4f' % track.Z)
 
