@@ -251,7 +251,23 @@ class DefineEeps(object):
                                           'S12D_NS_Z0.03_Y0.302': 1.20,
                                           'S12D_NS_Z0.04_Y0.321': 1.15,
                                           'S12D_NS_Z0.05_Y0.339': 1.10,
-                                          'S12D_NS_Z0.06_Y0.356': 1.10}}
+                                          'S12D_NS_Z0.06_Y0.356': 1.10},
+                        'ms_tmin_byhand': {'S12D_NS_Z0.0001_Y0.249': {},
+                                           'S12D_NS_Z0.0002_Y0.249':{},
+                                           'S12D_NS_Z0.0005_Y0.249':{},
+                                           'S12D_NS_Z0.001_Y0.25': {},
+                                           'S12D_NS_Z0.002_Y0.252': {},
+                                           'S12D_NS_Z0.004_Y0.256': {},
+                                           'S12D_NS_Z0.006_Y0.259': {1.1: 1436},
+                                           'S12D_NS_Z0.008_Y0.263': {1.1: 1452, 1.15: 1413},
+                                           'S12D_NS_Z0.014_Y0.273': {1.1: 1408, 1.15: 1412},
+                                           'S12D_NS_Z0.017_Y0.279': {1.1: 1443, 1.15: 1365},
+                                           'S12D_NS_Z0.01_Y0.267': {1.1: 1380, 1.15: 1421},
+                                           'S12D_NS_Z0.02_Y0.284': {1.1: 1544, 1.15: 1570},
+                                           'S12D_NS_Z0.03_Y0.302': {1.1: 1525, 1.15: 1460},
+                                           'S12D_NS_Z0.04_Y0.321': {1.1: 1570, 1.15: 1458},
+                                           'S12D_NS_Z0.05_Y0.339': {},
+                                           'S12D_NS_Z0.06_Y0.356': {1.05: 1436}}}
     
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True):
@@ -330,9 +346,7 @@ class DefineEeps(object):
             # RG_TIP is from Sandro
             # do the YCEN values first, because HE_BEG uses first YCEN.
             self.add_cen_eeps(track)
-            ycen1 = [d for d in default_list if d.startswith('YCEN')][0]
-            self.add_quiesscent_he_eep(track, ycen1, diag_plot=diag_plot,
-                                       plot_dir=plot_dir)
+            self.add_quiesscent_he_eep(track, 'YCEN_0.550')
             #self.add_cburn_eep()
 
         assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >= 0), \
@@ -364,8 +378,7 @@ class DefineEeps(object):
         c_bur = self.ptcri.sandros_dict[eep_name]
         self.add_eep(eep_name, c_bur)
 
-    def add_quiesscent_he_eep(self, track, ycen1, diag_plot=False,
-                              plot_dir=None):
+    def add_quiesscent_he_eep(self, track, ycen1):
         '''
         He fusion starts after the RGB, but where? It was tempting to simply
         choose the min L on the HeB, but that could come after 1/2 the YCEN
@@ -377,9 +390,11 @@ class DefineEeps(object):
         where there is a min after the TRGB in LY, that is it dips as the 
         star contracts, and then ramps up.
         '''
-        inds = track.ptcri.inds_between_ptcris('RG_TIP', ycen1, sandro=False)
+        inds = self.ptcri.inds_between_ptcris('RG_BMP2', ycen1, sandro=False)
 
         if len(inds) == 0:
+            print self.ptcri.iptcri
+            print 'no start HEB!!!!', track.mass, track.Z
             return
 
         min = np.argmin(track.data.LY[inds])
@@ -395,6 +410,7 @@ class DefineEeps(object):
             amin = np.argmin(track.data.LY[inds[max+1:]])
             min = max + 1 + amin
         he_beg = inds[min]
+        print 'he beg', he_beg
         eep_name = 'HE_BEG'
         self.add_eep(eep_name, he_beg)
 
@@ -555,10 +571,9 @@ class DefineEeps(object):
         MS_TO: This is the MAX Teff between MS_BEG and MS_TMIN.
 
         Note: MS_TMIN could be XCEN = 0.3 if no actual MS_TMIN (low masses)
-              (0.3 is hard coded). A warning will raise if MS_TMIN is defined
-              by this route and mass > 1.2 Msun
+              (0.3 is hard coded).
 
-        If no MS_TO, assumes no MS_TMIN coming after it.
+        If no MS_TMIN, assumes no MS_TO coming after it.
         '''
         def use_xcen(track, val=0.3, error_mass=1.2,  ex_inds=None):
             '''
@@ -585,32 +600,47 @@ class DefineEeps(object):
             self.eep_info['MS_TMIN_XCEN'].append(track.mass)
             return ms_tmin
  
-        inds = track.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
-        if len(inds) == 0:
-            ms_tmin = 0
+        byhand_dict = self.eep_info['ms_tmin_byhand']
+        if len(byhand_dict[self.prefix]) != 0 and byhand_dict[self.prefix].has_key(track.mass):
+            print 'ms_tmin by hand. %.4f %.3f' % (track.Z, track.mass) 
+            ms_tmin = byhand_dict[self.prefix][track.mass]
         else:
-            tmin_ind = np.argmin(track.data.LOG_TE[inds])
-            ms_tmin = inds[tmin_ind]
+            inds = track.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
+            if len(inds) == 0:
+                ms_tmin = 0
+            else:
+                xdata = track.data.LOG_TE[inds]
+                tmin_ind = np.argmin(xdata)
+                ms_tmin = inds[tmin_ind]
 
-            if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
-                tmin_ind = np.argmin(np.abs(track.data.XCEN[inds] - 0.3))
-                dif = np.abs(track.data.XCEN[inds[tmin_ind]] - 0.3)
-            elif tmin_ind < 10:
-                tckp, u = splprep([np.arange(len(xdata[inds])), xdata[inds]], s=0, k=k, nest=-1)
-                xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
-                dxnew, dynew = splev(np.arange(0, 1, 1e-2), tckp, der=1)
-                ddxnew, ddynew = splev(np.arange(0, 1, 1e-2), tckp, der=2)
-                dydx = dynew / dxnew
-                aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
-                tmin_ind, dif = rsp.math_utils.closest_match(ynew[aind], xdata[inds])
+                if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
+                    # use XCEN == 0.3
+                    tmin_ind = np.argmin(np.abs(track.data.XCEN[inds] - 0.3))
+                    # not used... but a QC:
+                    dif = np.abs(track.data.XCEN[inds[tmin_ind]] - 0.3)
+                elif tmin_ind > 1e9:  # I don't think this is useful! 
+                    # find the arg min of teff between these points and get
+                    # something very close to MS_BEG probably means the MS_BEG
+                    # is at a lower Teff than Tmin.
+                    mode = np.arange(len(xdata))
+                    tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
+                    # if not using something like model number instead of log l,
+                    # the tmin will get hidden by data with t < tmin but different
+                    # log l, this is only a problem for very low Z.
+                    arb_arr = np.arange(0, 1, 1e-2)
+                    xnew, ynew = splev(arb_arr, tckp)
+                    # second derivative, bitches.
+                    ddxnew, ddynew = splev(arb_arr, tckp, der=2)
+                    # diff displaces the index by one. 
+                    aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
+                    tmin_ind, dif = math_utils.closest_match(ynew[aind], xdata)
 
-        ms_tmin = inds[tmin_ind]
+                ms_tmin = inds[tmin_ind]
         self.add_eep('MS_TMIN', ms_tmin)
 
         if ms_tmin == 0:
             ms_to = 0
         else:
-            if track.mass > 8.:
             pf_kw = {'max': True, 'sandro': False, 'more_than_one': 'max of max', 
                      'parametric_interp': False}
             ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
@@ -727,10 +757,7 @@ class DefineEeps(object):
                                  sandro=False, more_than_one='last',
                                  parametric_interp=False)
 
-        if max_l == -1:
-            if track.mass > 1.2:
-                logger.error('Using XCEN=0.0 for SG_MAXL: M=%.3f' %
-                               track.mass)
+        if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
             ex_inds, = np.nonzero(track.data.XCEN == 0.)
             inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL',
                                                   sandro=False)
