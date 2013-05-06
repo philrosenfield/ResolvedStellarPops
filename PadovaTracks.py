@@ -252,9 +252,10 @@ class DefineEeps(object):
                                           'S12D_NS_Z0.04_Y0.321': 1.15,
                                           'S12D_NS_Z0.05_Y0.339': 1.10,
                                           'S12D_NS_Z0.06_Y0.356': 1.10},
+
                         'ms_tmin_byhand': {'S12D_NS_Z0.0001_Y0.249': {},
-                                           'S12D_NS_Z0.0002_Y0.249':{},
-                                           'S12D_NS_Z0.0005_Y0.249':{},
+                                           'S12D_NS_Z0.0002_Y0.249': {},
+                                           'S12D_NS_Z0.0005_Y0.249': {},
                                            'S12D_NS_Z0.001_Y0.25': {},
                                            'S12D_NS_Z0.002_Y0.252': {},
                                            'S12D_NS_Z0.004_Y0.256': {},
@@ -280,22 +281,28 @@ class DefineEeps(object):
         stars
         3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT
         4 SG_MAXL*   Maximum in logL for high-mass or Xc=0.0 for low-mass stars
-        5 RG_BASE Minimum in logL for high-mass or Base of the RGB for low-mass
+        5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for low-mass
         stars
         6 RG_BMP1 The maximum luminosity during the RGB Bump
         7 RG_BMP2 The minimum luminosity during the RGB Bump
-        8 RG_TIP  Tip of the RGB
+        8 RG_TIP  Tip of the RGB defined in 3 ways:
+            1) if the last track model still has a YCEN val > 0.1
+                the TRGB is either the min te or the last model, which ever
+                comes first. (low masses)
+            2)  if there is no YCEN left in the core at the last track model,
+                TRGB is the min TE where YCEN > 1-Z-0.1.
+            3) If there is still XCEN in the core (very low mass), TRGB is the
+                final track model point.
 
-        Skipping BaSTi's (only 10 points):
-        x Start quiescent central He-burning phase
+        9 Start quiescent central He-burning phase
 
-        9 YCEN_0.55* Central abundance of He equal to 0.55
-        10 YCEN_0.50* Central abundance of He equal to 0.50
-        11 YCEN_0.40* Central abundance of He equal to 0.40
-        12 YCEN_0.20* Central abundance of He equal to 0.20
-        13 YCEN_0.10* Central abundance of He equal to 0.10
-        14 YCEN_0.00* Central abundance of He equal to 0.00
-        15 C_BUR Starting of the central C-burning phase
+        10 YCEN_0.550* Central abundance of He equal to 0.55
+        11 YCEN_0.500* Central abundance of He equal to 0.50
+        12 YCEN_0.400* Central abundance of He equal to 0.40
+        13 YCEN_0.200* Central abundance of He equal to 0.20
+        14 YCEN_0.100* Central abundance of He equal to 0.10
+        15 YCEN_0.000* Central abundance of He equal to 0.00
+        16 C_BUR Starting of the central C-burning phase
 
         Not yet implemented, no TPAGB tracks decided:
         x When the energy produced by the CNO cycle is larger than that
@@ -303,13 +310,10 @@ class DefineEeps(object):
         x The maximum luminosity before the first Thermal Pulse
         x The AGB termination
         '''
-        if hb is True:
-            logger.info('\n\n       HB Current Mass: %.3f' % track.hbmass)
-        else:
-            logger.info('\n\n          Current Mass: %.3f' % track.mass)
         ptcri = self.ptcri
 
         if hb is True:
+            logger.info('\n\n       HB Current Mass: %.3f' % track.hbmass)
             default_list = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
                             'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']
             eep_list = ptcri.please_define_hb
@@ -318,10 +322,11 @@ class DefineEeps(object):
                 'Can not define all HB EEPs. Please check lists'
 
             self.add_hb_beg(track)
-            self.hb_eeps(track)
+            self.add_cen_eeps(track, hb=hb)
             self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
+        logger.info('\n\n          Current Mass: %.3f' % track.mass)
         default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
                         'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
                         'YCEN_0.100', 'YCEN_0.000']
@@ -334,23 +339,38 @@ class DefineEeps(object):
         self.add_ms_eeps(track)
         # even though ms_tmin comes first, need to bracket with ms_to
 
+        nsandro_pts = len(np.nonzero(self.ptcri.sptcri != 0)[0])
+        # ahem, recall...
+        # low mass will at least go up to point_b.
+        # 'PMS_BEG': 0, 'PMS_MIN': 1, 'PMS_END': 2, 'NEAR_ZAM': 3, 'MS_BEG': 4,
+        # 'POINT_B': 5, 'POINT_C': 6, 'RG_BASE': 7, 'RG_BMP1': 8, 'RG_BMP2': 9,
+        # 'RG_TIP': 10, 'Loop_A': 11, 'Loop_B': 12, 'Loop_C': 13, 'C_BUR': 14,
         ims_to = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
                                                              sandro=False)]
 
-        if ims_to == 0:
+        if ims_to == 0 or nsandro_pts <= 5:
             # should now make sure all other eeps are 0.
             [self.add_eep(cp, 0) for cp in default_list[2:]]
         else:
             self.add_min_l_eep(track)
             self.add_max_l_eep(track)
             # RG_TIP is from Sandro
-            # do the YCEN values first, because HE_BEG uses first YCEN.
+            ihe_beg = 0
+            self.add_eep('HE_BEG', ihe_beg)  # initilizing
             self.add_cen_eeps(track)
-            self.add_quiesscent_he_eep(track, 'YCEN_0.550')
-            #self.add_cburn_eep()
+            ycen1 = self.ptcri.iptcri[self.ptcri.get_ptcri_name('YCEN_0.550',
+                                                                sandro=False)]
+            if ycen1 != 0:
+                self.add_quiesscent_he_eep(track, 'YCEN_0.550')
+                ihe_beg = self.ptcri.iptcri[self.ptcri.get_ptcri_name('HE_BEG',
+                                                                      sandro=False)]
+            if ihe_beg == 0 or nsandro_pts <= 10:
+                # should now make sure all other eeps are 0.
+                [self.add_eep(cp, 0) for cp in default_list[5:]]
 
-        assert not False in (np.diff(np.nonzero(self.ptcri.iptcri)[0]) >= 0), \
-            'EEPs are not monotonically increasing. M=%.3f' % track.mass
+        if False in (np.diff(self.ptcri.iptcri[np.nonzero(self.ptcri.iptcri > 0)]) > 0):
+            logger.error('EEPs are not monotonically increasing. M=%.3f' % track.mass)
+            print self.ptcri.iptcri
 
     def remove_dupes(self, x, y, z, just_two=False):
         '''
@@ -370,14 +390,6 @@ class DefineEeps(object):
 
         return non_dupes
 
-    def add_cburn_eep(self, track):
-        '''
-        Just takes Sandro's, will need to expand here for TPAGB...
-        '''
-        eep_name = 'C_BUR'
-        c_bur = self.ptcri.sandros_dict[eep_name]
-        self.add_eep(eep_name, c_bur)
-
     def add_quiesscent_he_eep(self, track, ycen1):
         '''
         He fusion starts after the RGB, but where? It was tempting to simply
@@ -391,11 +403,11 @@ class DefineEeps(object):
         star contracts, and then ramps up.
         '''
         inds = self.ptcri.inds_between_ptcris('RG_TIP', ycen1, sandro=False)
+        eep_name = 'HE_BEG'
 
         if len(inds) == 0:
-            print self.ptcri.iptcri
             print 'no start HEB!!!!', track.mass, track.Z
-            return
+            self.add_eep(eep_name, 0)
 
         min = np.argmin(track.data.LY[inds])
         # Sometimes there is a huge peak in LY before the min, find it...
@@ -410,51 +422,47 @@ class DefineEeps(object):
             amin = np.argmin(track.data.LY[inds[max+1:]])
             min = max + 1 + amin
         he_beg = inds[min]
-        print 'he beg', he_beg
-        eep_name = 'HE_BEG'
         self.add_eep(eep_name, he_beg)
 
-    def add_cen_eeps(self, track, xcen_eeps=False, xcen=False, cens=None,
-                     hb=False):
+    def add_cen_eeps(self, track, hb=False):
         '''
         Add YCEN_[fraction] eeps, if YCEN=fraction found to 0.01, will add 0 as
         the iptrcri. (0.01 is hard coded)
         list of YCEN_[fraction] can be supplied by cens= otherwise taken from
         self.ptcri.please_define
         '''
-        if xcen:
-            fcol = 'PMS_BEG'
-            col = 'XCEN'
-        else:
-            fcol = 'RG_BASE'
-            col = 'YCEN'
-
-        if xcen_eeps is False:
-            fcol = 'RG_BMP2'
 
         if hb is False:
-            inds = np.arange(self.ptcri.iptcri[self.ptcri.get_ptcri_name(fcol,
-                                               sandro=xcen_eeps)],
-                             len(track.data[col]))
+            irgbmp2 = self.ptcri.get_ptcri_name('RG_BMP2', sandro=False)
+            istart = self.ptcri.iptcri[irgbmp2]
+            please_define = self.ptcri.please_define
         else:
-            inds = np.arange(len(track.data[col]))
+            istart = 0
+            please_define = self.ptcri.please_define_hb
 
-        if cens is None:
-            # use undefined central values instead of given list.
-            cens = [i for i in self.ptcri.please_define if i.startswith(col)]
-            # e.g., YCEN_0.50
-            cens = [float(cen.split('_')[-1]) for cen in cens]
+        inds = np.arange(istart, len(track.data.YCEN))
+
+        # use undefined central values instead of given list.
+        cens = [i for i in self.ptcri.please_define if i.startswith('YCEN')]
+        # e.g., YCEN_0.50
+        cens = [float(cen.split('_')[-1]) for cen in cens]
 
         for cen in cens:
-            ind, dif = math_utils.closest_match(cen, track.data[col][inds])
-            icen = inds[0] + ind
+            ind, dif = math_utils.closest_match(cen, track.data.YCEN[inds])
+            icen = inds[ind]
             # some tolerance for a good match.
             if dif > 0.01:
                 icen = 0
-            self.add_eep('%s_%.3f' % (col, cen), icen, hb=hb)
+            self.add_eep('YCEN_%.3f' % cen, icen, hb=hb)
+            # for monotonic increase, even if there is another flare up in
+            # He burning.
+            new_start = self.ptcri.iptcri[self.ptcri.get_ptcri_name('YCEN_%.3f' % cen,
+                                                                    sandro=False)]
+            inds = np.arange(new_start, len(track.data.YCEN))
 
     def hb_eeps(self, track, cens=None):
         '''
+        for horizontal branch.
         '''
         self.add_hb_beg(track)
         if cens is None:
@@ -471,7 +479,7 @@ class DefineEeps(object):
         eep_name = 'HB_BEG'
         self.add_eep(eep_name, hb_beg, hb=True)
 
-    def add_agb_eeps(self, track, diag_plot=True, plot_dir=None):
+    def add_agb_eeps(self, track, diag_plot=False, plot_dir=None):
         '''
         This is for HB tracks... not sure if it will work for tpagb.
 
@@ -757,18 +765,45 @@ class DefineEeps(object):
                                  sandro=False, more_than_one='last',
                                  parametric_interp=False)
 
-        if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
-            ex_inds, = np.nonzero(track.data.XCEN == 0.)
-            inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL',
-                                                  sandro=False)
-            inds = list(set(ex_inds) & set(inds))
+        if track.mass < 1.2:
+            # so low mass, these are nearly linear, hard to find a peak, 
+            # futhermore, BASTi says XCEN=0, which is not a stable eep...
+            # here, use a proxy for the model number to interpolate and find
+            # the max L
+            inds =  self.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL',
+                sandro=False)
             if len(inds) == 0:
-                logger.error(
-                    'XCEN=0.0 happens after RG_MINL, RG_MINL is too early.')
                 max_l = 0
             else:
-                max_l = inds[0]
-                self.eep_info['SG_MAXL_XCEN'].append(track.mass)
+                xdata = track.data.LOG_L[inds]
+                mode = np.arange(len(xdata))
+                tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
+                arb_arr = np.arange(0, 1, 1e-2)
+                xnew, ynew = splev(arb_arr, tckp)
+                # linear fit
+                p = np.polyfit(xnew, ynew, 1)
+                # subtract linear fit, find peaks
+                peak_dict = math_utils.find_peaks(ynew - (p[0] * xnew + p[1]))
+                if len(peak_dict['maxima_locations']) == 0:
+                    max_l = 0
+                else:
+                    # it's the later peak.
+                    ymax = ynew[peak_dict['maxima_locations'][-1]]
+                    max_l = inds[math_utils.closest_match(ymax, xdata)[0]]
+                    '''
+                    OLD
+                    ex_inds, = np.nonzero(track.data.XCEN == 0.)
+                    inds = self.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL',
+                                                          sandro=False)
+                    inds = list(set(ex_inds) & set(inds))
+                    if len(inds) == 0:
+                        logger.error(
+                            'XCEN=0.0 happens after RG_MINL, RG_MINL is too early.')
+                        max_l = 0
+                    else:
+                        max_l = inds[0]
+                        self.eep_info['SG_MAXL_XCEN'].append(track.mass)
+                    '''
             msto = self.ptcri.iptcri[self.ptcri.get_ptcri_name('MS_TO',
                                                                sandro=False)]
             if max_l == msto:
@@ -1153,16 +1188,16 @@ class TrackDiag(object):
         if xdata is None:
             if cmd is True:
                 if len(convert_mag_kw) != 0:
-                    import ResolvedStellarPops as rsp
+                    import astronomy_utils
                     photsys = convert_mag_kw['photsys']
                     dmod = convert_mag_kw.get('dmod', 0.)
                     Av = convert_mag_kw.get('Av', 0.)
                     Mag1 = track.data[xcol]
                     Mag2 = track.data[ycol]
-                    mag1 = rsp.astronomy_utils.Mag2mag(Mag1, xcol, photsys,
-                                                       Av=Av, dmod=dmod)
-                    mag2 = rsp.astronomy_utils.Mag2mag(Mag2, ycol, photsys,
-                                                       Av=Av, dmod=dmod)
+                    mag1 = astronomy_utils.Mag2mag(Mag1, xcol, photsys,
+                                                   Av=Av, dmod=dmod)
+                    mag2 = astronomy_utils.Mag2mag(Mag2, ycol, photsys,
+                                                   Av=Av, dmod=dmod)
                     xdata = mag1 - mag2
                     ydata = mag2
                 else:
@@ -1613,7 +1648,7 @@ class TrackSet(object):
         I see a sharp break in the RGB bump and RGB tip sequences.
         Are those visible in the isochrones?
         '''
-        line_pltkw = {'color': 'black', 'alpha': 0.3}
+        line_pltkw = {'color': 'black', 'alpha': 0.1}
 
         if one_plot is True:
             for t in tracks:
@@ -1627,15 +1662,12 @@ class TrackSet(object):
 
         if hb is False:
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
-
                      ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
                       'RG_BMP1', 'RG_BMP2', 'RG_TIP'],
-
-                     ['RG_TIP', 'HE_BEG', 'YCEN_0.550', 'YCEN_0.500',
-                      'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.000',
-                      'C_BUR']]
-
-            fig_extra = ['pms', 'ms', 'rg']
+                     ['RG_TIP', 'HE_BEG', 'YCEN_0.550', 'YCEN_0.500'],
+                     ['YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                      'YCEN_0.100', 'YCEN_0.000', 'C_BUR']]
+            fig_extra = ['pms', 'ms', 'rg', 'ycen']
         else:
             plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
                      'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']]
@@ -1643,15 +1675,16 @@ class TrackSet(object):
             ptcri_kw['sandro'] = False
             fig_extra = ['hb']
 
+        assert len(fig_extra) == len(plots), 'need correct plot name extensions.'
 
         xlims = np.array([])
         ylims = np.array([])
         for j in range(len(plots)):
             fig, ax = plt.subplots()
             if annotate is True:
-                point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
+                point_pltkw = {'marker': '.', 'ls': '', 'alpha': 0.5}
                 cols = rspg.discrete_colors(len(plots[j]), colormap='spectral')
-                labs = [p.replace('_', '\_') for p in plots[j]]
+                labs = ['$%s$' % p.replace('_', '\_') for p in plots[j]]
 
             didit = 0
             xlimi = np.array([])
@@ -1668,9 +1701,16 @@ class TrackSet(object):
                 if np.sum(inds) == 0:
                     continue
 
-                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
+                some_inds = np.arange(inds[0], inds[-1])
+
+                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
                                      plt_kw=line_pltkw, cmd=cmd,
                                      convert_mag_kw=convert_mag_kw)
+
+                #line_pltkw['alpha'] = 1.
+                #ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
+                #                     plt_kw=line_pltkw, cmd=cmd,
+                #                     convert_mag_kw=convert_mag_kw)
 
                 xlims = np.append(xlims, np.array(ax.get_xlim()))
                 ylims = np.append(ylims, np.array(ax.get_ylim()))
@@ -1689,7 +1729,9 @@ class TrackSet(object):
                         ylimi = np.append(ylimi, (np.min(y), np.max(y)))
                         pl, = ax.plot(x, y, color=cols[i], **point_pltkw)
                         pls.append(pl)
-
+                    ax.text(xdata[inds[0]], ydata[inds[0]], '%.3f' % t.mass,
+                            fontsize=8, ha='right')
+                    # only save the legend if all the points are made
                     if len(inds) == len(plots[j]):
                         didit += 1
                         if didit == 1:
@@ -1923,7 +1965,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         new_eep_dict = {}
         tot_pts = 0
         ptcri_kw = {'sandro': False, 'hb': hb}
-        for i in range(len(np.nonzero(track.ptcri.iptcri > 0)[0]) - 1):
+        for i in range(len(np.nonzero(track.ptcri.iptcri >= 0)[0]) - 1):
             this_eep = track.ptcri.get_ptcri_name(i, **ptcri_kw)
             next_eep = track.ptcri.get_ptcri_name(i+1, **ptcri_kw)
             ithis_eep = track.ptcri.iptcri[i]
@@ -1934,9 +1976,10 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             if i != 0 and self.ptcri.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
-                logger.error(mess)
-                logger.error('skipping %s-%s\ncause the second eep is zippo.'
-                               % (this_eep, next_eep))
+                # this is not an error, just the end of the track.
+                #logger.error(mess)
+                #logger.error('skipping %s-%s\ncause the second eep is zippo.'
+                #               % (this_eep, next_eep))
                 continue
 
             inds = np.arange(ithis_eep, inext_eep)
@@ -2037,21 +2080,6 @@ class ExamineTracks(TrackSet, DefineEeps, TrackDiag):
         ax.set_xlabel('$%s$' % xcol.replace('_', '\ '))
         ax.set_ylabel('$%s$' % ycol.replace('_', '\ '))
         return ax
-    
-
-def all_sets_eep_plots(eep, input_dict={}):
-    tracks_dir = input_dict['tracks_dir']
-    prefixs = [d for d in os.listdir(tracks_dir)
-               if os.path.isdir(os.path.join(tracks_dir, d))]
-    axs = []
-    for prefix in prefixs:
-        input_dict['prefix'] = prefix
-        print prefix
-        et = ExamineTracks(trackset_kw = input_dict)
-        ax = et.eep_on_plots(eep, 'LOG_TE', 'LOG_L')
-        ax.set_title('$%s$' % prefix.replace('_', '\ '))
-        axs.append(ax)
-    return axs
 
 
 def do_entire_set(input_dict={}):
@@ -2067,6 +2095,7 @@ def do_entire_set(input_dict={}):
 
     for prefix in prefixs:
         logger.info('\n\n Current mix: %s \n\n' % prefix)
+        print '\n\n Current mix: %s \n\n' % prefix
         this_dict = set_outdirs(input_dict, prefix)
         tm = TracksForMatch(**this_dict)
         tm.save_ptcri()
@@ -2102,6 +2131,8 @@ def default_params(input_dict):
                                      'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
                                      'AGB_LY1', 'AGB_LY2']
         eep_lengths_hb = [129, 50, 120, 70, 80, 150, 250]
+    else:
+        input_dict['hb'] = False
 
     return input_dict
 

@@ -74,6 +74,44 @@ def load_ets(prefixs, sandro=False, hb=False):
 def add_eep_inds(ets, *eeps, **ptcri_inds_kw):
     [[et.ptcri_inds(eep, **ptcri_inds_kw) for eep in eeps] for et in ets]
 
+def test_ycen(et):
+    import ResolvedStellarPops.graphics.GraphicsUtils as rspg
+    eeps = ['YCEN_0.000', 'YCEN_0.100', 'YCEN_0.200', 'YCEN_0.400',
+            'YCEN_0.500', 'YCEN_0.550']
+    cols = rspg.discrete_colors(len(eeps))
+    ptcri_inds_kw = {'hb': False, 'sandro': False}
+    add_eep_inds([et], *eeps, **ptcri_inds_kw)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    for i, track in enumerate(et.tracks):
+        if track.mass == 0.5 or track.mass == 0.55:
+            continue
+        tinds =  track.ptcri.inds_between_ptcris('YCEN_0.550', 'YCEN_0.000',
+                                                 sandro=False)
+        inds = np.array([et.__getattribute__(s) for s in et.__dict__.keys() if s.startswith('ycen')]).T
+        if np.sum(inds) == 0:
+            continue
+        #ax.plot(track.data.LOG_TE, track.data.LOG_L, color='black', alpha=0.1)
+        ax.plot(track.data.LOG_TE[tinds], track.data.LOG_L[tinds], color='red')
+        [ax.plot(track.data.LOG_TE[inds[i][j]], track.data.LOG_L[inds[i][j]], 'o', color=cols[j]) for j in range(len(eeps))]
+        ax.text(track.data.LOG_TE[inds[i][0]], track.data.LOG_L[inds[i][0]], '%.3g' % track.mass)
+    ax.set_title('Z=%.4f' % track.Z)
+
+
+def all_sets_eep_plots(eep, input_dict={}):
+    tracks_dir = input_dict['tracks_dir']
+    prefixs = [d for d in os.listdir(tracks_dir)
+               if os.path.isdir(os.path.join(tracks_dir, d))]
+    axs = []
+    for prefix in prefixs:
+        input_dict['prefix'] = prefix
+        print prefix
+        et = ExamineTracks(trackset_kw = input_dict)
+        ax = et.eep_on_plots(eep, 'LOG_TE', 'LOG_L')
+        ax.set_title('$%s$' % prefix.replace('_', '\ '))
+        axs.append(ax)
+    return axs
+
+
 def test_rgminl(ets, Zsubset=None):
     for et in ets:
         if Zsubset is not None:
@@ -86,16 +124,58 @@ def test_rgminl(ets, Zsubset=None):
 
         fig, ax = plt.subplots(figsize=(8, 8))
         for i, track in enumerate(et.tracks):
-            if track.mass == 0.5 or track.mass == 0.55:
-                continue
-            tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_TIP', sandro=False)
+            tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL', sandro=False)
             ax.plot(track.data.LOG_TE, track.data.LOG_L, color='black', alpha=0.2)
             ax.plot(track.data.LOG_TE[tinds], track.data.LOG_L[tinds], color='red')
             ax.plot(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], 'o', color='black')
             ax.plot(track.data.LOG_TE[rinds[i]], track.data.LOG_L[rinds[i]], 'o', color='blue')
             ax.text(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], '%.3g' % track.mass)
+            if track.mass < 0.5 or track.mass >= 1.2:
+                continue
+            ax.plot(track.data.LOG_TE[eep_inds[i]], track.data.LOG_L[eep_inds[i]], '*', ms=8, color='green')
         ax.set_title('Z=%.4f' % track.Z)
 
+        
+        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(8, 8))
+        for ax, col in zip((ax1, ax2), ('XCEN', 'LOG_L')):
+            eep_inds = []
+            for i, track in enumerate(et.tracks):
+                if track.mass < 0.5 or track.mass >= 1.2:
+                    eep_inds.append(0)
+                    continue
+                ydata = track.data[col]
+                xdata = track.data.LOG_TE
+                xdata = track.data.MODE
+                tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL', sandro=False)
+                ax.plot(xdata, ydata, color='black', alpha=0.2)
+                ax.plot(xdata[tinds], ydata[tinds])
+                ax.plot(xdata[inds[i]], ydata[inds[i]], 'o', color='black')
+                ax.plot(xdata[rinds[i]], ydata[rinds[i]], 'o', color='blue')
+                ax.text(xdata[inds[i]], ydata[inds[i]], '%.3g' % track.mass)
+                xtdata = track.data.LOG_L[tinds]
+                mode = np.arange(len(xtdata))
+                tckp, u = splprep([mode, xtdata], s=0, k=3, nest=-1)
+                arb_arr = np.arange(0, 1, 1e-2)
+                xnew, ynew = splev(arb_arr, tckp)
+                p = np.polyfit(xnew, ynew, 1)
+                peak_dict = rsp.math_utils.find_peaks(ynew-(p[0]*xnew+p[1]))
+                sxnew = xnew*tinds[-1]/float(tinds[0]) + tinds[0]
+                print ynew[peak_dict['maxima_locations']]
+                ax.plot(sxnew[peak_dict['maxima_locations'][-1]], ynew[peak_dict['maxima_locations'][-1]], 'o', color='purple')
+                ymax = ynew[peak_dict['maxima_locations'][-1]]
+                ind = tinds[rsp.math_utils.closest_match(ymax, xtdata)[0]]
+                eep_inds.append(ind)
+                ax.plot(xdata[ind], ydata[ind], 'o', ms=10, color='green', zorder=1)
+                #peak_dict = rsp.math_utils.find_peaks(ynew)
+                #if len(peak_dict['maxima_locations']) == 0:
+                #    print track.mass
+                #    continue
+                #ind = tinds[peak_dict['maxima_locations']]
+                #ax.plot(xdata[ind], ydata[ind], '*', color='red')    
+            ax.set_title('Z=%.4f' % track.Z)
+
+
+    
 def test_maxl(ets, Zsubset=None, col1='LOG_TE', col2='LOG_L'):
     # not tested.
     eeps = ['MS_TO', 'RG_MINL']
