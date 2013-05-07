@@ -269,7 +269,26 @@ class DefineEeps(object):
                                            'S12D_NS_Z0.04_Y0.321': {1.1: 1570, 1.15: 1458},
                                            'S12D_NS_Z0.05_Y0.339': {},
                                            'S12D_NS_Z0.06_Y0.356': {1.05: 1436}}}
-    
+
+    def validate_eeps(self, hb=False):
+        '''
+        If there isn't an eep that I've made a function for, this should die.
+        The order also can be important. This messes up the whole idea of
+        being able to set the ycen values from an input file...
+        '''
+        if hb is True:
+            default_list = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                            'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']
+            eep_list = self.ptcri.please_define_hb
+        else:
+            default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
+                            'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
+                            'YCEN_0.100', 'YCEN_0.000']
+            eep_list = self.ptcri.please_define
+
+        assert default_list == eep_list, \
+            'Can not define all EEPs. Please check lists'
+
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True):
         '''
@@ -310,34 +329,18 @@ class DefineEeps(object):
         x The maximum luminosity before the first Thermal Pulse
         x The AGB termination
         '''
-        ptcri = self.ptcri
+        self.validate_eeps(hb=hb)
 
         if hb is True:
             logger.info('\n\n       HB Current Mass: %.3f' % track.hbmass)
-            default_list = ['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
-                            'YCEN_0.100', 'YCEN_0.005', 'AGB_LY1', 'AGB_LY2']
-            eep_list = ptcri.please_define_hb
-
-            assert default_list == eep_list, \
-                'Can not define all HB EEPs. Please check lists'
-
             self.add_hb_beg(track)
             self.add_cen_eeps(track, hb=hb)
             self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
         logger.info('\n\n          Current Mass: %.3f' % track.mass)
-        default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
-                        'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
-                        'YCEN_0.100', 'YCEN_0.000']
-
-        eep_list = ptcri.please_define
-
-        assert default_list == eep_list, \
-            'Can not define all EEPs. Please check lists'
 
         self.add_ms_eeps(track)
-        # even though ms_tmin comes first, need to bracket with ms_to
 
         nsandro_pts = len(np.nonzero(self.ptcri.sptcri != 0)[0])
         # ahem, recall...
@@ -350,7 +353,7 @@ class DefineEeps(object):
 
         if ims_to == 0 or nsandro_pts <= 5:
             # should now make sure all other eeps are 0.
-            [self.add_eep(cp, 0) for cp in default_list[2:]]
+            [self.add_eep(cp, 0) for cp in self.ptcri.please_define[2:]]
         else:
             self.add_min_l_eep(track)
             self.add_max_l_eep(track)
@@ -366,7 +369,7 @@ class DefineEeps(object):
                                                                       sandro=False)]
             if ihe_beg == 0 or nsandro_pts <= 10:
                 # should now make sure all other eeps are 0.
-                [self.add_eep(cp, 0) for cp in default_list[5:]]
+                [self.add_eep(cp, 0) for cp in self.ptcri.please_define[5:]]
 
         if False in (np.diff(self.ptcri.iptcri[np.nonzero(self.ptcri.iptcri > 0)]) > 0):
             logger.error('EEPs are not monotonically increasing. M=%.3f' % track.mass)
@@ -443,7 +446,7 @@ class DefineEeps(object):
         inds = np.arange(istart, len(track.data.YCEN))
 
         # use undefined central values instead of given list.
-        cens = [i for i in self.ptcri.please_define if i.startswith('YCEN')]
+        cens = [i for i in please_define if i.startswith('YCEN')]
         # e.g., YCEN_0.50
         cens = [float(cen.split('_')[-1]) for cen in cens]
 
@@ -455,20 +458,10 @@ class DefineEeps(object):
                 icen = 0
             self.add_eep('YCEN_%.3f' % cen, icen, hb=hb)
             # for monotonic increase, even if there is another flare up in
-            # He burning.
-            new_start = self.ptcri.iptcri[self.ptcri.get_ptcri_name('YCEN_%.3f' % cen,
-                                                                    sandro=False)]
-            inds = np.arange(new_start, len(track.data.YCEN))
+            # He burning, this limits the matching indices to begin at this
+            # new eep index.
+            inds = np.arange(icen, len(track.data.YCEN))
 
-    def hb_eeps(self, track, cens=None):
-        '''
-        for horizontal branch.
-        '''
-        self.add_hb_beg(track)
-        if cens is None:
-            cens = [0.5, 0.4, 0.2, 0.1, 0.005]
-
-        self.add_cen_eeps(track, cens=cens, hb=True)
 
     def add_hb_beg(self, track):
         # this is just the first line of the track with age > 0.2 yr.
@@ -873,7 +866,6 @@ class DefineEeps(object):
         finds some peaks! Usually interpolates and calls a basic diff finder,
         though some higher order derivs of the interpolation are sometimes used.
         '''
-        
         # slice the array
         inds = self.ptcri.inds_between_ptcris(eep1, eep2, sandro=sandro)
         # burn in

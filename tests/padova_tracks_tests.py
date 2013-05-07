@@ -1,4 +1,5 @@
 import ResolvedStellarPops.PadovaTracks as pc
+global prefixs
 prefixs = ['S12D_NS_Z0.0001_Y0.249',
           'S12D_NS_Z0.0002_Y0.249',
           'S12D_NS_Z0.0005_Y0.249',
@@ -53,10 +54,94 @@ ms_tmin_byhand = {'S12D_NS_Z0.0001_Y0.249': {},
                 'S12D_NS_Z0.06_Y0.356':     {1.05: 1436}}
 
 
+class ExamineTracks(pc.TrackSet, pc.DefineEeps, pc.TrackDiag):
+    def __init__(self, trackset_kw={}, masses=None):
+        trackset_kw.update({'masses': masses})
+        pc.TrackSet.__init__(self, **trackset_kw)
+        pc.DefineEeps.__init__(self)
+
+    def select_track(self, mass, hb=False):
+        return self.tracks[list(self.masses).index(mass)]
+
+    def ptcri_inds(self, eep, hb=False, sandro=False):
+        '''
+        makes a new attribute 'eep'_inds which is a list of the data index 
+        for a critical point at each mass.
+        example, 
+        '''
+        assert self.ptcri is not None, 'must have critical points loaded'
+        
+        eep_inds = []
+        for track in self.tracks:
+            if not hasattr(track.ptcri, 'iptcri'):
+                self.load_critical_points(track, eep_obj=self.eep, ptcri=self.ptcri)
+            pind = track.ptcri.get_ptcri_name(eep, hb=hb, sandro=sandro)
+            eep_inds.append(track.ptcri.iptcri[pind])
+        
+        self.__setattr__('%s_inds' % eep.lower().replace('.', '_'), eep_inds)
+
+    def eep_on_plots(self, eep, xcol, ycol, hb=False, sandro=False, ax=None,
+                     write_mass=False):
+        if not hasattr(self, '%s_inds' % eep.lower()):
+            self.ptcri_inds(eep, hb=hb, sandro=sandro)
+
+        inds = self.__getattribute__('%s_inds' % eep.lower())
+        
+        if ax is None:
+            fig, ax = plt.subplots()
+            if xcol == 'LOG_TE':
+                ax.set_xlim(ax.get_xlim()[::-1])
+
+        ax = self.plot_all_tracks(self.tracks, xcol, ycol, annotate=False,
+                                  ax=ax, sandro=sandro, hb=hb, plot_dir=None,
+                                  one_plot=True)
+
+        for i, track in enumerate(self.tracks):
+            if inds[i] == 0:
+                # track is too short (probably too low mass) to have this eep.
+                print 'no eep for M=%.3f' % track.mass
+                continue
+            xdata = track.data[xcol]
+            ydata = track.data[ycol]
+            ax.plot(xdata[inds[i]], ydata[inds[i]], 'o')
+            if write_mass is True:
+                ax.text(xdata[inds[i]], ydata[inds[i]], '%.3f' % track.mass)
+        
+
+        ax.set_xlabel('$%s$' % xcol.replace('_', '\ '))
+        ax.set_ylabel('$%s$' % ycol.replace('_', '\ '))
+        return ax
 
 
 
-def load_ets(prefixs, sandro=False, hb=False):
+def check_basti():
+    track_base = '/Users/phil/research/parsec2match/stellarmodels/msz83sss_eta02_wfc3ir'
+    track_names = os.listdir(track_base)
+    #names = 'lage        M    logL  logTe     F218W   F225W   F275W   F336W   F390W   F438W   F475W   F555W   F606W   F625W   F775W   F814W'.split()
+    names = 'lage        M    logL  logTe     F098M   F105W   F110W   F125W   F126N   F127M   F128N   F130N   F132N   F139M   F140W   F153M   F160W   F164N   F167N'.split()
+    tracks = [np.genfromtxt(os.path.join(track_base, t), names=names) for t in track_names]
+    for t in tracks:
+        fig, ax = plt.subplots()
+        if len(t['logTe']) <= 1200:
+            continue
+        ax.plot(t['logTe'], t['logL'])
+        ax.plot(t['logTe'][1200], t['logL'][1200], 'o')
+
+        ax.set_xlim(ax.get_xlim()[::-1])
+
+
+def clean_output_files():
+    '''
+    kills the match output files, careful with this sort of thing.
+    '''
+    tracks_dir = '/Users/phil/research/parsec2match/S12_set/CAF09_S12D_NS/'
+    mix_dirs = [os.path.join(tracks_dir, l) for l in os.listdir(tracks_dir) if os.path.isdir(os.path.join(tracks_dir, l))]
+    for mix in mix_dirs:
+        tokills = [os.path.join(mix, 'match', l) for l in os.listdir(os.path.join(mix, 'match'))]
+        _ = [os.remove(tokill) for tokill in tokills]
+
+
+def load_ets(prefixs, sandro=False, hb=False, masses=None):
     ets = []
     for prefix in prefixs:
         print prefix
@@ -66,10 +151,17 @@ def load_ets(prefixs, sandro=False, hb=False):
                     'hb': hb}
 
         trackset_kw = pc.default_params(basic_kw)
-        et = pc.ExamineTracks(trackset_kw=trackset_kw)
+        et = ExamineTracks(trackset_kw=trackset_kw)
         [et.load_critical_points(track, ptcri=et.ptcri) for track in et.tracks]
         ets.append(et)
     return ets
+
+
+def load_small_ets():
+    masses = [0.500, 0.550, 0.600, 0.650, 0.700, 0.750, 0.800, 0.850, 0.900, 0.950, 1.000, 1.050, 1.100, 1.150, 1.200, 1.250]
+    ets = load_ets(prefixs, sandro=False, hb=False, masses=masses)
+    return ets
+
 
 def add_eep_inds(ets, *eeps, **ptcri_inds_kw):
     [[et.ptcri_inds(eep, **ptcri_inds_kw) for eep in eeps] for et in ets]
@@ -393,7 +485,7 @@ def test_heb(ets, col1='AGE', norm=True, Zsubset=None):
     can call this twice, col1 is AGE norm True, col1 is LOG_TE, norm False
     '''
     if not hasattr(ets[0], 'et.rg_tip_inds'):
-        add_eep_inds(ets, ['RG_TIP', 'YCEN_0.550'], **{'hb': False, 'sandro': False}):
+        add_eep_inds(ets, ['RG_TIP', 'YCEN_0.550'], **{'hb': False, 'sandro': False})
     for et in ets:
         if Zsubset is not None:
             if et.tracks[0].Z not in Zsubset:

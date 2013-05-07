@@ -166,14 +166,21 @@ def find_mag_num(file_mag, filter1):
         print '%s not found in %s.' (filter1, file_mag)
 
 
-def galaxy_input_dict():
+def galaxy_input_dict(photsys=None, filter1=None, object_mass=None, object_sfr_file=None):
+    file_mag = 'tab_mag_odfnew/tab_mag_%s.dat' % photsys
     return {'coord_kind': 1,
             'coord1': 0.0,
             'coord2': 0.0,
             'field_area': 1.0,
-            'file_mag': 'tab_mag_odfnew/tab_mag_wfpc2.dat',
-            'mag_num': 16,
-            'mag_limit_val': 5,
+            'kind_mag': 3,
+            'file_mag': file_mag,
+            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys, 
+            'kind_dustM': 1,
+            'file_dustM': 'tab_dust/tab_dust_dpmod60alox40_%s.dat' % photsys,
+            'kind_dustC': 1,
+            'file_dustC': 'tab_dust/tab_dust_AMCSIC15_%s.dat' % photsys,
+            'mag_num': find_mag_num(file_mag, filter1),
+            'mag_limit_val': 20,
             'mag_resolution': 0.1,
             'r_sun': 8500.0,
             'z_sun': 24.2,
@@ -227,22 +234,24 @@ def galaxy_input_dict():
             'bulge_sfr_mult_factorA': 1.0,
             'bulge_sfr_mult_factorB': 0.0,
             'object_kind': 1,
-            'object_mass': None,
+            'object_mass': object_mass,
             'object_dist': 10.,
             'object_avkind': 1,
             'object_av': 0.0,
             'object_cutoffmass': 0.8,
-            'object_sfr_file': None,
+            'object_sfr_file': object_sfr_file,
             'object_sfr_mult_factorA': 1.0,
             'object_sfr_mult_factorB': 0.0,
             'output_file_type': 1}
-
 
 def galaxy_input_fmt():
     fmt = \
         """%(coord_kind)i %(coord1).1f %(coord2).1f %(field_area).1f # 1: galactic l, b (deg), field_area (deg2) # 2: ra dec in ore ( gradi 0..24)
 
-%(file_mag)s  # kind_mag, file_mag
+%(kind_mag)i %(file_mag)s # kind_mag, file_mag
+%(file_bcspec)s
+%(kind_dustM)i %(file_dustM)s # kind_dustM, file_dustM
+%(kind_dustC)i %(file_dustC)s # kind_dustC, file_dustC
 %(mag_num)i %(mag_limit_val)i %(mag_resolution).1f # Magnitude: num, limiting value, resolution
 
 %(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)
@@ -458,7 +467,7 @@ def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
     return
 
 
-def run_trilegal(cmd_input, galaxy_input, output):
+def run_trilegal(cmd_input, galaxy_input, output, loud=False):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
     changes directory to trilegal root, if that's not in a .cshrc need to
@@ -477,6 +486,9 @@ def run_trilegal(cmd_input, galaxy_input, output):
     logger.debug(cmd)
     t = os.system(cmd)
     logger.info('done.')
+
+    if loud is True:
+        print '\n'.join([l.strip() for l in open('trilegal.msg').readlines()])
 
     if t != 0:
         logger.debug('\n'.join([l.strip()
