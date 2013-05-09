@@ -1,4 +1,6 @@
 import ResolvedStellarPops.PadovaTracks as pc
+import matplotlib.pyplot as plt
+
 global prefixs
 prefixs = ['S12D_NS_Z0.0001_Y0.249',
           'S12D_NS_Z0.0002_Y0.249',
@@ -82,15 +84,13 @@ class ExamineTracks(pc.TrackSet, pc.DefineEeps, pc.TrackDiag):
 
     def eep_on_plots(self, eep, xcol, ycol, hb=False, sandro=False, ax=None,
                      write_mass=False):
-        if not hasattr(self, '%s_inds' % eep.lower()):
-            self.ptcri_inds(eep, hb=hb, sandro=sandro)
-
+        try_ax_adjust = False
+        self.ptcri_inds(eep, hb=hb, sandro=sandro)
         inds = self.__getattribute__('%s_inds' % eep.lower())
-        
+
         if ax is None:
             fig, ax = plt.subplots()
-            if xcol == 'LOG_TE':
-                ax.set_xlim(ax.get_xlim()[::-1])
+            try_ax_adjust = True
 
         ax = self.plot_all_tracks(self.tracks, xcol, ycol, annotate=False,
                                   ax=ax, sandro=sandro, hb=hb, plot_dir=None,
@@ -103,13 +103,20 @@ class ExamineTracks(pc.TrackSet, pc.DefineEeps, pc.TrackDiag):
                 continue
             xdata = track.data[xcol]
             ydata = track.data[ycol]
-            ax.plot(xdata[inds[i]], ydata[inds[i]], 'o')
+            if color is not None:
+                ax.plot(xdata[inds[i]], ydata[inds[i]], 'o', color=color)
+            else:
+                ax.plot(xdata[inds[i]], ydata[inds[i]], 'o')
+
             if write_mass is True:
                 ax.text(xdata[inds[i]], ydata[inds[i]], '%.3f' % track.mass)
         
 
         ax.set_xlabel('$%s$' % xcol.replace('_', '\ '))
         ax.set_ylabel('$%s$' % ycol.replace('_', '\ '))
+
+        if xcol == 'LOG_TE' and try_ax_adjust is True:
+            ax.set_xlim(ax.get_xlim()[::-1])
         return ax
 
 
@@ -148,7 +155,8 @@ def load_ets(prefixs, sandro=False, hb=False, masses=None):
         basic_kw = {'tracks_dir': '/Users/phil/research/parsec2match/S12_set/CAF09_S12D_NS/',
                     'ptcrifile_loc': '/Users/phil/research/parsec2match/S12_set/iso_s12/data/',
                     'prefix': prefix,
-                    'hb': hb}
+                    'hb': hb,
+                    'masses': masses}
 
         trackset_kw = pc.default_params(basic_kw)
         et = ExamineTracks(trackset_kw=trackset_kw)
@@ -158,11 +166,123 @@ def load_ets(prefixs, sandro=False, hb=False, masses=None):
 
 
 def load_small_ets():
-    masses = [0.500, 0.550, 0.600, 0.650, 0.700, 0.750, 0.800, 0.850, 0.900, 0.950, 1.000, 1.050, 1.100, 1.150, 1.200, 1.250]
+    masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60]
     ets = load_ets(prefixs, sandro=False, hb=False, masses=masses)
     return ets
+ 
 
+ 
+def low_mass_debug(test_sg_maxl=False):
+    ets = load_small_ets()
+    eeps = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL']
+    ptcri_inds_kw = {'sandro': False, 'hb': False}
+    pct.add_eep_inds(ets, *eeps, **ptcri_inds_kw)
+    masses = [0.500, 0.550, 0.600, 0.650, 0.700, 0.750, 0.800, 0.850, 0.900,
+              0.950, 1.000, 1.050, 1.100, 1.150, 1.200, 1.250]
+    #masses = [.70, .75, .80, .85, .95, 1.00, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60]
+    masses =  np.unique(np.concatenate([et.masses for et in ets]))
+    #masses = masses[masses <= 1.15]
+    for mass in masses:
+        tracks = []
+        for ett in ets:
+            try:
+                tracks.append(ett.select_track(mass))
+            except ValueError:
+                pass
 
+        eep1 = 'MS_BEG'
+        eep2 = 'RG_BMP1'
+        
+        fig, ax = plt.subplots()
+        for t in et.tracks:
+            eind1 = t.ptcri.key_dict[eep1]
+            eind2 = t.ptcri.key_dict[eep2]
+            inds = t.ptcri.inds_between_ptcris(eep1, eep2, sandro=False)
+            et.plot_track(t, 'LOG_TE', 'LOG_L', inds=inds, ax=ax)
+            pts = t.ptcri.iptcri[eind1: eind2]
+            cols = rspg.discrete_colors(len(pts))
+            [ax.plot(t.data.LOG_TE[pts[i]], t.data.LOG_L[pts[i]], 'o', c=cols[i])
+                for i in range(len(pts))]
+            ax.text(t.data.LOG_TE[pts[-1]], t.data.LOG_L[pts[-1]], '%.4f' % t.mass)
+            ax.set_title('%.4f' % t.Z)
+            #if test_ms_tmin is True:
+            byhand_dict = et.eep_info['ms_tmin_byhand']
+            if len(byhand_dict[et.prefix]) != 0 and byhand_dict[self.prefix].has_key(t.mass):
+                print 'ms_tmin by hand. %.4f %.3f' % (t.Z, t.mass) 
+                ms_tmin = byhand_dict[self.prefix][t.mass]
+            else:
+                inds = t.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
+                if len(inds) == 0:
+                    ms_tmin = 0
+                else:
+                    xdata = t.data.LOG_TE[inds]
+                    tmin_ind = np.argmin(xdata)
+                    ms_tmin = inds[tmin_ind]
+                    col = 'red'
+                    if t.mass < et.eep_info['ms_tmin_xcen'][et.prefix]:
+                        # use XCEN == 0.3
+                        tmin_ind = np.argmin(np.abs(t.data.XCEN[inds] - 0.3))
+                        # not used... but a QC:
+                        dif = np.abs(t.data.XCEN[inds[tmin_ind]] - 0.3)
+                        col = 'blue'
+                    elif np.abs(np.diff((t.data.LOG_L[ms_tmin], t.data.LOG_L[inds[0]]))) < .1:
+                        print np.abs(np.diff((t.data.LOG_L[ms_tmin], t.data.LOG_L[inds[0]])))
+                        # find the arg min of teff between these points and get
+                        # something very close to MS_BEG probably means the MS_BEG
+                        # is at a lower Teff than Tmin.
+                        mode = inds
+                        tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
+                        # if not using something like model number instead of log l,
+                        # the tmin will get hidden by data with t < tmin but different
+                        # log l, this is only a problem for very low Z.
+                        arb_arr = np.arange(0, 1, 1e-2)
+                        xnew, ynew = splev(arb_arr, tckp)
+                        # second derivative, bitches.
+                        ddxnew, ddynew = splev(arb_arr, tckp, der=2)
+                        ddyddx = ddynew/ddxnew
+                        fig1, (ax1, ax2) = plt.subplots(nrows=2)
+                        ax1.plot(xnew, ynew)
+                        ax1.plot(xnew, ynew, ',')
+                        ax2.plot(xnew, ddyddx)
+                        ax2.plot(xnew, ddyddx, ',')
+                        # diff displaces the index by one. 
+                        aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
+                        # not just argmin, but must be actual min...
+                        aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
+                        ax1.plot(xnew[aind], ynew[aind], 'o')
+                        ax2.plot(xnew[aind], ddyddx[aind], 'o')
+                        ax1.set_title('%.4f %.3f' % (t.Z, t.mass))
+                        #tmin_ind, dif = rsp.math_utils.closest_match(ynew[aind], xdata)
+                        tmin_ind, dif = rsp.math_utils.closest_match2d(aind, mode, xdata, xnew, ynew)
+                        col = 'black'
+            ms_tmin = inds[tmin_ind]
+            ax.plot(t.data.LOG_TE[ms_tmin], t.data.LOG_L[ms_tmin], 'o', color=col)
+
+            if test_sg_maxl is True:
+                inds = t.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL', sandro=False)
+                ydata = t.data.LOG_L[inds]
+                xdata = t.data.LOG_TE[inds]
+                tckp, u = splprep([xdata, ydata], s=0, k=3, nest=-1)
+                arb_arr = np.arange(0, 1, 1e-2)
+                xnew, ynew = splev(arb_arr, tckp)
+                # linear fit
+                p = np.polyfit(xnew, ynew, 1)
+                # subtract linear fit, find peaks
+                peak_dict = rsp.math_utils.find_peaks(ynew - (p[0] * xnew + p[1]))
+                ax.plot(xnew[peak_dict['maxima_locations'][0]], ynew[peak_dict['maxima_locations'][0]], 'o', ms=10, color='red')
+                if len(peak_dict['maxima_locations']) == 0:
+                    print 'still a problem with max_l %.3f' % t.mass
+                # it's the later peak.
+                print len(peak_dict['maxima_locations']), t.mass, t.Z
+                ymax = ynew[peak_dict['maxima_locations'][0]]
+                #max_l = inds[rsp.math_utils.closest_match(ymax, xdata)[0]]
+                max_l = inds[rsp.math_utils.closest_match2d(peak_dict['maxima_locations'][0], 
+                                                            xdata, ydata, xnew, ynew)[0]]
+                ax.plot(t.data.LOG_TE[max_l], t.data.LOG_L[max_l], 'o', color='black')
+                dist = np.sqrt((xdata - xnew[peak_dict['maxima_locations'][0]]) ** 2 + (ydata - ynew[peak_dict['maxima_locations'][0]]) ** 2)
+                max_l = inds[np.argmin(dist)]
+                ax.plot(t.data.LOG_TE[max_l], t.data.LOG_L[max_l], 'o', color='green')
+    
 def add_eep_inds(ets, *eeps, **ptcri_inds_kw):
     [[et.ptcri_inds(eep, **ptcri_inds_kw) for eep in eeps] for et in ets]
 
@@ -205,69 +325,47 @@ def all_sets_eep_plots(eep, input_dict={}):
 
 
 def test_rgminl(ets, Zsubset=None):
-    for et in ets:
-        if Zsubset is not None:
-            if et.tracks[0].Z not in Zsubset:
-                continue
-        et.ptcri_inds('RG_MINL')
-        rinds = et.rg_minl_inds
-        et.ptcri_inds('SG_MAXL')
-        inds = et.sg_maxl_inds
+    '''Z=0.0002 M=0.7 RG_MIN L IS AT THE RG_BMP1 SUGGESTING THAT THERE IS A BAD MATCH.
+    THIS IS PROBABLY ALSO TRUE FOR THE M=0.6 AND OTHERS NOT PLOTTED.
+    BELOW DOES NOT CURRENTLY WORK, IT FIRST NEEDS A ET.PLOT_TRACK.'''
+    fig, ax = plt.subplots()
+    for track in et.tracks:
+        if track.mass < 0.5:
+            continue
+        rg_minl = et.peak_finder(track, 'LOG_L', 'MS_TO', 'RG_BMP1', sandro=False,
+                                 more_than_one='last')
+        print track.mass, rg_minl
+        inds = track.ptcri.inds_between_ptcris('MS_TO', 'RG_BMP1', sandro=False)
+        xdata = track.data.LOG_TE[inds]
+        ydata = track.data.LOG_L[inds]
+        non_dupes = et.remove_dupes(xdata, ydata, 0, just_two=True)
+        tckp, u = splprep([xdata[non_dupes], ydata[non_dupes]], s=0, k=3, nest=-1)
+        arb_arr = np.arange(0, 1, 1e-2)
+        xnew, ynew = splev(arb_arr, tckp)
+        # linear fit
+        p = np.polyfit(xnew, ynew, 1)
+        # subtract linear fit, find peaks
+        peak_dict = rsp.math_utils.find_peaks(ynew - (p[0] * xnew + p[1]))
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        for i, track in enumerate(et.tracks):
-            tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL', sandro=False)
-            ax.plot(track.data.LOG_TE, track.data.LOG_L, color='black', alpha=0.2)
-            ax.plot(track.data.LOG_TE[tinds], track.data.LOG_L[tinds], color='red')
-            ax.plot(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], 'o', color='black')
-            ax.plot(track.data.LOG_TE[rinds[i]], track.data.LOG_L[rinds[i]], 'o', color='blue')
-            ax.text(track.data.LOG_TE[inds[i]], track.data.LOG_L[inds[i]], '%.3g' % track.mass)
-            if track.mass < 0.5 or track.mass >= 1.2:
-                continue
-            ax.plot(track.data.LOG_TE[eep_inds[i]], track.data.LOG_L[eep_inds[i]], '*', ms=8, color='green')
-        ax.set_title('Z=%.4f' % track.Z)
+        ax.plot(xnew[peak_dict['minima_locations']], ynew[peak_dict['minima_locations']], 'o', ms=10, color='red')
+        if len(peak_dict['minima_locations']) != 0:
+            # if more than one max is found, take the max of the maxes.
+            almost_ind = peak_dict['minima_locations'][np.argmin(peak_dict['minima_locations'])]
+        else:
+            # sometimes (very low mass) there is not much a discernable
+            # minimum, this forces a discontinuity, and finds it.
+            print 'poop'
+            #almost_ind = np.argmin(lnew / (slope * tenew + intercept))
+
+        # find equiv point on track grid
+        ind, diff = rsp.math_utils.closest_match2d(almost_ind,
+                                               track.data.LOG_TE[inds[non_dupes]],
+                                               track.data.LOG_L[inds[non_dupes]], 
+                                               xnew, ynew)
+        min_l = inds[ind]
+        ax.plot(t.data.LOG_TE[min_l], t.data.LOG_L[min_l], 'o', color='green')
 
         
-        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(8, 8))
-        for ax, col in zip((ax1, ax2), ('XCEN', 'LOG_L')):
-            eep_inds = []
-            for i, track in enumerate(et.tracks):
-                if track.mass < 0.5 or track.mass >= 1.2:
-                    eep_inds.append(0)
-                    continue
-                ydata = track.data[col]
-                xdata = track.data.LOG_TE
-                xdata = track.data.MODE
-                tinds =  track.ptcri.inds_between_ptcris('MS_TO', 'RG_MINL', sandro=False)
-                ax.plot(xdata, ydata, color='black', alpha=0.2)
-                ax.plot(xdata[tinds], ydata[tinds])
-                ax.plot(xdata[inds[i]], ydata[inds[i]], 'o', color='black')
-                ax.plot(xdata[rinds[i]], ydata[rinds[i]], 'o', color='blue')
-                ax.text(xdata[inds[i]], ydata[inds[i]], '%.3g' % track.mass)
-                xtdata = track.data.LOG_L[tinds]
-                mode = np.arange(len(xtdata))
-                tckp, u = splprep([mode, xtdata], s=0, k=3, nest=-1)
-                arb_arr = np.arange(0, 1, 1e-2)
-                xnew, ynew = splev(arb_arr, tckp)
-                p = np.polyfit(xnew, ynew, 1)
-                peak_dict = rsp.math_utils.find_peaks(ynew-(p[0]*xnew+p[1]))
-                sxnew = xnew*tinds[-1]/float(tinds[0]) + tinds[0]
-                print ynew[peak_dict['maxima_locations']]
-                ax.plot(sxnew[peak_dict['maxima_locations'][-1]], ynew[peak_dict['maxima_locations'][-1]], 'o', color='purple')
-                ymax = ynew[peak_dict['maxima_locations'][-1]]
-                ind = tinds[rsp.math_utils.closest_match(ymax, xtdata)[0]]
-                eep_inds.append(ind)
-                ax.plot(xdata[ind], ydata[ind], 'o', ms=10, color='green', zorder=1)
-                #peak_dict = rsp.math_utils.find_peaks(ynew)
-                #if len(peak_dict['maxima_locations']) == 0:
-                #    print track.mass
-                #    continue
-                #ind = tinds[peak_dict['maxima_locations']]
-                #ax.plot(xdata[ind], ydata[ind], '*', color='red')    
-            ax.set_title('Z=%.4f' % track.Z)
-
-
-    
 def test_maxl(ets, Zsubset=None, col1='LOG_TE', col2='LOG_L'):
     # not tested.
     eeps = ['MS_TO', 'RG_MINL']

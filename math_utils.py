@@ -45,12 +45,15 @@ def find_peaks(arr):
     return turning_points
 
 
-def closest_match2d(ind, x1, y1, x2, y2):
+def closest_match2d(ind, x1, y1, x2, y2, normed=False):
     '''
     finds closest point between x2[ind], y2[ind] and x1, y1. Just minimizes
     the radius of a circle.
     '''
-    dist = np.sqrt((x1/np.max(x1) - x2[ind]/np.max(x2)) ** 2 + (y1/np.max(y1) - y2[ind]/np.max(y2)) ** 2)
+    if normed is True:
+        dist = np.sqrt((x1/np.max(x1) - x2[ind]/np.max(x2)) ** 2 + (y1/np.max(y1) - y2[ind]/np.max(y2)) ** 2)
+    else:
+        dist = np.sqrt((x1 - x2[ind]) ** 2 + (y1 - y2[ind]) ** 2)
     return np.argmin(dist), np.min(dist)
 
 
