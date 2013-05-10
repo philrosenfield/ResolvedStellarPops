@@ -24,7 +24,7 @@ global ms_tmin_xcen
 ms_tmin_xcen = {'S12D_NS_Z0.0001_Y0.249': 1.2,
                 'S12D_NS_Z0.0002_Y0.249': 1.15,
                 'S12D_NS_Z0.0005_Y0.249': 1.15,
-                'S12D_NS_Z0.001_Y0.25': 1.10,
+                'S12D_NS_Z0.001_Y0.25': 1.15,
                 'S12D_NS_Z0.002_Y0.252': 1.15,
                 'S12D_NS_Z0.004_Y0.256': 1.15,
                 'S12D_NS_Z0.006_Y0.259': 1.15,
@@ -35,8 +35,8 @@ ms_tmin_xcen = {'S12D_NS_Z0.0001_Y0.249': 1.2,
                 'S12D_NS_Z0.02_Y0.284': 1.20,
                 'S12D_NS_Z0.03_Y0.302': 1.20,
                 'S12D_NS_Z0.04_Y0.321': 1.15,
-                'S12D_NS_Z0.05_Y0.339': 1.10,
-                'S12D_NS_Z0.06_Y0.356': 1.10}
+                'S12D_NS_Z0.05_Y0.339': 1.15,
+                'S12D_NS_Z0.06_Y0.356': 1.15}
 
 ms_tmin_byhand = {'S12D_NS_Z0.0001_Y0.249': {},
                 'S12D_NS_Z0.0002_Y0.249':   {},
@@ -57,8 +57,7 @@ ms_tmin_byhand = {'S12D_NS_Z0.0001_Y0.249': {},
 
 
 class ExamineTracks(pc.TrackSet, pc.DefineEeps, pc.TrackDiag):
-    def __init__(self, trackset_kw={}, masses=None):
-        trackset_kw.update({'masses': masses})
+    def __init__(self, trackset_kw={}):
         pc.TrackSet.__init__(self, **trackset_kw)
         pc.DefineEeps.__init__(self)
 
@@ -164,9 +163,9 @@ def load_ets(prefixs, sandro=False, hb=False, masses=None):
     return ets
 
 
-def load_low_mass_ets():
-    masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60]
-    ets = load_ets(prefixs, sandro=False, hb=False, masses=masses)
+def load_low_mass_ets(prefix):
+    masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15]
+    ets = load_ets(prefix, sandro=False, hb=False, masses=masses)
     return ets
 
  
@@ -192,7 +191,7 @@ def low_mass_debug(test_sg_maxl=False):
         eep2 = 'RG_BMP1'
         
         fig, ax = plt.subplots()
-        for t in tracks:
+        for t in et.tracks:
             eind1 = t.ptcri.key_dict[eep1]
             eind2 = t.ptcri.key_dict[eep2]
             inds = t.ptcri.inds_between_ptcris(eep1, eep2, sandro=False)
@@ -201,8 +200,8 @@ def low_mass_debug(test_sg_maxl=False):
             cols = rspg.discrete_colors(len(pts))
             [ax.plot(t.data.LOG_TE[pts[i]], t.data.LOG_L[pts[i]], 'o', c=cols[i])
                 for i in range(len(pts))]
-            ax.text(t.data.LOG_TE[pts[-1]], t.data.LOG_L[pts[-1]], '%.4f' % t.Z)
-            ax.set_title('%.4f' % t.mass)
+            ax.text(t.data.LOG_TE[pts[-1]], t.data.LOG_L[pts[-1]], '%.4f' % t.mass)
+            ax.set_title('%.4f' % t.Z)
             #if test_ms_tmin is True:
             byhand_dict = et.eep_info['ms_tmin_byhand']
             if len(byhand_dict[et.prefix]) != 0 and byhand_dict[self.prefix].has_key(t.mass):
@@ -460,12 +459,13 @@ def test_ms_to(ets, Zsubset=None):
         ax.set_title('Z=%.4f' % track.Z)
 
 def eep_by_hand(ets, Zsubset=None):
-    eeps = ['MS_BEG', 'POINT_C']
-    add_eep_inds(ets, *eeps, **{'hb': False, 'sandro': True})
-    add_eep_inds(ets, 'MS_TMIN', **{'hb': False, 'sandro': False})
+    eeps = ['MS_BEG', 'RG_BMP1']
+    add_eep_inds(ets, *eeps, **{False})
+
     fig, ax = plt.subplots()
     masses =  np.unique(np.concatenate([et.masses for et in ets]))
-    masses = masses[masses <= 1.15]
+    #masses = masses[masses <= 1.15]
+    masses = [1.1, 1.15]
     for mass in masses:
         tracks = []
         for ett in ets:
@@ -476,6 +476,10 @@ def eep_by_hand(ets, Zsubset=None):
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(8, 8))
         for ax, col in zip((ax1, ax2), ('MODE', 'LOG_L')):
             for i, track in enumerate(tracks):
+                    
+            
+            
+            
                 inds = track.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
                 if len(inds) == 0:
                     continue
@@ -494,13 +498,14 @@ def eep_by_hand(ets, Zsubset=None):
                                                track.data.LOG_L[inds[0]])))
                     delta_l2 = delta_te = np.abs(np.diff((track.data.LOG_L[ms_tmin],
                                                track.data.LOG_L[inds[-1]])))
-                    if track.mass < et.eep_info['ms_tmin_xcen'][et.prefix]:
+                    if 1: #track.mass < et.eep_info['ms_tmin_xcen'][et.prefix]:
                         # use XCEN == 0.3
                         dte = np.abs(track.data.XCEN[inds] - 0.3)
                         tmin_ind = np.argmin(dte)
                         # not used... but a quality control:
                         dif = dte[tmin_ind]
                         cols = 'grey'
+                        ax.plot(xdata[tmin_ind], ydata[tmin_ind], 'o', color=cols)
                     elif  delta_te < .1 or delta_l2 < .1:
                         # find the te min by interpolation.
                         mode = inds
@@ -514,7 +519,7 @@ def eep_by_hand(ets, Zsubset=None):
                         aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
                         tmin_ind, dif = math_utils.closest_match2d(aind, mode,
                                                                    xdata, xnew, ynew)
-                        ax1.plot(xnew[aind], ynew[aind], '*', color = 'purple')
+                        ax1.plot(ynew[aind], xnew[aind], '*', color = 'purple')
                         cols ='black'
                     ms_tmin = inds[tmin_ind]
                     
