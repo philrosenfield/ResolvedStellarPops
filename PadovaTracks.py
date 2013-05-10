@@ -416,6 +416,7 @@ class DefineEeps(object):
         if len(inds) == 0:
             print 'no start HEB!!!!', track.mass, track.Z
             self.add_eep(eep_name, 0)
+            return 0
 
         min = np.argmin(track.data.LY[inds])
         # Sometimes there is a huge peak in LY before the min, find it...
@@ -431,7 +432,8 @@ class DefineEeps(object):
             min = max + 1 + amin
         he_beg = inds[min]
         self.add_eep(eep_name, he_beg)
-
+        return he_beg
+        
     def add_cen_eeps(self, track, hb=False):
         '''
         Add YCEN_[fraction] eeps, if YCEN=fraction found to 0.01, will add 0 as
@@ -454,7 +456,7 @@ class DefineEeps(object):
         cens = [i for i in please_define if i.startswith('YCEN')]
         # e.g., YCEN_0.50
         cens = [float(cen.split('_')[-1]) for cen in cens]
-
+        icens = []
         for cen in cens:
             ind, dif = math_utils.closest_match(cen, track.data.YCEN[inds])
             icen = inds[ind]
@@ -466,6 +468,8 @@ class DefineEeps(object):
             # He burning, this limits the matching indices to begin at this
             # new eep index.
             inds = np.arange(icen, len(track.data.YCEN))
+            icens.append(icen)
+        return icens
 
     def add_hb_beg(self, track):
         # this is just the first line of the track with age > 0.2 yr.
@@ -475,6 +479,7 @@ class DefineEeps(object):
         hb_beg = ainds[0]
         eep_name = 'HB_BEG'
         self.add_eep(eep_name, hb_beg, hb=True)
+        return hb_beg
 
     def add_agb_eeps(self, track, diag_plot=False, plot_dir=None):
         '''
@@ -569,6 +574,7 @@ class DefineEeps(object):
             #    plt.close()
             plt.close()
             logger.info('wrote %s' % figname)
+        return agb_ly1, agb_ly2
 
     def add_ms_eeps(self, track):
         '''
@@ -612,7 +618,7 @@ class DefineEeps(object):
                 ms_tmin = inds[tmin_ind]
                 delta_te = np.abs(np.diff((track.data.LOG_L[ms_tmin],
                                            track.data.LOG_L[inds[0]])))
-                if track.mass < self.eep_info['ms_tmin_xcen'][self.prefix]:
+                if track.mass < 1.2:
                     # use XCEN == 0.3
                     dte = np.abs(track.data.XCEN[inds] - 0.3)
                     tmin_ind = np.argmin(dte)
@@ -652,7 +658,7 @@ class DefineEeps(object):
                 ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
                                          **pf_kw)
         self.add_eep('MS_TO', ms_to)
-        return
+        return ms_tmin, ms_to
     
     def add_min_l_eep(self, track, eep1='MS_TO'):
         '''
@@ -666,21 +672,30 @@ class DefineEeps(object):
         '''
         pf_kw = {'sandro': False, 'more_than_one': 'last'}
         min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
+        print 'min_l parametric interp %.4f %.3f' % (track.mass, track.Z)
 
-        if min_l == -1:
+        if min_l == -1 or track.mass < 1.20:
             if track.mass > 1.20:
                 logger.warning('Using base of RG for RG_MINL: M=%.3f' %
                                track.mass)
+
+            if track.mass < 1.20:
+                extremum = 'last'
+            else:
+                extremum = 'min of min'
 
             pf_kw = {'less_linear_fit': True,
                      'parametric_interp': False,
                      'more_than_one': 'min of min',
                      'sandro': False}
 
+            print 'min_l with less lin fit try 1. %.4f %.3f' % (track.mass, track.Z)
             if eep1 != 'MS_TO':
                 pf_kw['mess_err'] = 'still a problem with min_l %.3f' % track.mass
-
+                print 'min_l with less lin fit try 2. %.4f %.3f' % (track.mass, track.Z)
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
+            
+            return min_l
 
         if np.round(track.data.XCEN[min_l], 4) > 0:
             logger.error('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
@@ -793,7 +808,7 @@ class DefineEeps(object):
             xdata = track.data['LOG_TE'][inds]
             ydata = track.data['LOG_L'][inds]
 
-            non_dupes = self.remove_dupes(xdata, ydata, 'lixo', just_two=True)
+            non_dupes = et.remove_dupes(xdata, ydata, 'lixo', just_two=True)
             xdata = xdata[non_dupes]
             ydata = ydata[non_dupes]
             k = 3
@@ -806,9 +821,9 @@ class DefineEeps(object):
             tckp, u = splprep([xdata, ydata], s=0, k=k, nest=-1)
 
             ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
-            min_step = 1e-4
+            min_step = 1e-2
             step_size = np.max([ave_data_step, min_step])
-            xnew, ynew = splev(np.arange(0, 1, step_size), tckp)
+            xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
             #dxnew, dynew = splev(np.arange(0, 1, step_size), tckp, der=1)
             if col == 'LOG_L':
                 intp_col = ynew
@@ -835,7 +850,6 @@ class DefineEeps(object):
                 # no maxs found.
                 if mess_err is not None:
                     logger.error(mess_err)
-                    print mess_err
                 return -1
 
         else:
@@ -1980,7 +1994,7 @@ if __name__ == '__main__':
     input_dict = default_params(fileIO.load_input(sys.argv[1]))
     logfile = sys.argv[1].replace('inp', 'log')
     fh = logging.FileHandler(logfile)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(module)s: %(lineno)d - %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     logger.setLevel(logging.DEBUG)

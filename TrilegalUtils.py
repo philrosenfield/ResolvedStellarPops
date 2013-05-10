@@ -481,20 +481,22 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False):
     os.chdir(os.environ['TRILEGAL_ROOT'])
 
     logger.info('running trilegal...')
-    cmd = 'code/main -f %s -a -l %s %s > trilegal.msg\n' % (cmd_input,
-                                                            galaxy_input, output)
+    # this way can run many at a time.
+    lixo = str(np.random.rand()).replace('.','')
+    msg = 'trilegal%s.msg' % lixo
+    cmd = 'code/main -f %s -a -l %s %s > %s \n' % (cmd_input, galaxy_input,
+                                                   output, msg)
     logger.debug(cmd)
     t = os.system(cmd)
     logger.info('done.')
 
     if loud is True:
-        print '\n'.join([l.strip() for l in open('trilegal.msg').readlines()])
+        print '\n'.join([l.strip() for l in open(msg).readlines()])
 
     if t != 0:
-        logger.debug('\n'.join([l.strip()
-                                for l in open('trilegal.msg').readlines()]))
+        logger.debug('\n'.join([l.strip() for l in open(msg).readlines()]))
     else:
-        os.remove('trilegal.msg')
+        os.remove(msg)
     os.chdir(here)
     return
 

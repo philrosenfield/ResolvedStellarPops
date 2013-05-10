@@ -120,7 +120,6 @@ class ExamineTracks(pc.TrackSet, pc.DefineEeps, pc.TrackDiag):
         return ax
 
 
-
 def check_basti():
     track_base = '/Users/phil/research/parsec2match/stellarmodels/msz83sss_eta02_wfc3ir'
     track_names = os.listdir(track_base)
@@ -165,15 +164,14 @@ def load_ets(prefixs, sandro=False, hb=False, masses=None):
     return ets
 
 
-def load_small_ets():
+def load_low_mass_ets():
     masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60]
     ets = load_ets(prefixs, sandro=False, hb=False, masses=masses)
     return ets
- 
 
  
 def low_mass_debug(test_sg_maxl=False):
-    ets = load_small_ets()
+    ets = load_low_mass_ets()
     eeps = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL']
     ptcri_inds_kw = {'sandro': False, 'hb': False}
     pct.add_eep_inds(ets, *eeps, **ptcri_inds_kw)
@@ -194,7 +192,7 @@ def low_mass_debug(test_sg_maxl=False):
         eep2 = 'RG_BMP1'
         
         fig, ax = plt.subplots()
-        for t in et.tracks:
+        for t in tracks:
             eind1 = t.ptcri.key_dict[eep1]
             eind2 = t.ptcri.key_dict[eep2]
             inds = t.ptcri.inds_between_ptcris(eep1, eep2, sandro=False)
@@ -203,8 +201,8 @@ def low_mass_debug(test_sg_maxl=False):
             cols = rspg.discrete_colors(len(pts))
             [ax.plot(t.data.LOG_TE[pts[i]], t.data.LOG_L[pts[i]], 'o', c=cols[i])
                 for i in range(len(pts))]
-            ax.text(t.data.LOG_TE[pts[-1]], t.data.LOG_L[pts[-1]], '%.4f' % t.mass)
-            ax.set_title('%.4f' % t.Z)
+            ax.text(t.data.LOG_TE[pts[-1]], t.data.LOG_L[pts[-1]], '%.4f' % t.Z)
+            ax.set_title('%.4f' % t.mass)
             #if test_ms_tmin is True:
             byhand_dict = et.eep_info['ms_tmin_byhand']
             if len(byhand_dict[et.prefix]) != 0 and byhand_dict[self.prefix].has_key(t.mass):
@@ -325,9 +323,6 @@ def all_sets_eep_plots(eep, input_dict={}):
 
 
 def test_rgminl(ets, Zsubset=None):
-    '''Z=0.0002 M=0.7 RG_MIN L IS AT THE RG_BMP1 SUGGESTING THAT THERE IS A BAD MATCH.
-    THIS IS PROBABLY ALSO TRUE FOR THE M=0.6 AND OTHERS NOT PLOTTED.
-    BELOW DOES NOT CURRENTLY WORK, IT FIRST NEEDS A ET.PLOT_TRACK.'''
     fig, ax = plt.subplots()
     for track in et.tracks:
         if track.mass < 0.5:
@@ -467,57 +462,66 @@ def test_ms_to(ets, Zsubset=None):
 def eep_by_hand(ets, Zsubset=None):
     eeps = ['MS_BEG', 'POINT_C']
     add_eep_inds(ets, *eeps, **{'hb': False, 'sandro': True})
-    for et in ets:
-        if Zsubset is not None:
-            if et.tracks[0].Z not in Zsubset:
-                continue
-        fig, ax = plt.subplots(figsize=(8, 8))
-        for i, track in enumerate(et.tracks):
-            if track.mass == 0.5 or track.mass == 0.55:
-                continue
-            if track.mass > ms_tmin_xcen[et.prefix]:
-                continue
-            inds = np.arange(et.ms_beg_inds[i], et.point_c_inds[i])
-            ydata = track.data.LOG_TE
-            xdata = np.arange(len(ydata))
-            if len(inds) < 2:
-                #print 'nothing Z=%.4f, M=%.3f' % (track.Z, track.mass)
-                #print 'ms_beg: %i, ms_to %i' % (et.ms_beg_inds[i], et.ms_to_inds[i])
-                #ax.plot(xdata, ydata)
-                #ax.text(xdata[0], ydata[0], '%g' % track.mass, fontsize=10)
-                continue
-            ax.plot(xdata, ydata, color='black', alpha=0.2)
-            ax.plot(xdata[inds], ydata[inds])
-            ax.text(xdata[inds[0]], ydata[inds[0]], '%g' % track.mass, fontsize=10)
-
-            tmin_ind = np.argmin(xdata[inds])
-            cols = 'red'
-
-            if track.mass < ms_tmin_xcen[et.prefix]:
-                tmin_ind = np.argmin(np.abs(track.data.XCEN[inds] - 0.3))
-                dif =  np.abs(track.data.XCEN[inds[tmin_ind]] - 0.3)
-                cols = 'grey'
-                if dif > 0.001:
-                    print 'no xcen=0.3 Z=%.4f, M=%.3f' % (track.Z, track.mass)
+    add_eep_inds(ets, 'MS_TMIN', **{'hb': False, 'sandro': False})
+    fig, ax = plt.subplots()
+    masses =  np.unique(np.concatenate([et.masses for et in ets]))
+    masses = masses[masses <= 1.15]
+    for mass in masses:
+        tracks = []
+        for ett in ets:
+            try:
+                tracks.append(ett.select_track(mass))
+            except ValueError:
+                pass
+        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(8, 8))
+        for ax, col in zip((ax1, ax2), ('MODE', 'LOG_L')):
+            for i, track in enumerate(tracks):
+                inds = track.ptcri.inds_between_ptcris('MS_BEG', 'POINT_C', sandro=True)
+                if len(inds) == 0:
                     continue
-            elif tmin_ind < 10:
-                cols='black'
-                # this is kinda a code draft that's in padovatracks.
-                tckp, u = splprep([np.arange(len(xdata[inds])), xdata[inds]], s=0, k=k, nest=-1)
-                xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
-                dxnew, dynew = splev(np.arange(0, 1, 1e-2), tckp, der=1)
-                ddxnew, ddynew = splev(np.arange(0, 1, 1e-2), tckp, der=2)
-                dydx = dynew / dxnew
-                aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
-                tmin_ind, dif = rsp.math_utils.closest_match(ynew[aind], xdata[inds])
-                if dif > 1e-3:
-                    print dif
-                    print 'bad match Z=%.4f, M=%.3f' % (track.Z, track.mass)
+                # Check for MS_TMIN by hand.
+                byhand_dict = et.eep_info['ms_tmin_byhand']
+                if len(byhand_dict[et.prefix]) != 0 and byhand_dict[et.prefix].has_key(track.mass):
+                    print 'ms_tmin by hand. %.4f %.3f' % (track.Z, track.mass) 
+                    ms_tmin = byhand_dict[et.prefix][track.mass]
                 else:
-                   print 'not bad.'
-            ax.plot(xdata[inds[tmin_ind]], ydata[inds[tmin_ind]], 'o', color=cols)
-            ax.text(xdata[inds[0]], ydata[inds[0]], '%g' % track.mass, fontsize=10)
-        ax.set_title('Z=%.4f' % track.Z)
+                    xdata = track.data.LOG_TE[inds]
+                    ydata = track.data[col][inds]
+                    tmin_ind = np.argmin(xdata)
+                    ms_tmin = inds[tmin_ind]
+                    cols='red'
+                    delta_te = np.abs(np.diff((track.data.LOG_L[ms_tmin],
+                                               track.data.LOG_L[inds[0]])))
+                    delta_l2 = delta_te = np.abs(np.diff((track.data.LOG_L[ms_tmin],
+                                               track.data.LOG_L[inds[-1]])))
+                    if track.mass < et.eep_info['ms_tmin_xcen'][et.prefix]:
+                        # use XCEN == 0.3
+                        dte = np.abs(track.data.XCEN[inds] - 0.3)
+                        tmin_ind = np.argmin(dte)
+                        # not used... but a quality control:
+                        dif = dte[tmin_ind]
+                        cols = 'grey'
+                    elif  delta_te < .1 or delta_l2 < .1:
+                        # find the te min by interpolation.
+                        mode = inds
+                        tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
+                        arb_arr = np.arange(0, 1, 1e-2)
+                        xnew, ynew = splev(arb_arr, tckp)
+                        # second derivative, bitches.
+                        ddxnew, ddynew = splev(arb_arr, tckp, der=2)
+                        ddyddx = ddynew/ddxnew
+                        # not just argmin, but must be actual min...
+                        aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
+                        tmin_ind, dif = math_utils.closest_match2d(aind, mode,
+                                                                   xdata, xnew, ynew)
+                        ax1.plot(xnew[aind], ynew[aind], '*', color = 'purple')
+                        cols ='black'
+                    ms_tmin = inds[tmin_ind]
+                    
+                ax.plot(xdata, ydata)
+                ax.plot(xdata[tmin_ind], ydata[tmin_ind], 'o', color=cols)
+                ax.text(xdata[0], ydata[0], '%g' % track.Z, fontsize=10)
+            ax.set_title('Z=%.4f' % track.mass)
 
 
 def test_ms_tmin(ets, Zsubset=None):
@@ -528,29 +532,30 @@ def test_ms_tmin(ets, Zsubset=None):
     '''
     
     eeps = ['MS_BEG', 'POINT_B']
-    add_eep_inds([et], *eeps, **{'hb': False, 'sandro': True})
+    add_eep_inds(ets, *eeps, **{'hb': False, 'sandro': True})
     for et in ets:
         if Zsubset is not None:
             if et.tracks[0].Z not in Zsubset:
                 continue
         fig, ax = plt.subplots(figsize=(8, 8))
         for i, track in enumerate(et.tracks):
-            if track.mass == 0.5 or track.mass == 0.55:
-                continue
             inds = np.arange(et.ms_beg_inds[i], et.point_b_inds[i])
-            xdata = track.data.LOG_TE
-            ydata = track.data.LOG_L
-            ax.plot(xdata, ydata, color='black', alpha=0.3)
             if len(inds) < 2:
-                print 'nothing Z=%.4f, M=%.3f' % (track.Z, track.mass)
-                print 'ms_beg: %i, ms_to %i' % (et.ms_beg_inds[i], et.point_c_inds[i])
-                ax.text(xdata[0], ydata[0], '%g' % track.mass, fontsize=10)
+                if track.mass > 0.5:
+                    print 'nothing Z=%.4f, M=%.3f' % (track.Z, track.mass)
+                    print 'ms_beg: %i, ms_to %i' % (et.ms_beg_inds[i], et.point_c_inds[i])
+                    ax.text(xdata[0], ydata[0], '%g' % track.mass, fontsize=10)
                 continue
-            ax.plot(xdata[inds], ydata[inds])
 
-            tmin_ind = np.argmin(xdata[inds])
+            xdata = track.data.LOG_TE[inds]
+            ydata = track.data.LOG_L[inds]
+            ax.plot(xdata, ydata, color='black', alpha=0.3)
+
+            tmin_ind = np.argmin(xdata)
             cols = 'red'
 
+            delta_te = np.abs(np.diff((ydata[tmin_ind], ydata[0])))
+            print track.mass, delta_te
             if track.mass < ms_tmin_xcen[et.prefix]:
                 tmin_ind = np.argmin(np.abs(track.data.XCEN[inds] - 0.3))
                 dif =  np.abs(track.data.XCEN[inds[tmin_ind]] - 0.3)
@@ -558,21 +563,28 @@ def test_ms_tmin(ets, Zsubset=None):
                 if dif > 0.001:
                     print 'no xcen=0.3 Z=%.4f, M=%.3f' % (track.Z, track.mass)
                     continue
-            elif tmin_ind > 1000000:
+            elif delta_te < .1:
                 cols='black'
-                # this is kinda a code draft that's in padovatracks.
-                tckp, u = splprep([np.arange(len(xdata[inds])), xdata[inds]], s=0, k=k, nest=-1)
-                xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
-                dxnew, dynew = splev(np.arange(0, 1, 1e-2), tckp, der=1)
-                ddxnew, ddynew = splev(np.arange(0, 1, 1e-2), tckp, der=2)
-                dydx = dynew / dxnew
-                aind = np.argmin(np.diff(ddynew/ddxnew)) + 1
-                tmin_ind, dif = rsp.math_utils.closest_match(ynew[aind], xdata[inds])
+                mode = inds
+                tckp, u = splprep([mode, xdata[inds]], s=0, k=3, nest=-1)
+                arb_arr = np.arange(0, 1, 1e-2)
+                xnew, ynew = splev(arb_arr, tckp)
+                # second derivative, bitches.
+                ddxnew, ddynew = splev(arb_arr, tckp, der=2)
+                ddyddx = ddynew/ddxnew
+                # not just argmin, but must be actual min...
+                aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0]
+                if len(aind) == 0:
+                    print 'no min!! %.3f %.4f' % (track.mass, track.Z)
+                    continue
+                else:
+                    aind = aind[0]
+                tmin_ind, dif = math_utils.closest_match2d(aind, mode,
+                                                           xdata[inds], xnew, ynew)
                 if dif > 1e-3:
                     print dif
                     print 'bad match Z=%.4f, M=%.3f' % (track.Z, track.mass)
-                else:
-                   print 'not bad.'
+
             ax.plot(xdata[inds[tmin_ind]], ydata[inds[tmin_ind]], 'o', color=cols)
             ax.text(xdata[inds[0]], ydata[inds[0]], '%g' % track.mass, fontsize=10)
         ax.set_title('Z=%.4f' % track.Z)
