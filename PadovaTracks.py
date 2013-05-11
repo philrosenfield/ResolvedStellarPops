@@ -332,7 +332,7 @@ class DefineEeps(object):
         self.validate_eeps(hb=hb)
 
         if hb is True:
-            logger.info('\n\n       HB Current Mass: %.3f' % track.hbmass)
+            logger.info('\n\n       HB Current Mass: %.3f' % track.mass)
             self.add_hb_beg(track)
             self.add_cen_eeps(track, hb=hb)
             self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
@@ -713,7 +713,20 @@ class DefineEeps(object):
         '''
         Adds SG_MAXL between MS_TO and RG_MINL.
         '''
-        pf_kw = {'max': True, 'sandro': False, 'more_than_one': 'max of max',
+        if track.Z < 0.001 and track.mass > 8:
+            extreme = 'first'
+            if track.Z == 0.0005:
+                if track.mass == 11.:
+                    print track.mass, 'doing it sg-maxl by hand bitches.'
+                    self.add_eep('SG_MAXL', 1540)
+                    return 1540
+                elif track.mass == 12.:
+                    print track.mass, 'doing it sg-maxl by hand bitches.'
+                    self.add_eep('SG_MAXL', 1535)
+                    return 1515
+        else:
+            extreme = 'max of max'
+        pf_kw = {'max': True, 'sandro': False, 'more_than_one': extreme,
                  'parametric_interp': False, 'less_linear_fit': True}
 
         if eep2 != 'RG_MINL':
@@ -871,6 +884,8 @@ class DefineEeps(object):
                     almost_ind = imax[np.argmax(intp_col[imax])]
                 elif more_than_one == 'last':
                     almost_ind = imax[-1]
+                elif more_than_one == 'first':
+                    almost_ind = imax[0]
             else:
                 # no maxs found.
                 if mess_err is not None:
@@ -887,6 +902,9 @@ class DefineEeps(object):
                         almost_ind = imin[np.argmin(intp_col[imin])]
                 elif more_than_one == 'last':
                     almost_ind = imin[-1]
+                elif more_than_one == 'first':
+                    almost_ind = imin[0]
+
             else:
                 # no mins found
                 if mess_err is not None:
@@ -979,7 +997,7 @@ class DefineEeps(object):
                             logger.debug('new ptcri %s %i' % (eep_name, iorig))
                         self.ptcri.iptcri[ieep] = iorig
                         
-            track.ptcri = deepcopy(self.ptcri)
+                track.ptcri = deepcopy(self.ptcri)
 
             self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
                                    diag_plot=diag_plot)
@@ -1462,7 +1480,7 @@ class TrackSet(object):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None, masses=None,
-                 ptcri_file=None, **kwargs):
+                 ptcri_file=None, hb_only=False, **kwargs):
 
         if ptcrifile_loc is not None or ptcri_file is not None:
             self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
@@ -1474,7 +1492,8 @@ class TrackSet(object):
             self.ptcri = None
 
         self.tracks_base = os.path.join(tracks_dir, prefix)
-        self.load_tracks(track_search_term=track_search_term, masses=masses)
+        if hb_only is False:
+            self.load_tracks(track_search_term=track_search_term, masses=masses)
         if hb is True:
             self.load_tracks(track_search_term=hbtrack_search_term, hb=hb,
                              masses=masses)
@@ -1543,15 +1562,20 @@ class TrackSet(object):
 
         self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri,
                                                    min_lage=0., cut_long=0)
-                                             for track in self.track_names])
+                                             for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
                          np.round([t.mass for t in
                                    self.__getattribute__('%ss' % track_str)],
                                    3))
 
-    def save_ptcri(self, filename=None):
+    def save_ptcri(self, filename=None, hb=False):
         #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
+        if hb is True:
+            tracks = self.hbtracks
+        else:
+            tracks = self.tracks
+
         if filename is None:
             base, name = os.path.split(self.ptcri_file)
             filename = os.path.join(base, 'p2m_%s' % name)
@@ -1564,9 +1588,10 @@ class TrackSet(object):
         with open(filename, 'w') as f:
             f.write(header)
             linefmt = '%2i %.3f 0.0 %s %s \n'
-            for i, track in enumerate(self.tracks):
+            for i, track in enumerate(tracks):
                 self.ptcri.please_define = []
-                self.load_critical_points(track, eep_obj=self.eep,
+                # this line should just slow everything down, why is it here?
+                self.load_critical_points(track, eep_obj=self.eep, hb=hb,
                                           ptcri=self.ptcri, diag_plot=False)
                 ptcri_str = ' '.join(['%5d' % p for p in track.ptcri.iptcri])
                 f.write(linefmt % (i+1, track.mass, ptcri_str,
@@ -1776,8 +1801,8 @@ class MatchTracks(object):
         self._plot_all_tracks(self.tracks, eep_list=eep_list,
                               eep_lengths=eep_lengths, plot_dir=outfile_dir)
         if self.eep_list_hb is not None:
-            self._plot_all_tracks(self.hbtracks, eep_list=eep_list_hb,
-                                  eep_lengths=eep_lengths_hb, 
+            self._plot_all_tracks(self.hbtracks, eep_list=self.eep_list_hb,
+                                  eep_lengths=eep_lengths, 
                                   plot_dir=outfile_dir, extra='_HB')
 
     def _load_track(self, filename):
@@ -1803,7 +1828,7 @@ class MatchTracks(object):
         fig, ax = plt.subplots()
         # fake lengend
         [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
-         for i in range(len(eep_lengths))]
+         for i in range(len(eep_list))]
 
         [ax.plot(t.LOG_TE, t.LOG_L, **line_pltkw) for t in tracks]
         xlims = np.array([])
@@ -1834,7 +1859,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None,
-                 outfile_dir=None, masses=None, diag_plot=None):
+                 outfile_dir=None, masses=None, diag_plot=None, hb_only=False):
 
         TrackSet.__init__(self, tracks_dir=tracks_dir, prefix=prefix,
                           ptcrifile_loc=ptcrifile_loc, eep_list=eep_list,
@@ -1842,36 +1867,40 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                           eep_lengths_hb=eep_lengths_hb, hb=hb, masses=masses,
                           track_search_term=track_search_term,
                           hbtrack_search_term=hbtrack_search_term,
-                          plot_dir=plot_dir, outfile_dir=outfile_dir)
+                          plot_dir=plot_dir, outfile_dir=outfile_dir,
+                          hb_only=hb_only)
         DefineEeps.__init__(self)
 
-        for track in self.tracks:
-            # do the work! Assign eeps either from sandro, or eep_list and
-            # make some diagnostic plots.
-            track = self.load_critical_points(track, ptcri=self.ptcri,
-                                              plot_dir=plot_dir,diag_plot=diag_plot)
+        if hb_only is False:
+            for track in self.tracks:
+                # do the work! Assign eeps either from sandro, or eep_list and
+                # make some diagnostic plots.
+                track = self.load_critical_points(track, ptcri=self.ptcri,
+                                                  plot_dir=plot_dir,diag_plot=diag_plot)
 
-            # make match output files.
-            self.prepare_track(track, outfile_dir=outfile_dir)
+                # make match output files.
+                self.prepare_track(track, outfile_dir=outfile_dir)
 
-            # make diagnostic plots
-            self.check_ptcris(track, plot_dir=plot_dir)
+                # make diagnostic plots
+                self.check_ptcris(track, plot_dir=plot_dir)
 
-        # make summary diagnostic plots
-        self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
-                             reverse_x=True, plot_dir=plot_dir)
+            # make summary diagnostic plots
+            self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
+                                 reverse_x=True, plot_dir=plot_dir)
 
-        logger.info(pprint.pprint(self.eep_info))
+            logger.info(pprint.pprint(self.eep_info))
+        else:
+            print 'only doing HB.'
 
         # do the same as above but for HB.
         if hb is True:
-            self.hbtracks = []
+            #self.hbtracks = []
             self.hbtrack_names = fileIO.get_files(self.tracks_base,
                                                   hbtrack_search_term)
-            for track in self.hbtrack_names:
+            for track in self.hbtracks:
                 track = self.load_critical_points(track, ptcri=self.ptcri,
                                                   hb=hb, plot_dir=plot_dir)
-                self.hbtracks.append(track)
+                #self.hbtracks.append(track)
                 self.prepare_track(track, outfile_dir=outfile_dir, hb=hb)
                 self.check_ptcris(track, hb=hb, plot_dir=plot_dir)
 
@@ -1891,7 +1920,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         if hasattr(self.ptcri, 'eep'):
             if hb is True:
-                nticks = self.ptcri.eep.nticks_hb
+                nticks = self.ptcri.eep.nticks
             else:
                 nticks = self.ptcri.eep.nticks
         else:
@@ -1981,7 +2010,7 @@ def do_entire_set(input_dict={}):
         print '\n\n Current mix: %s \n\n' % prefix
         this_dict = set_outdirs(input_dict, prefix)
         tm = TracksForMatch(**this_dict)
-        tm.save_ptcri()
+        tm.save_ptcri(hb=this_dict['hb'])
         MatchTracks(**this_dict)
 
 
@@ -2041,5 +2070,5 @@ if __name__ == '__main__':
         do_entire_set(input_dict=input_dict)
     else:
         tm = TracksForMatch(**input_dict)
-        tm.save_ptcri()
+        tm.save_ptcri(hb=input_dict['hb'])
         MatchTracks(**input_dict)

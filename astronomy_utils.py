@@ -96,7 +96,8 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
     '''
     Plots a hess diagram with imshow.
     default kwargs passed to imshow:
-    default_kw = {'cmap': cm.gray,
+    default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max())
+                  'cmap': cm.gray,
                   'interpolation': 'nearest',
                   'extent': [hess[0][0], hess[0][-1],
                              hess[1][-1], hess[1][0]]}
