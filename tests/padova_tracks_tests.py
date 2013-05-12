@@ -140,7 +140,8 @@ def clean_output_files():
     kills the match output files, careful with this sort of thing.
     '''
     tracks_dir = '/Users/phil/research/parsec2match/S12_set/CAF09_S12D_NS/'
-    mix_dirs = [os.path.join(tracks_dir, l) for l in os.listdir(tracks_dir) if os.path.isdir(os.path.join(tracks_dir, l))]
+    mix_dirs = [os.path.join(tracks_dir, l) for l in os.listdir(tracks_dir)
+                if os.path.isdir(os.path.join(tracks_dir, l)) and l.startswith('S')]
     for mix in mix_dirs:
         tokills = [os.path.join(mix, 'match', l) for l in os.listdir(os.path.join(mix, 'match'))]
         _ = [os.remove(tokill) for tokill in tokills]
@@ -164,7 +165,7 @@ def load_ets(prefixs, sandro=False, hb=False, masses=None):
 
 
 def load_low_mass_ets(prefix):
-    masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15]
+    masses = [.50, .55, .60, .65, .70, .75, .80, .85, .90, .95, 1.00, 1.10, 1.15, 1.20, 2.0]
     ets = load_ets(prefix, sandro=False, hb=False, masses=masses)
     return ets
 
