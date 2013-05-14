@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.nxutils as nxutils
 
+
 def brighter(mag2, trgb, inds=None):
-    ''' number of stars brighter than trgb, make sure mag2 is 
-        the same filter as trgb!''' 
+    ''' number of stars brighter than trgb, make sure mag2 is
+        the same filter as trgb!'''
     i, = np.nonzero(mag2 < trgb)
     if inds is not None:
         i = np.intersect1d(i, inds)
@@ -17,7 +18,7 @@ def find_peaks(arr):
     '''
     gradients = np.diff(arr)
     #print gradients
-    
+
     maxima_num = 0
     minima_num = 0
     max_locations = []
@@ -25,31 +26,34 @@ def find_peaks(arr):
     count = 0
     for i in gradients[:-1]:
         count += 1
-        
+
         if ((cmp(i, 0) > 0) & (cmp(gradients[count], 0) < 0) &
-            (i != gradients[count])):
+           (i != gradients[count])):
             maxima_num += 1
-            max_locations.append(count)     
-            
+            max_locations.append(count)
+
         if ((cmp(i, 0) < 0) & (cmp(gradients[count], 0) > 0) &
-            (i != gradients[count])):
+           (i != gradients[count])):
             minima_num += 1
             min_locations.append(count)
 
-    turning_points = {'maxima_number':maxima_num, 
-                      'minima_number':minima_num, 
-                      'maxima_locations':max_locations, 
-                      'minima_locations':min_locations}  
-    
+    turning_points = {'maxima_number': maxima_num,
+                      'minima_number': minima_num,
+                      'maxima_locations': max_locations,
+                      'minima_locations': min_locations}
+
     return turning_points
 
 
-def closest_match2d(ind, x1, y1, x2, y2):
+def closest_match2d(ind, x1, y1, x2, y2, normed=False):
     '''
     finds closest point between x2[ind], y2[ind] and x1, y1. Just minimizes
     the radius of a circle.
     '''
-    dist = np.sqrt((x1/np.max(x1) - x2[ind]/np.max(x2)) ** 2 + (y1/np.max(y1) - y2[ind]/np.max(y2)) ** 2)
+    if normed is True:
+        dist = np.sqrt((x1/np.max(x1) - x2[ind]/np.max(x2)) ** 2 + (y1/np.max(y1) - y2[ind]/np.max(y2)) ** 2)
+    else:
+        dist = np.sqrt((x1 - x2[ind]) ** 2 + (y1 - y2[ind]) ** 2)
     return np.argmin(dist), np.min(dist)
 
 
@@ -62,6 +66,7 @@ def closest_match(num, somearray):
             difference = np.abs(num - somearray[i])
             index = i
     return index, difference
+
 
 def bayesian_blocks(t):
     """Bayesian Blocks Implementation
@@ -121,7 +126,7 @@ def bayesian_blocks(t):
     #-----------------------------------------------------------------
     # Recover changepoints by iteratively peeling off the last block
     #-----------------------------------------------------------------
-    change_points =  np.zeros(N, dtype=int)
+    change_points = np.zeros(N, dtype=int)
     i_cp = N
     ind = N
     while True:
@@ -309,44 +314,45 @@ def bin_up(x, y, nbinsx=None, nbinsy=None, dx=None, dy=None, **kwargs):
 
     return Z, xrange, yrange
 
+
 def smooth(x, window_len=11, window='hanning'):
     """
     taken from http://www.scipy.org/Cookbook/SignalSmooth
     smooth the data using a window with requested size.
-    
+
     This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
+    The signal is prepared by introducing reflected copies of the signal
     (with the window size) in both ends so that transient parts are minimized
     in the begining and end part of the output signal.
-    
+
     input:
-        x: the input signal 
+        x: the input signal
         window_len: the dimension of the smoothing window; should be an odd integer
         window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
             flat window will produce a moving average smoothing.
-    
+
     output:
         the smoothed signal
-        
+
     example:
-    
+
     t=linspace(-2, 2, 0.1)
     x=sin(t)+randn(len(t))*0.1
     y=smooth(x)
-    
-    see also: 
-    
+
+    see also:
+
     np.hanning, np.hamming, np.bartlett, np.blackman, np.convolve
     scipy.signal.lfilter
- 
-    TODO: the window parameter could be the window itself if an array instead of a string   
+
+    TODO: the window parameter could be the window itself if an array instead of a string
     """
-    
+
     if x.ndim != 1:
         raise ValueError, "smooth only accepts 1 dimension arrays."
+
     if x.size < window_len:
         raise ValueError, "Input vector needs to be bigger than window size."
-    
     if window_len<3:
         return x
     

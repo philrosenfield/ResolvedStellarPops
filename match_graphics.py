@@ -16,12 +16,12 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
     at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
     return at
 
-    
+
 def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
     '''
     ex ZS = [h[2],sh[2],diff_cmd,resid]
     '''
-    fig = plt.figure(figsize=(9,9))
+    fig = plt.figure(figsize=(9, 9))
     grid = ImageGrid(fig, 111,
                      nrows_ncols=(2, 2),
                      direction="row",
@@ -38,7 +38,7 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
     for i, (ax, z) in enumerate(zip(grid, ZS)):
         if i > 1:
             # second row: make 0 on the color bar white
-            vmin =  -1. * np.max(np.abs(z))
+            vmin = -1. * np.max(np.abs(z))
             vmax = np.max(np.abs(z))
             colors = cm.RdBu
         else:
@@ -52,7 +52,7 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
         im = ax.imshow(z, extent=extent, interpolation="nearest",
                        cmap=colors, vmin=vmin, vmax=vmax)
         ax.cax.colorbar(im)
-        forceAspect(ax,aspect=1)
+        forceAspect(ax, aspect=1)
 
     ylabel = kwargs.get('ylabel')
     xlabel = kwargs.get('xlabel')
@@ -60,17 +60,20 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
         [ax.set_ylabel(ylabel, fontsize=20) for ax in grid[0::2]]
     if xlabel:
         [ax.set_xlabel(xlabel, fontsize=20) for ax in grid[2:]]
-    
+
     for ax, im_title in zip(grid, labels):
         t = add_inner_title(ax, im_title, loc=1)
         t.patch.set_alpha(0.5)
 
     return grid
 
-def forceAspect(ax,aspect=1):
+
+def forceAspect(ax, aspect=1):
     im = ax.get_images()
-    extent =  im[0].get_extent()
-    ax.set_aspect(abs((extent[1]-extent[0])/(extent[3]-extent[2]))/aspect)
+    extent = im[0].get_extent()
+    ax.set_aspect(abs((extent[1] - extent[0]) /
+                      (extent[3] - extent[2])) / aspect)
+
 
 def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
           axis_labels='default', **kwargs):

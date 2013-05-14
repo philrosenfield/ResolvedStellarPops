@@ -1,16 +1,17 @@
 import numpy as np
 import os
 import traceback
-import re
 import difflib
 
-
 TABLE_DIR = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'tables')
+
 
 class AngstTables(object):
     def __init__(self):
         self.table5 = read_angst_tab5()
         self.table4 = read_angst_tab4()
+        [self.__setattr__('snap_tab%i' % i,
+                          read_snap(table='table%i' % i)) for i in [1, 2, 3]]
         self.targets = np.unique(np.concatenate((self.table4['target'],
                                                  self.table5['target'])))
         self.load_data()
@@ -25,8 +26,6 @@ class AngstTables(object):
         replace_keys = {'50_completeness_mag': '50_completeness'}
 
         break_key = 'filter'
-        targets = np.unique([t.replace('-', '_')
-                             for t in self.table4['target']])
 
         for row in self.table4:
             target = row['target'].replace('-', '_')
@@ -76,9 +75,11 @@ class AngstTables(object):
         locally.
         '''
         target = target.upper().replace('-', '_')
+        if 'F160W' in filters:
+            return self.get_snap_trgb_av_dmod(target)
         try:
             datum = self.__dict__[target][filters]
-        except KeyError, err:
+        except KeyError:
             print traceback.print_exc()
             print '%s not found' % target
             target = target.replace('_', '-')
@@ -93,8 +94,8 @@ class AngstTables(object):
             trgb = datum['mTRGB']
             av = datum['Av']
             dmod = datum['dmod']
-        except KeyError, err:
-            print 'fuck.'
+        except KeyError:
+            print traceback.print_exc()
         return trgb, av, dmod
 
     def get_50compmag(self, target, filter):
@@ -103,14 +104,28 @@ class AngstTables(object):
         input target,filter: get 50% comp.
         '''
         target = target.upper().replace('-', '_')
+        if 'F160W' in filter or 'F110W' in filter:
+            return self.get_snap_50compmag(target, filter)
         try:
             datum = self.__dict__[target][filter]
-        except KeyError, err:
-            logger.error(traceback.print_exc())
-            logger.error('keys available: {}'
-                         .format(self.__dict__[target].keys()))
+        except KeyError:
+            print traceback.print_exc()
+            print 'keys available: {}'.format(self.__dict__[target].keys())
             return -1, -1, -1
         return datum['50_completeness']
+
+    def get_snap_trgb_av_dmod(self, target):
+        target = difflib.get_close_matches(target, self.snap_tab3['target'])[0]
+        ind, = np.nonzero(self.snap_tab3['target'] == target)
+        mTRGB, = self.snap_tab3['mTRGB_raw'][ind]
+        dmod, = self.snap_tab3['dmod'][ind]
+        Av, = self.snap_tab3['Av'][ind]
+        return mTRGB, Av, dmod
+
+    def get_snap_50compmag(self, target, filter):
+        target = difflib.get_close_matches(target, self.snap_tab2['target'])[0]
+        ind, = np.nonzero(self.snap_tab2['target'] == target)
+        return self.snap_tab2['50_completeness_%s' % filter][ind][0]
 
 
 def split_dictionary(rawdict, break_key, subdictname,
@@ -147,6 +162,33 @@ def split_dictionary(rawdict, break_key, subdictname,
     return newdict
 
 
+def read_snap(table=None):
+    assert table in ['table1', 'table2', 'table3'], \
+        'table must be table1, table2 or table3'
+
+    if table == 'table1':
+        dtype = [('Galaxy', '|S9'), ('AltNames', '|S18'), ('ra', '|S12'),
+                 ('dec', '|S12'), ('diam', '<f8'), ('Bt', '<f8'), ('Av', '<f8'),
+                 ('dmod', '<f8'), ('T', '<f8'), ('W50', '<f8'), ('Group', '|S8')]
+
+    if table == 'table2':
+        dtype = [('catalog name', '|S8'), ('target', '|S18'),
+                 ('ObsDate', '|S21'), ('Nstars', '<f8'), ('Sigma_max ', '<f8'),
+                 ('Sigma_min', '<f8'), ('.50_completeness_F110W', '<f8'),
+                 ('.50_completeness_F160W', '<f8'), ('opt propid', '|S10'),
+                 ('opt filters ', '|S19')]
+
+    if table == 'table3':
+        dtype = [('catalog name', '|S10'), ('target', '|S17'), ('dmod', '<f8'),
+                 ('Av', '<f8'), ('Nstars', '<f8'), ('mean_color', '<f8'),
+                 ('mTRGB_raw', '<f8'), ('mTRGB_F160W', '<f8'),
+                 ('mTRGB_F160W_err', '<f8'), ('MTRGB_F160W', '<f8'),
+                 ('MTRGB_F160W_err', '<f8')]
+
+    table = os.path.join(TABLE_DIR, 'snap_%s.tex' % table)
+    return np.genfromtxt(table, delimiter='&', dtype=dtype, autostrip=1)
+
+
 def read_angst_tab5():
     dtype = [('catalog name', '|S10'), ('target', '|S23'), ('filters', '|S11'),
              ('Nstars', '<f8'), ('Av', '<f8'), ('mean_color', '<f8'),
@@ -154,7 +196,7 @@ def read_angst_tab5():
              ('mTRGB_err', '<f8'), ('dmod', '<f8'), ('dist_Mpc', '<f8'),
              ('dist_Mpc_err', '<f8')]
 
-    table = os.path.join(TABLE_DIR, 'tab5.tex')
+    table = os.path.join(TABLE_DIR, 'angst_tab5.tex')
     tab5 = np.genfromtxt(table, delimiter='&', dtype=dtype, autostrip=1)
     return tab5
 
@@ -163,7 +205,7 @@ def read_angst_tab4():
     dtype = [('catalog name', '|S14'), ('propid', '<f8'), ('target', '|S19'),
              ('camera', '|S5'), ('filter', 'S5'), ('exposure time', '<f8'),
              ('Nstars', '<f8'), ('50_completeness_mag', '<f8')]
-    table = os.path.join(TABLE_DIR, 'tab4.tex')
+    table = os.path.join(TABLE_DIR, 'angst_tab4.tex')
     tab4 = np.genfromtxt(table, delimiter='&', dtype=dtype, autostrip=1)
     return tab4
 

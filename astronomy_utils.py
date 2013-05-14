@@ -80,7 +80,8 @@ def hess(color, mag, binsize, **kw):
         mbin = np.array(kw['mbin']).copy()
     if kw['cbin'] is None:
         cbinsize = kw.get('cbinsize')
-        if cbinsize is None: cbinsize=binsize
+        if cbinsize is None: 
+            cbinsize=binsize
         cbin = np.arange(color.min(), color.max(), cbinsize)
     else:
         cbin = np.array(kw['cbin']).copy()
@@ -91,32 +92,33 @@ def hess(color, mag, binsize, **kw):
 
 
 def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=None,
-              imshow_kw={}):
+              imshow_kw={}, imshow=True):
     '''
     Plots a hess diagram with imshow.
     default kwargs passed to imshow:
-    default_kw = {'cmap': cm.gray,
+    default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max())
+                  'cmap': cm.gray,
                   'interpolation': 'nearest',
                   'extent': [hess[0][0], hess[0][-1],
                              hess[1][-1], hess[1][0]]}
     '''
-    if fig is None:
-        fig = plt.figure(figsize=(9,9))
-
-    if ax is None:
+    if fig is None and ax is None:
+        fig = plt.figure(figsize=(9, 9))
         ax = plt.axes()
 
     default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max()),
                   'cmap': cm.gray,
-                  'interpolation': 'gaussian',
+                  'interpolation': 'nearest',
                   'extent': [hess[0][0], hess[0][-1],
                              hess[1][-1], hess[1][0]]}
 
     imshow_kw = dict(default_kw.items() + imshow_kw.items())
             
-    im = ax.imshow(hess[2], **imshow_kw)
-    rspgraph.forceAspect(ax, aspect=1)
-    #im = ax.contourf(self.hess[2], **imshow_kw)
+    if imshow is True:
+        im = ax.imshow(hess[2], **imshow_kw)
+        rspgraph.forceAspect(ax, aspect=1)
+    else:
+        im = ax.contourf(hess[2], **imshow_kw)
 
     if colorbar is True:    
         fig.colorbar(im, shrink=0.77)
@@ -127,7 +129,6 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
         ax.tick_params(labelsize=16)
 
     return ax
-
 
 
 def parse_mag_tab(photsys, filter, bcdir=None):
@@ -151,7 +152,8 @@ def parse_mag_tab(photsys, filter, bcdir=None):
         logger.error('%s not in list' % filter)
         logger.errot(tab_mag, mags)
     return Alam_Av[mags.index(filter)]
-    
+
+
 def Mag2mag(Mag, filter, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
@@ -181,6 +183,7 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
         logger.warning('Mag2mag did nothing.')
     return Mag+dmod+A
 
+
 def mag2Mag(mag, filter, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
@@ -205,6 +208,7 @@ def mag2Mag(mag, filter, photsys, **kwargs):
         A = Alam_Av * Av
     
     return mag-dmod-A
+
 
 def get_dmodAv(gal=None, **kwargs):
     '''

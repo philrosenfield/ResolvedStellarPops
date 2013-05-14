@@ -51,26 +51,33 @@ class Isochrone(object):
                 x = self.get_col(col1)
 
             ax.set_xlabel('$%s$' % col1, fontsize=20)
-
+        
         if pms is False and hasattr(self, 'stage'):
             nopms, = np.nonzero(self.get_col('stage') != 0)
         else:
-            nopms = np.arange(len(y) - 1)
+            nopms = np.arange(len(y))
         
         if inds is not None:
             inds = list(set(inds) & set(nopms))
+            
         else:
             inds = nopms
-
+        
+        masses = self.get_col('M_ini')
+        minds = np.argsort(masses[inds])
         x = x[inds]
         y = y[inds]
 
         if clean is True:
+            x = x[minds]
+            y = y[minds]
             isep = np.argmax(np.diff(x, 2))
             pl,  = ax.plot(x[:isep-1], y[:isep-1], **plt_kw)
             plt_kw['color'] = pl.get_color()
             plt_kw['label'] = ''
             pl,  = ax.plot(x[isep+1:], y[isep+1:], **plt_kw)
+        else:
+            ax.plot(x, y, **plt_kw)
 
         if reverse_x is True:
             ax.set_xlim(ax.get_xlim()[::-1])
