@@ -637,8 +637,9 @@ class galaxy(star_pop):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
     '''
-    def __init__(self, fname, filetype='tagged_phot', hla=True, angst=True,
-                 band=None, photsys=None, trgb=np.nan, z=-99, Av=None, dmod=None):
+    def __init__(self, fname, filetype=None, hla=True, angst=True,
+                 band=None, photsys=None, trgb=np.nan, z=-99, Av=None, dmod=None,
+                 filter1=None, filter2=None):
         '''
         I hate this init.
         TODO:
@@ -653,7 +654,8 @@ class galaxy(star_pop):
         self.Av = Av
         self.dmod = dmod
         self.load_data(fname, filetype=filetype, hla=hla, angst=angst,
-                       band=band, photsys=photsys)
+                       band=band, photsys=photsys, filter1=filter1,
+                       filter2=filter2)
 
         # angst table loads
         if angst is True:
@@ -672,8 +674,8 @@ class galaxy(star_pop):
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
             #self.z = galaxy_metallicity(self, self.target)
 
-    def load_data(self, fname, filetype='tagged_phot', hla=True, angst=True,
-                  band=None, photsys=None):
+    def load_data(self, fname, filetype=None, hla=True, angst=True,
+                  band=None, photsys=None, filter1=None, filter2=None):
 
         if hla is True:
             self.survey, self.propid, self.target, filts, psys = \
@@ -684,9 +686,26 @@ class galaxy(star_pop):
         else:
             self.survey = ' '
             self.photsys = photsys
-            self.propid, self.target, self.filter1, self.filter2 =  \
-                bens_fmt_galaxy_info(fname)
-        if 'fits' in filetype:
+            if None in [filter1, filter2]:
+                self.propid, self.target, self.filter1, self.filter2 =  \
+                    bens_fmt_galaxy_info(fname)
+            else:
+                self.propid = ''
+                self.target = fname
+                self.filter1 = filter1
+                self.filter2 = filter2
+
+        if filetype is None:
+            self.data = fileIO.readfile(fname)
+            if not None in [self.filter1, self.filter2]:
+                self.mag1 = self.data[self.filter1]
+                self.mag2 = self.data[self.filter2]
+            else:
+                self.mag1 = np.nan
+                self.mag2 = np.nan
+            self.data = self.data.view(np.recarray)
+
+        elif 'fits' in filetype:
             hdu = pyfits.open(fname)
             #self.data =  fileIO.read_fits(fname)
             ext = self.photsys.upper().split('_')[0]
@@ -1217,7 +1236,13 @@ class sim_and_gal(object):
     def __init__(self, galaxy, simgalaxy):
         self.gal = galaxy
         self.sgal = simgalaxy
-        self.maglims = self.gal.maglims
+        if hasattr(self.gal, 'maglims'): 
+            self.maglims = self.gal.maglims
+        else:
+            self.maglims = [90., 90.]
+        
+        if not hasattr(self.sgal, 'norm_inds'):
+            self.sgal.norm_inds = np.arange(len(self.sgal.data.data_array))
 
     def make_mini_hess(self, color, mag, scolor, smag, ax=None, hess_kw={}):
         
@@ -1276,14 +1301,14 @@ class sim_and_gal(object):
         return nrgb_nagb_data, nrgb_nagb_sim
 
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
-                comp50=False, add_boxes=True, color_hist=False, plot_tpagb=False):
+                comp50=False, add_boxes=True, color_hist=False, plot_tpagb=False,
+                figname=None):
 
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
         mag1 = self.gal.__getattribute__('mag%i' % f1)
         mag = self.gal.__getattribute__('mag%i' % f2)
         color = mag1 - mag
-
         if comp50 is True:
             self.gal.rec, = np.nonzero((mag1 < self.gal.__getattribute__('comp50mag%i' % f1)) &
                                        (mag < self.gal.__getattribute__('comp50mag%i' % f2)))
@@ -1291,7 +1316,7 @@ class sim_and_gal(object):
             self.gal.rec = np.arange(len(mag1))
 
         self.nbins = (mag[self.gal.rec].max() - mag[self.gal.rec].min()) / res
-
+        self.nbins = np.int(np.sqrt(len(self.gal.rec)))
         self.gal_hist, self.bins = np.histogram(mag[self.gal.rec], self.nbins)
 
         # using all ast recovered stars for the histogram and normalizing 
@@ -1300,9 +1325,20 @@ class sim_and_gal(object):
         #                                 bins=self.bins)
         #self.sgal_hist *= self.sgal.rgb_norm
         # hist of what's plotted (cmd)
+        try:
+            smag1 = self.sgal.__getattribute__('ast_mag%i' % f1)
+            smag = self.sgal.__getattribute__('ast_mag%i' % f2)
+        except AttributeError:
+            print 'not using ASTs!!'
+            smag1 = self.sgal.__getattribute__('mag%i' % f1)
+            smag = self.sgal.__getattribute__('mag%i' % f2)
 
-        smag1 = self.sgal.__getattribute__('ast_mag%i' % f1)
-        smag = self.sgal.__getattribute__('ast_mag%i' % f2)
+            if self.maglims >= 90.:
+                inds = list(set(np.nonzero(smag1 < self.maglims[0])[0]) &
+                            set(np.nonzero(smag < self.maglims[1])[0]))
+                smag1 = smag1[inds]
+                smag = smag[inds]
+
         scolor = smag1 - smag
  
         if plot_tpagb is True:
@@ -1313,16 +1349,19 @@ class sim_and_gal(object):
         else:
             itpagb = None
 
-        
-        self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
+        if len(self.sgal.norm_inds) < len(smag):
+            self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
+        else:
+            # lmc, eg, doesn't need normalization. 
+            self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
 
         if color_hist is True:
             # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec) 
-            nbins = (color.max() - color.min() / 0.01)
             maglim = self.maglims[1]
-
-            iabove, = np.nonzero(mag < maglim)            
+            iabove, = np.nonzero(mag < maglim)
             siabove, = np.nonzero(smag < maglim)
+
+            nbins = (color.max() - color.min()) / 0.01
 
             self.gal_color_hist, self.color_bins = np.histogram(color[iabove],
                                                                 bins=nbins)
@@ -1362,8 +1401,8 @@ class sim_and_gal(object):
                                          smag[self.sgal.norm_inds],
                                          filt1, filt2, itpagb=itpagb, 
                                          **plot_LF_kw)            
-
-        fig, axs = self.add_lines_LF(fig, axs)
+        if self.maglims < 99.:
+            fig, axs = self.add_lines_LF(fig, axs)
 
         if add_boxes is True:
             if hasattr(self, 'agb_verts'):
@@ -1375,10 +1414,10 @@ class sim_and_gal(object):
                         color='black', lw=1)
             axs[0].plot(self.gal.norm_verts[:, 0], self.gal.norm_verts[:, 1],
                         color='red', lw=1)
-
-        figname = '_'.join((self.gal.target, self.sgal.mix,
-                            self.sgal.model_name, filt1,
-                            filt2, 'LF.png'))
+        if figname is None:
+            figname = '_'.join((self.gal.target, self.sgal.mix,
+                                self.sgal.model_name, filt1,
+                                filt2, 'LF.png'))
 
         if plt_dir is not None:
             figname = os.path.join(plt_dir, figname)
@@ -1527,9 +1566,9 @@ class sim_and_gal(object):
         axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
 
         if color_hist is True:
-            top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
-                            **hist_kw)
-            top_axs[1].semilogy(self.mass_bins[1:], self.mass_hist, **hist_kw)
+            #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
+            #               **hist_kw)
+            #top_axs[1].semilogy(self.mass_bins[1:], self.mass_hist, **hist_kw)
             
             hist_kw['color'] = 'royalblue'
             top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist, 
