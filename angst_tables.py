@@ -82,7 +82,7 @@ class AngstTables(object):
         except KeyError:
             print traceback.print_exc()
             print '%s not found' % target
-            target = target.replace('_', '-')
+            target = target.replace('_', '-').split('WIDE')[0]
             target = difflib.get_close_matches(target,
                                                self.table5['target'])[0]
             print 'using %s' % target
@@ -110,8 +110,11 @@ class AngstTables(object):
             datum = self.__dict__[target][filter]
         except KeyError:
             print traceback.print_exc()
-            print 'keys available: {}'.format(self.__dict__[target].keys())
-            return -1, -1, -1
+            print '%s not found' % target
+            target = target.replace('_', '-')
+            target = difflib.get_close_matches(target,
+                                               self.table5['target'])[0]
+            datum = self.__dict__[target][filter]
         return datum['50_completeness']
 
     def get_snap_trgb_av_dmod(self, target):
