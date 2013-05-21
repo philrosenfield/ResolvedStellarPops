@@ -91,8 +91,8 @@ def hess(color, mag, binsize, **kw):
     return (cbin, mbin, hess)
 
 
-def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=None,
-              imshow_kw={}, imshow=True):
+def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None,
+              filter2=None, imshow_kw={}, imshow=True, vmin=None, vmax=None):
     '''
     Plots a hess diagram with imshow.
     default kwargs passed to imshow:
@@ -103,10 +103,13 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
                              hess[1][-1], hess[1][0]]}
     '''
     if fig is None and ax is None:
-        fig = plt.figure(figsize=(9, 9))
-        ax = plt.axes()
+        fig, ax = plt.subplots(figsize=(9, 9))
+        ax.autoscale(False)
 
-    default_kw = {'norm': LogNorm(vmin=None, vmax=hess[2].max()),
+    if vmax is None:
+        vmax = hess[2].max()
+
+    default_kw = {'norm': LogNorm(vmin=vmin, vmax=vmax),
                   'cmap': cm.gray,
                   'interpolation': 'nearest',
                   'extent': [hess[0][0], hess[0][-1],
@@ -115,6 +118,7 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None, filter2=Non
     imshow_kw = dict(default_kw.items() + imshow_kw.items())
             
     if imshow is True:
+        ax.autoscale(False)
         im = ax.imshow(hess[2], **imshow_kw)
         rspgraph.forceAspect(ax, aspect=1)
     else:
@@ -153,6 +157,11 @@ def parse_mag_tab(photsys, filter, bcdir=None):
         logger.errot(tab_mag, mags)
     return Alam_Av[mags.index(filter)]
 
+
+def Av2Alambda(Av, photsys, filter):
+    Alam_Av = parse_mag_tab(photsys, filter)
+    Alam = Alam_Av * Av
+    return Alam
 
 def Mag2mag(Mag, filter, photsys, **kwargs):
     '''

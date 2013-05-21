@@ -196,10 +196,12 @@ class star_pop(object):
             ax.legend(loc=0, numpoints=1, frameon=False)
         return ax
 
-    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None):
-        self.redding_vector()
-        self.cmd_errors()
-        self.text_on_cmd()
+    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
+                     reddening=True, dmag=0.5, text_extra=None, errors=True):
+        self.redding_vector(dmag=dmag)
+        if errors is True:
+            self.cmd_errors()
+        self.text_on_cmd(extra=text_extra)
         if trgb is True:
             self.put_a_line_on_it(ax, self.trgb)
 
@@ -233,11 +235,10 @@ class star_pop(object):
                         new_yarr[-1]-0.2), ha='right', fontsize=16,
                         **rspgraph.load_ann_kwargs())
 
-    def redding_vector(self):
+    def redding_vector(self, dmag=1.):
         Afilt1 = astronomy_utils.parse_mag_tab(self.photsys, self.filter1)
         Afilt2 = astronomy_utils.parse_mag_tab(self.photsys, self.filter2)
         Rslope = Afilt2 / (Afilt1 - Afilt2)
-        dmag = 1.
         dcol = dmag / Rslope
         pstart = np.array([0., 0.])
         pend = pstart + np.array([dcol, dmag])
@@ -284,11 +285,14 @@ class star_pop(object):
         self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
-    def text_on_cmd(self):
+    def text_on_cmd(self, extra=None):
         #an_kw = rspgraph.load_ann_kwargs()
         strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target, self.dmod,
                                                   self.Av)
-        offset = 0.15
+        offset = .15
+        if extra is not None:
+            strings += ' %s' % extra
+            offset = 0.2
         for string in strings.split():
             offset -= 0.04
             self.ax.text(0.95, offset, string, transform=self.ax.transAxes,
@@ -523,10 +527,8 @@ class galaxies(star_pop):
     '''
     def __init__(self, galaxy_objects):
         self.galaxies = np.asarray(galaxy_objects)
-        # this will break if more than one filter1 or filter2... is that
-        # how I want it?
-        self.filter1, = np.unique([g.filter1 for g in galaxy_objects])
-        self.filter2, = np.unique([g.filter2 for g in galaxy_objects])
+        self.filter1s = np.unique([g.filter1 for g in galaxy_objects])
+        self.filter2s = np.unique([g.filter2 for g in galaxy_objects])
 
     def sum_attr(self, *attrs):
         for attr, g in itertools.product(attrs, self.galaxies):

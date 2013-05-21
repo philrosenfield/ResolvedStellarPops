@@ -18,7 +18,7 @@ class Isochone(object):
             self.data = self.data[order]
             
     def plot_isochrone(self, col1, col2, ax=None, fig=None, plt_kw={},
-                       mag_covert_kw={}, photsys=None, clean=True, inds=None, 
+                       mag_convert_kw={}, photsys=None, clean=True, inds=None, 
                        reverse_x=False, reverse_y=False, pms=False, xlim=None,
                        ylim=None, xdata=None, ydata=None):
 
@@ -30,9 +30,9 @@ class Isochone(object):
             y = ydata
         else:
             y = self.data[col2]
-            if len(mag_covert_kw) != 0:
+            if len(mag_convert_kw) != 0:
                 import astronomy_utils
-                y = astronomy_utils.Mag2mag(y, col2, photsys, **mag_covert_kw)
+                y = astronomy_utils.Mag2mag(y, col2, photsys, **mag_convert_kw)
             ax.set_ylabel('$%s$' % col2.replace('_','\ '), fontsize=20)
         if xdata is not None:
             x = xdata
@@ -41,9 +41,9 @@ class Isochone(object):
                 col1a, col1b = col1.split('-')
                 x1 = self.data[col1a]
                 x2 = self.data[col1b]
-                if len(mag_covert_kw) != 0:
-                    x1 = astronomy_utils.Mag2mag(x1, col1a, photsys, **mag_covert_kw)
-                    x2 = astronomy_utils.Mag2mag(x2, col1b, photsys, **mag_covert_kw)
+                if len(mag_convert_kw) != 0:
+                    x1 = astronomy_utils.Mag2mag(x1, col1a, photsys, **mag_convert_kw)
+                    x2 = astronomy_utils.Mag2mag(x2, col1b, photsys, **mag_convert_kw)
                 x = x1 - x2
             else:
                 x = self.data[col1]
