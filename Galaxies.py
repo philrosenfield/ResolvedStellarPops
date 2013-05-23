@@ -1356,6 +1356,7 @@ class sim_and_gal(object):
         else:
             # lmc, eg, doesn't need normalization. 
             self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
+            self.sgal_tpagb_hist, _ = np.histogram(smag[self.sgal.itpagb], bins=self.bins)
 
         if color_hist is True:
             # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec) 
@@ -1396,7 +1397,7 @@ class sim_and_gal(object):
                            'data_plt_color': 'black',
                            'color_hist': color_hist}.items() +
                           plot_LF_kw.items())
-
+        
         itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
         fig, axs, top_axs = self.plot_LF(color, mag,
                                          scolor[self.sgal.norm_inds],
@@ -1566,6 +1567,11 @@ class sim_and_gal(object):
 
         hist_kw['color'] = self.model_plt_color
         axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
+
+        if itpagb is not None:
+            hist_kw['color'] = 'royalblue'
+            axs[2].semilogx(self.sgal_tpagb_hist, self.bins[1:], **hist_kw)
+
 
         if color_hist is True:
             #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
