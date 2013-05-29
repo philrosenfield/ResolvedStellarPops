@@ -1454,14 +1454,15 @@ class TrackSet(object):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None, masses=None,
-                 ptcri_file=None, hb_only=False, **kwargs):
+                 ptcri_file=None, hb_only=False, from_p2m=False, **kwargs):
 
         if ptcrifile_loc is not None or ptcri_file is not None:
             self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
                                 ptcrifile_loc=ptcrifile_loc,
                                 eep_list=eep_list, eep_lengths=eep_lengths,
                                 eep_list_hb=eep_list_hb,
-                                eep_lengths_hb=eep_lengths_hb)
+                                eep_lengths_hb=eep_lengths_hb,
+                                from_p2m=from_p2m)
         else:
             self.ptcri = None
 
@@ -1553,6 +1554,8 @@ class TrackSet(object):
         if filename is None:
             base, name = os.path.split(self.ptcri_file)
             filename = os.path.join(base, 'p2m_%s' % name)
+            if hb is True:
+                filename = filename.replacet('p2m', 'p2m_hb')
 
         sorted_keys, inds = zip(*sorted(self.ptcri.key_dict.items(),
                                         key=lambda (k, v): (v, k)))
@@ -1565,8 +1568,8 @@ class TrackSet(object):
             for i, track in enumerate(tracks):
                 self.ptcri.please_define = []
                 # this line should just slow everything down, why is it here?
-                #self.load_critical_points(track, eep_obj=self.eep, hb=hb,
-                #                          ptcri=self.ptcri, diag_plot=False)
+                self.load_critical_points(track, eep_obj=self.eep, hb=hb,
+                                          ptcri=self.ptcri, diag_plot=False)
                 ptcri_str = ' '.join(['%5d' % p for p in track.ptcri.iptcri])
                 f.write(linefmt % (i+1, track.mass, ptcri_str,
                                    os.path.join(track.base, track.name)))

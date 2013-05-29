@@ -167,7 +167,7 @@ def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
 
     cmd = prepare_isoch_cmd(cmd_input_file, isoch_file,
                             isoch_input_kw=isoch_input_kw)
-    
+
     here = os.getcwd()
 
     # copy the cmd_input_file to where we run cmd
