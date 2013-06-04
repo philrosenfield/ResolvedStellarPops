@@ -52,6 +52,8 @@ class Isochone(object):
         
         if pms is False and hasattr(self.data, 'stage'):
             nopms, = np.nonzero(self.data['stage'] != 0)
+            if len(nopms) == 0:
+                return ax
         else:
             nopms = np.arange(len(y))
         

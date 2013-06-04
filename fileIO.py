@@ -146,6 +146,10 @@ def load_input(filename):
 
 
 def readfile(filename, col_key_line=0, comment_char='#'):
+    '''
+    reads a file as a np array, uses the comment char and col_key_line
+    to get the name of the columns.
+    '''
     if col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
@@ -155,7 +159,8 @@ def readfile(filename, col_key_line=0, comment_char='#'):
             lines = f.readlines()
         col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
     
-    data = np.genfromtxt(filename, names=col_keys, invalid_raise=False)
+    data = np.genfromtxt(filename, names=col_keys, invalid_raise=False,
+                         skip_header=col_key_line+1)
     return data
 
 def replace_ext(filename, ext):
