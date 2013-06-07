@@ -1523,7 +1523,7 @@ class TrackSet(object):
                                track_search_term))
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-        mass = map(float, [t.split('_')[-1].split('.P')[0].replace('M', '')
+        mass = map(float, [t.split('.dat')[0].split('_')[-1].split('.P')[0].replace('M', '')
                            for t in track_names])
         mass = np.array(mass)[np.argsort(mass)]
 
