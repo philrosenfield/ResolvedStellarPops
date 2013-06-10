@@ -91,11 +91,12 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
         for i in range(len(to)):
             if sfr[i] == 0.:
                 continue
-            sfr[i] = sfr[i] * 1e3  # sfr is normalized in trilegal
-            if sarah_sim:
+            if sarah_sim is True:
                 z1 = dlogz[i] - half_bin
                 z2 = dlogz[i] + half_bin
+                sfr[i] /= 2.
             else:
+                sfr[i] *= 1e3  # sfr is normalized in trilegal
                 z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
                 z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
             age1a = 1.0 * 10 ** to[i]

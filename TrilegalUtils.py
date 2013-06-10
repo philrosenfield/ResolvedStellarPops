@@ -486,6 +486,7 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False):
     msg = 'trilegal%s.msg' % lixo
     cmd = 'code/main -f %s -a -l %s %s > %s \n' % (cmd_input, galaxy_input,
                                                    output, msg)
+    print cmd
     logger.debug(cmd)
     t = os.system(cmd)
     logger.info('done.')
