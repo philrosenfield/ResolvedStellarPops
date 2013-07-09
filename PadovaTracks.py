@@ -1094,7 +1094,8 @@ class TrackDiag(object):
     def plot_track(self, track, xcol, ycol, reverse_x=False, reverse_y=False,
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=True,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
-                   xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False):
+                   xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False,
+                   arrow_on_line=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -1158,8 +1159,21 @@ class TrackDiag(object):
         if annotate:
             ax = self.annotate_plot(track, ax, xdata, ydata, inds=ainds,
                                     sandro=sandro, hb=hb, cmd=cmd)
-
+        if arrow_on_line is True:
+            # hard coded to be 10 equally spaced points...
+            ages = np.linspace(np.min(track.data.AGE[inds]), np.max(track.data.AGE[inds]), 10)
+            indz, difs = zip(*[math_utils.closest_match(i, track.data.AGE[inds]) for i in ages])
+            # I LOVE IT arrow on line... AOL BUHSHAHAHAHAHA
+            aol_kw = deepcopy(plt_kw)
+            if 'color' in aol_kw:
+                aol_kw['fc'] = aol_kw['color']
+                del aol_kw['color']
+            indz = indz[indz>0]
+            print track.data.LOG_L[inds][np.array([indz])]
+            rspg.arrow_on_line(ax, xdata, ydata, indz, plt_kw=plt_kw)
         return ax
+
+
 
     def annotate_plot(self, track, ax, xcol, ycol, inds=None, sandro=False,
                       cmd=False, hb=False):
