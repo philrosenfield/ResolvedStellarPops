@@ -197,10 +197,11 @@ class star_pop(object):
         return ax
 
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
-                     reddening=True, dmag=0.5, text_extra=None, errors=True):
+                     reddening=True, dmag=0.5, text_extra=None, errors=True,
+                     cmd_errors_kw={}):
         self.redding_vector(dmag=dmag)
         if errors is True:
-            self.cmd_errors()
+            self.cmd_errors(**cmd_errors_kw)
         self.text_on_cmd(extra=text_extra)
         if trgb is True:
             self.put_a_line_on_it(ax, self.trgb)
@@ -253,33 +254,41 @@ class star_pop(object):
                          width=.005, length_includes_head=1, head_width=0.02)
         self.ax.add_patch(arr)
 
-    def cmd_errors(self, binsize=0.1, errclr=-1.5):
+    def cmd_errors(self, binsize=0.1, errclr=-1.5, absmag=False):
         if type(self.data) == pyfits.fitsrec.FITS_rec:
-            self.mag1err = self.data.MAG1_ERR
-            self.mag2err = self.data.MAG2_ERR
-        nbins = (np.max(self.mag2) - np.min(self.mag2)) / binsize
+            mag1err = self.data.MAG1_ERR
+            mag2err = self.data.MAG2_ERR
+        if absmag is False:
+            mag1 = self.mag1
+            mag2 = self.mag2
+        else:
+            mag1 = self.Mag1
+            mag2 = self.Mag2
+        color = mag1 - mag2
+
+        nbins = (np.max(mag2) - np.min(mag2)) / binsize
         errmag = np.arange(int(nbins / 5) - 1) * 1.
         errcol = np.arange(int(nbins / 5) - 1) * 1.
         errmagerr = np.arange(int(nbins / 5) - 1) * 1.
         errcolerr = np.arange(int(nbins / 5) - 1) * 1.
         for q in range(len(errmag) - 1):
-            test = self.mag2.min() + 5. * (q + 2) * binsize + 2.5 * binsize
-            test2, = np.nonzero((self.mag2 > test - 2.5 * binsize) &
-                               (self.mag2 <= test + 2.5 * binsize) &
-                               (self.mag1 - self.mag2 > -0.5) &
-                               (self.mag1 - self.mag2 < 2.5))
+            test = mag2.min() + 5. * (q + 2) * binsize + 2.5 * binsize
+            test2, = np.nonzero((mag2 > test - 2.5 * binsize) &
+                               (mag2 <= test + 2.5 * binsize) &
+                               (mag1 - mag2 > -0.5) &
+                               (mag1 - mag2 < 2.5))
             if len(test2) < 5:
                 continue
-            errmag[q] = self.mag2.min() + 5. * (q + 2) * binsize \
+            errmag[q] = mag2.min() + 5. * (q + 2) * binsize \
                 + 2.5 * binsize
             errcol[q] = errclr
-            m2inds, = np.nonzero((self.mag2 > errmag[q] - 2.5 * binsize) &
-                                (self.mag2 < errmag[q] + 2.5 * binsize))
-            cinds, = np.nonzero((self.color > -0.5) & (self.color < 2.5))
+            m2inds, = np.nonzero((mag2 > errmag[q] - 2.5 * binsize) &
+                                (mag2 < errmag[q] + 2.5 * binsize))
+            cinds, = np.nonzero((color > -0.5) & (color < 2.5))
             cinds = list(set(m2inds) & set(cinds))
-            errmagerr[q] = np.mean(self.mag2err[m2inds])
-            errcolerr[q] = np.sqrt(np.mean(self.mag1err[cinds] ** 2 +
-                                           self.mag2err[cinds] ** 2))
+            errmagerr[q] = np.mean(mag2err[m2inds])
+            errcolerr[q] = np.sqrt(np.mean(mag1err[cinds] ** 2 +
+                                           mag2err[cinds] ** 2))
         self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='white', lw=3, capsize=0, fmt=None)
         self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
