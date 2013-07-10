@@ -57,28 +57,45 @@ def hess(color, mag, binsize, **kw):
     hess = hesst.T
     return (cbin, mbin, hess)
 
+def parse_mag_tab(photsys, filter):
+    '''
+    Extinction curve: values are for a G2V star using Cardelli et al. (1989)
+        with RV=3.1. 
+    '''
+    
+    if photsys.lower() != 'phat':
+        print 'error!! This only works for PHAT filters!'
+    mags = ['F200LP1', 'F218W1', 'F225W1', 'F275W1', 'F336W', 'F350LP', 
+            'F390W', 'F438W', 'F475W', 'F555W', 'F600LP', 'F606W', 'F625W',
+            'F775W', 'F814W', 'F850LP', 'F105W', 'F110W', 'F125W', 'F140W', 
+            'F160W']
+    Alam_Av = [0.9346, 2.65245, 2.32794, 1.94436, 1.65798, 0.90252, 1.42879, 
+               1.33088, 1.18462, 1.04947, 0.6916, 0.92757, 0.86232, 0.66019, 
+               0.61018, 0.46971, 0.3778, 0.33669, 0.28689, 0.24248, 0.20443]
 
-def parse_mag_tab(photsys, filter, bcdir=None):
-    if not bcdir:
-        try:
-            bcdir = os.environ['BCDIR']
-        except KeyError:
-            logger.error('need bcdir environmental variable, or to pass it to parse_mag_tab')
-
-    photsys = photsys.lower()
-
-    tab_mag_dir = os.path.join(bcdir, 'tab_mag_odfnew/')
-    tab_mag, = fileIO.get_files(tab_mag_dir, 'tab_mag_%s.dat' % photsys)
-
-    tab = open(tab_mag, 'r').readlines()
-    mags = tab[1].strip().split()
-    Alam_Av = map(float, tab[3].strip().split())
-    try:
-        Alam_Av[mags.index(filter)]
-    except ValueError:
-        logger.error('%s not in list' % filter)
-        logger.errot(tab_mag, mags)
     return Alam_Av[mags.index(filter)]
+
+#def parse_mag_tab(photsys, filter, bcdir=None):
+#    if not bcdir:
+#        try:
+#            bcdir = os.environ['BCDIR']
+#        except KeyError:
+#            logger.error('need bcdir environmental variable, or to pass it to parse_mag_tab')
+
+#    photsys = photsys.lower()
+
+#    tab_mag_dir = os.path.join(bcdir, 'tab_mag_odfnew/')
+#    tab_mag, = fileIO.get_files(tab_mag_dir, 'tab_mag_%s.dat' % photsys)
+
+#    tab = open(tab_mag, 'r').readlines()
+#    mags = tab[1].strip().split()
+#    Alam_Av = map(float, tab[3].strip().split())
+#    try:
+#        Alam_Av[mags.index(filter)]
+#    except ValueError:
+#        logger.error('%s not in list' % filter)
+#        logger.errot(tab_mag, mags)
+#    return Alam_Av[mags.index(filter)]
     
 def Mag2mag(Mag, filter, photsys, **kwargs):
     '''

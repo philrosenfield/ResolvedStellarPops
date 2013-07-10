@@ -9,9 +9,7 @@ import scipy.interpolate
 
 import Galaxies
 from TrilegalUtils import get_stage_label
-from scatter_contour import scatter_contour
-
-#HELLO
+from philburger.scatter_contour import scatter_contour
 
 def poly_fmt(polygon_str):
     polygon_str = polygon_str.replace(')', '').replace('(', '').strip()

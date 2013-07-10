@@ -4,7 +4,7 @@ import matplotlib.nxutils as nxutils
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from TrilegalUtils import get_stage_label, get_label_stage
-from scatter_contour import scatter_contour
+from philburger.scatter_contour import scatter_contour
 import os
 import sys
 import numpy as np
@@ -154,7 +154,7 @@ class star_pop(object):
         adds the indices of some stage as an attribute.
         '''
         for stage in stages:
-            i = stage_inds(self.stage, stage)
+            i = self.stage_inds(stage)
             self.__setattr__('i%s' % stage.lower(), i)
         return
 
@@ -697,7 +697,7 @@ class simgalaxy(star_pop):
         nplots = ustage.size + 1.
         bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
         cols = bcols.mpl_colors
-        subplots_kwargs = {'sharex': 1, 'sharey': 1, 'figsize': (12, 8)}
+        subplots_kwargs = {'sharex': 'all', 'sharey': 'all', 'figsize': (12, 8)}
         j = 0
         # loop for both simulation and spread simulation
         for color, mag2 in zip((self.color, self.ast_color),
