@@ -258,7 +258,7 @@ def galaxy_input_fmt():
 
 %(file_imf)s # file_imf
 %(binary_kind)i # binary_kind: 0=none, 1=yes
-%(binary_frac).1f # binary_frac: binary fraction
+%(binary_frac).2f # binary_frac: binary fraction
 %(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1
 
 %(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty

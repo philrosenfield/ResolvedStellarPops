@@ -205,7 +205,6 @@ def check_exclude_gates(matchpars=None, qsub=None, match=None, save=True):
     plt.show()
 
 
-
 def read_match_cmd(filename):
     '''
     reads MATCH .cmd file
@@ -272,7 +271,7 @@ def check_for_bg_file(param):
 
     # second to last line has bg.dat in it.
     data = pm[-2].strip().split()[-1]
-
+    print data
     try:
         float(data)
         bg_file = 0
@@ -321,8 +320,9 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
     cmd = ' '.join((calcsfh, param, phot, fake, out))
     cmd += ' -'.join(flags)
     cmd += ' > %s' % (msg)
+    cmd = cmd.replace(' - ', '')
     logger.debug(cmd)
-    #print cmd
+    print cmd
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
     stdout, stderr = (p.stdout, p.stderr)
     err = p.wait()
@@ -411,13 +411,13 @@ def calcsfh_dict():
             'combine_poly': None,
             'ntbins': 0,
             'dobg': -1,
-            'bg_hess': 1, # if it's not a hess, set to +1 see match readme
+            'bg_hess': 1, # neg if it's a .CMD, else it's same fmt as match_phot
             'smooth': 1,
             'ilogzmin': -2.3,
             'ilogzmax': -1.3,
             'flogzmin': -1.9,
             'flogzmax': -1.1,
-            'match_bg': None}
+            'match_bg': ''}
 
 
 class calcsfh_params(object):
@@ -453,7 +453,7 @@ class calcsfh_params(object):
 
 
 def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
-                            inputs=None, **kwargs):
+                            kwargs={}):
     '''    
     to search over range of av: set Av Av2 dAv as kwargs.
     to search over range of dmod: set dmod dmod2 ddmod in kwargs
@@ -493,7 +493,7 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
         calcsfh_pars.Av2 = calcsfh_pars.Av
 
     line = calcsfh_pars_fmt(calcsfh_pars)
-
+    #print calcsfh_pars.__dict__
     pm = open(pmfile, 'w')
     pm.write(line % calcsfh_pars.__dict__)
     pm.close()
@@ -565,52 +565,39 @@ def get_fit(filename):
     fit = float(fh[-1].split(':')[-1])
     return chi2, fit
 
-def match_light(gal, inputs, match_bg, match_kwargs={}, make_plot=False,
-                figname=None, **kwargs):
 
-    if len(match_kwargs) == 0:
-        match_kwargs = {'match_bg': match_bg}
+def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
+                flags=['zinc', 'PADUA_AGB'], make_plot=False, model_name=None,
+                figname=None, match_kwargs={}, loud=False):
 
-    model = kwargs.get('model', '')
-    fmter = kwargs.get('fmter')
-    if fmter is None:
-        fmter = '%s_%s_%s' % (gal.target, model, gal.photsys)
-    
     # prepare parameter file
-    param_dir = os.path.join(inputs.models_loc, 'MATCH', 'params')
-    pmfilename = fileIO.replace_ext(os.path.split(match_bg)[1], '.par')
-    pm_file = os.path.join(param_dir, pmfilename)
-    make_calcsfh_param_file(pm_file, galaxy=gal, inputs=inputs, **match_kwargs)
-
-    # prepare the rest of the match inputs
-    match_name = '%s.fit' % fmter
-    match_out = os.path.join(inputs.models_loc, 'MATCH', 'output', match_name)
-    msg_name = '%s.msg' % fmter
-    msg = os.path.join(inputs.models_loc, 'MATCH', 'msgs', msg_name)
+    make_calcsfh_param_file(pm_file, galaxy=gal, kwargs=match_kwargs)
 
     # run match
-    match_out = call_match(pm_file, inputs.match_phot, inputs.fake_file,
-                           match_out, msg, flags=['zinc', 'PADUA_AGB'])
+    match_out = call_match(pm_file, match_phot, match_fake, match_out, msg,
+                           flags=flags)
 
+    if loud is True:
+        print [l.strip() for l in open(msg).readlines()]
     # read the fit
     chi2, fit = get_fit(match_out)
-    logger.info('%s Chi^2: %f Fit: %f' % (fmter, chi2, fit))
+    logger.info('%s Chi^2: %f Fit: %f' % (match_out, chi2, fit))
     
-    # make plot
-    alabel = r'$%s$' % model.replace('_','\ ')
-    cmdgrid = match_out + '.cmd'
-    grid = match_graphics.pgcmd(cmdgrid,
-                                labels=[gal.target, alabel, 'Diff', 'Sig'],
-                                **{'filter1': gal.filter1,
-                                   'filter2': gal.filter2})
-
     if make_plot is True:
+        # make plot
+        if model_name is None:
+            model_name = 'Model'
+
+        alabel = r'$%s$' % model_name.replace('_','\ ')
+        cmdgrid = match_out + '.cmd'
+        grid = match_graphics.pgcmd(cmdgrid,
+                                    labels=[gal.target, alabel, 'Diff', 'Sig'],
+                                    **{'filter1': gal.filter1,
+                                       'filter2': gal.filter2})
         # save plot
         if figname is None:
             figname = fileIO.replace_ext(cmdgrid, '.png')
-        if inputs.plotdir is not None:
-            figname = os.path.join(inputs.plotdir, os.path.split(figname)[1])
-        plt.savefig(figname)
+        plt.savefig(figname, dpi=300)
         plt.close()
         logger.info('%s wrote %s' % (match_light.__name__, figname))
 

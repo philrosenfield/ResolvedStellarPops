@@ -11,6 +11,30 @@ import pprint
 import logging
 logger = logging.getLogger()
 
+def add_comments_to_header(tracks_base, prefix, search_term):
+    '''
+    insert a # at every line before MODE. genfromtxt will skip the
+    footer and doesn't need #... but that's a place to improve this
+    function.
+    '''
+    tracks = os.path.join(tracks_base, prefix)
+    track_names = fileIO.get_files(tracks, search_term)
+
+    for name in track_names:
+        with open(name, 'r') as t:
+            lines = t.readlines()
+        try:
+            imode, = [i for (i, l) in enumerate(lines)
+                      if l.strip().startswith('MODE ')]
+        except ValueError:
+            print '\n %s \n' % name
+
+        lines[:imode + 1] = ['# ' + l for l in lines[:imode + 1]]
+
+        oname = '%s.dat' % name
+
+        with open(oname, 'w') as t:
+            t.writelines(lines)
 
 def quick_color_em(tracks_base, prefix, photsys='UVbright',
                    search_term='*F7_*PMS'):
@@ -27,28 +51,6 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
     prefix = 'S12D_NS_Z0.0001_Y0.249'
     quick_color_em(tracks_base, prefix)
     '''
-    def add_comments_to_header(tracks_base, prefix, search_term):
-        '''
-        insert a # at every line
-        '''
-        tracks = os.path.join(tracks_base, prefix)
-        track_names = fileIO.get_files(tracks, search_term)
-
-        for name in track_names:
-            with open(name, 'r') as t:
-                lines = t.readlines()
-            try:
-                imode, = [i for (i, l) in enumerate(lines)
-                          if l.strip().startswith('MODE ')]
-            except ValueError:
-                print '\n %s \n' % name
-
-            lines[:imode + 1] = ['# ' + l for l in lines[:imode + 1]]
-
-            oname = '%s.dat' % name
-
-            with open(oname, 'w') as t:
-                t.writelines(lines)
 
     def color_tracks(tracks_base, prefix, cmd):
         tracks = os.path.join(tracks_base, prefix)
