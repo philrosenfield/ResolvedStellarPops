@@ -212,7 +212,7 @@ def read_match_cmd(filename):
     mc = open(filename, 'r').readlines()
     # I don't know what the 7th column is, so I call it lixo.
     names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
-    cmd = np.genfromtxt(filename, skip_header=4, names=names)
+    cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
     return cmd
 
 
@@ -306,11 +306,11 @@ def write_match_bg(color, mag2, filename):
     return
 
 
-def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
+def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB'],
+               loud=False):
     '''
     wrapper for calcsfh, takes as many flags as you want.
     '''
-    flags.insert(0, '')
     calcsfh = os.path.join(os.environ['MATCH'], 'calcsfh')
 
     bg_file = check_for_bg_file(param)
@@ -318,15 +318,16 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB']):
     [fileIO.ensure_file(f) for f in (param, phot, fake)]
 
     cmd = ' '.join((calcsfh, param, phot, fake, out))
-    cmd += ' -'.join(flags)
+    cmd += ' -' + ' -'.join(flags)
     cmd += ' > %s' % (msg)
     cmd = cmd.replace(' - ', '')
     logger.debug(cmd)
-    print cmd
-    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
-    stdout, stderr = (p.stdout, p.stderr)
-    err = p.wait()
-
+    if loud is True:
+        print cmd
+    #p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
+    #stdout, stderr = (p.stdout, p.stderr)
+    #err = p.wait()
+    err = os.system(cmd)
     if err != 0:
         logger.error(p.stderr.readlines())
     if bg_file != 0:
@@ -575,7 +576,7 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
 
     # run match
     match_out = call_match(pm_file, match_phot, match_fake, match_out, msg,
-                           flags=flags)
+                           flags=flags, loud=loud)
 
     if loud is True:
         print [l.strip() for l in open(msg).readlines()]
