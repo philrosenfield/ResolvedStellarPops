@@ -1460,7 +1460,11 @@ class critical_point(object):
             self.key_dict = self.sandros_dict
             
     def load_sandro_eeps(self, track):
-        mptcri = self.data_dict['M%.3f' % track.mass]
+        try:
+            mptcri = self.data_dict['M%.3f' % track.mass]
+        except KeyError:
+            print 'No M%.3f in ptcri.data_dict.' % track.mass
+            return -1
         self.sptcri = \
             np.sort(np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                     for m in mptcri]))
@@ -1782,6 +1786,24 @@ class TrackSet(object):
 
             self.__setattr__(new_attr, new_val)
 
+    def all_inds_of_eep(self, eep_name):
+        '''
+        get all the ind for all tracks of some eep name, for example 
+        want ms_to of the track set? set eep_name = point_c if sandro==True.
+        '''
+        inds = []
+        for track in self.tracks:
+            check = track.ptcri.load_sandro_eeps(track)
+            if check == -1:
+                inds.append(-1)
+                continue
+            eep_ind = track.ptcri.get_ptcri_name(eep_name)
+            if len(track.ptcri.sptcri) <= eep_ind:
+                inds.append(-1)
+                continue
+            data_ind = track.ptcri.sptcri[eep_ind]
+            inds.append(data_ind)
+        return inds
 
 class MatchTracks(object):
     '''
