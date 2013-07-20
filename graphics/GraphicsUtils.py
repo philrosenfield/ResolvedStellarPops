@@ -129,11 +129,12 @@ def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
 
 
 def discrete_colors(Ncolors, colormap='gist_rainbow'):
-    colors = []
+    '''
+    returns list of RGBA tuples length Ncolors
+    '''
     cmap = cm.get_cmap(colormap)
-    for i in range(Ncolors):
-        colors.append( cmap(1.*i/Ncolors) ) # color will now be an RGBA tuple
-    return colors
+    return [cmap(1. * i / Ncolors) for i in range(Ncolors)] 
+
 
 
 def load_scatter_kwargs(color_array, cmap=cm.jet):

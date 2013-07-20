@@ -1360,7 +1360,7 @@ class sim_and_gal(object):
         else:
             itpagb = None
 
-        if len(self.sgal.norm_inds) > len(smag):
+        if len(self.sgal.norm_inds) < len(smag):
             self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
         else:
             # lmc, eg, doesn't need normalization. 
@@ -1414,8 +1414,9 @@ class sim_and_gal(object):
                                          smag[self.sgal.norm_inds],
                                          filt1, filt2, itpagb=itpagb, 
                                          **plot_LF_kw)            
-        if self.maglims < 99.:
-            fig, axs = self.add_lines_LF(fig, axs)
+        # not working not sure why, just hacking...
+        #if self.maglims < 99.:
+        fig, axs = self.add_lines_LF(fig, axs)
 
         if add_boxes is True:
             if hasattr(self, 'agb_verts'):
@@ -1564,9 +1565,10 @@ class sim_and_gal(object):
         # plot simulation
         plt_kw['plot_args']['color'] = self.model_plt_color
         self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
-        if itpagb is not None:
-            plt_kw['plot_args']['color'] = 'royalblue'
-            self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
+        # hack --- should be plottpabg flag...
+        #if itpagb is not None:
+        #    plt_kw['plot_args']['color'] = 'royalblue'
+        #    self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
         axs[1].set_ylabel('')
 
         # plot histogram
