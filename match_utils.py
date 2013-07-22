@@ -329,7 +329,9 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB'],
     #err = p.wait()
     err = os.system(cmd)
     if err != 0:
-        logger.error(p.stderr.readlines())
+        print 'PROBLEM WITH %s SKIPPING!' % param
+        out = -1
+        #logger.error(p.stderr.readlines())
     if bg_file != 0:
         os.remove(bg_file)
     return out
@@ -580,6 +582,9 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
 
     if loud is True:
         print [l.strip() for l in open(msg).readlines()]
+    
+    if match_out == -1:
+        return -1., -1
     # read the fit
     chi2, fit = get_fit(match_out)
     logger.info('%s Chi^2: %f Fit: %f' % (match_out, chi2, fit))
