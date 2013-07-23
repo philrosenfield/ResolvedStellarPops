@@ -597,7 +597,7 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
         alabel = r'$%s$' % model_name.replace('_','\ ')
         cmdgrid = match_out + '.cmd'
         grid = match_graphics.pgcmd(cmdgrid,
-                                    labels=[gal.target, alabel, 'Diff', 'Sig'],
+                                    labels=[gal.target, alabel, '$Difference$', '$\chi^2=%.3f$' % chi2],
                                     **{'filter1': gal.filter1,
                                        'filter2': gal.filter2})
         # save plot

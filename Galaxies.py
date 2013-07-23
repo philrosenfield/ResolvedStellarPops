@@ -528,6 +528,125 @@ class star_pop(object):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
+    
+    def double_gaussian_contamination(self, all_verts, dcol=0.05,
+                                      color_sep=None, diag_plot=False):
+        '''
+        This function fits a double gaussian to a color histogram of stars
+        within the <maglimits> and <colorlimits> (tuples).
+
+        It then finds the intersection of the two gaussians, and the fraction
+        of each integrated gaussian that crosses over the intersection color
+        line.
+        '''
+        try:
+            mpfit
+        except NameError:
+            from mpfit import mpfit
+        
+        try:
+            integrate
+        except NameError:
+            from scipy import integrate
+        # the indices of the stars within the MS/BHeB regions
+    
+        # poisson noise to compare with contamination
+        points = np.column_stack((self.Color, self.Mag2))
+        all_inds, = np.nonzero(nxutils.points_inside_poly(points, all_verts))
+        if len(all_inds) == 0:
+            return np.nan, np.nan, np.nan, np.nan
+        poission_noise = np.sqrt(float(len(all_inds)))
+
+        # make a color histogram
+        #dcol = 0.05
+        color = self.Color[all_inds]
+        col_bins = np.arange(color.min(), color.max() + dcol, dcol)
+        nbins = np.max([len(col_bins), int(poission_noise)])
+        hist, col_bins = np.histogram(color, bins=nbins)
+    
+        # uniform errors
+        err = np.zeros(len(col_bins[:1])) + 1.
+
+        # set up inputs
+        hist_in = {'x': col_bins[1:], 'y': hist, 'err': err}
+    
+        # set up initial parameters:
+        # norm = max(hist),
+        # mean set to be half mean, and 3/2 mean,
+        # sigma set to be same as dcol spacing...
+        p0 = [np.nanmax(hist), np.mean(col_bins[1:]) / 2, dcol,
+              np.nanmax(hist), np.mean(col_bins[1:]) * 1.5, dcol]
+
+        mp_dg = mpfit(math_utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
+        if mp_dg.covar is None:
+            return 0., 0., poission_noise, float(len(all_inds))
+        perc_err = (np.array(mp_dg.perror)-np.array(mp_dg.params))/np.array(mp_dg.params)
+        if np.sum([p**2 for p in perc_err]) > 10.:
+            return 0., 0., poission_noise, float(len(all_inds))
+        # take fit params and apply to guassians on an arb color scale
+        color_array = np.linspace(-10, 10, 1000)
+        g_p1 = mp_dg.params[0: 3]
+        g_p2 = mp_dg.params[3:]
+        gauss1 = math_utils.gaussian(color_array, g_p1)
+        gauss2 = math_utils.gaussian(color_array, g_p2)
+
+        # color separatrion is the intersection of the two gaussians..
+        min_locs = math_utils.find_peaks(gauss1 + gauss2)['minima_locations']
+        auto_color_sep = color_array[min_locs]
+        if color_sep is None:
+            color_sep = auto_color_sep
+        else:
+            print 'you want color_sep to be %.4f, I found it at %.4f' % (color_sep, auto_color_sep)
+
+        # find contamination past the color sep...
+        g12_Integral = integrate.quad(math_utils.double_gaussian, -np.inf, np.inf, mp_dg.params)
+        try:
+            norm =  float(len(all_inds)) / g12_Integral[0] 
+        except ZeroDivisionError:
+            norm = 0.
+        g1_Integral = integrate.quad(math_utils.gaussian, -np.inf, np.inf, g_p1)
+        g2_Integral = integrate.quad(math_utils.gaussian, -np.inf, np.inf, g_p2)
+
+        g1_Int_colsep = integrate.quad(math_utils.gaussian, -np.inf, color_sep, g_p1)
+        g2_Int_colsep = integrate.quad(math_utils.gaussian, color_sep, np.inf, g_p2)
+
+        left_in_right = (g1_Integral[0] - g1_Int_colsep[0]) * norm
+        right_in_left = (g2_Integral[0] - g2_Int_colsep[0]) * norm
+        '''
+    
+        try:
+            left_in_right = g1_Int_colsep[0] / g1_Integral[0]
+    
+            left_in_right = 0.
+
+        try:
+            right_in_left = g2_Int_colsep[0] / g2_Integral[0]
+        except ZeroDivisionError:
+            right_in_left = 0.
+        '''
+        # diagnostic
+        #print color_sep
+        if diag_plot is True:
+            fig1, ax1 = plt.subplots()
+            ax1.plot(col_bins[1:], hist, ls='steps', lw=2)
+            ax1.plot(col_bins[1:], hist, 'o')
+            ax1.plot(color_array,
+                    math_utils.double_gaussian(color_array, mp_dg.params))
+            ax1.plot(color_array, gauss1)
+            ax1.plot(color_array, gauss2)
+            #ax1.set_ylim((0, 100))
+            ax1.set_xlim(-1, 2.5)
+            ax1.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
+            ax1.set_ylabel('$\#$', fontsize=20)
+            ax1.set_title('%s Mean Mag2: %.2f, Nbins: %i' % (self.target, np.mean(np.array(all_verts)[:, 1]), len(col_bins)))
+            ax1.vlines(color_sep, *ax1.get_ylim())
+            ax1.text(0.1, 0.95, 'left in right: %i' % left_in_right, transform=ax1.transAxes)
+            ax1.text(0.1, 0.90, 'right in left: %i' % right_in_left, transform = ax1.transAxes)
+            fig1.savefig('heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1, self.filter2, self.target,np.mean(np.array(all_verts)[:, 1])))
+            plt.close()
+        return left_in_right, right_in_left, poission_noise, float(len(all_inds))
+
+
 
 class galaxies(star_pop):
     '''
