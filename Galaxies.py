@@ -528,9 +528,9 @@ class star_pop(object):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
-    
+
     def double_gaussian_contamination(self, all_verts, dcol=0.05,
-                                      color_sep=None, diag_plot=False):
+                                      color_sep=None, diag_plot=False, absmag=False):
         '''
         This function fits a double gaussian to a color histogram of stars
         within the <maglimits> and <colorlimits> (tuples).
@@ -551,15 +551,22 @@ class star_pop(object):
         # the indices of the stars within the MS/BHeB regions
     
         # poisson noise to compare with contamination
-        points = np.column_stack((self.Color, self.Mag2))
+        if absmag is True:
+            Color = self.Color
+            Mag2 = self.Mag2
+        else:
+            Color = self.color
+            Mag2 = self.mag2
+        points = np.column_stack((Color, Mag2))
         all_inds, = np.nonzero(nxutils.points_inside_poly(points, all_verts))
         if len(all_inds) == 0:
-            return np.nan, np.nan, np.nan, np.nan
+            print 'no points found within verts'
+            return np.nan, np.nan, np.nan, np.nan, np.nan
         poission_noise = np.sqrt(float(len(all_inds)))
 
         # make a color histogram
         #dcol = 0.05
-        color = self.Color[all_inds]
+        color = Color[all_inds]
         col_bins = np.arange(color.min(), color.max() + dcol, dcol)
         nbins = np.max([len(col_bins), int(poission_noise)])
         hist, col_bins = np.histogram(color, bins=nbins)
@@ -574,25 +581,39 @@ class star_pop(object):
         # norm = max(hist),
         # mean set to be half mean, and 3/2 mean,
         # sigma set to be same as dcol spacing...
-        p0 = [np.nanmax(hist), np.mean(col_bins[1:]) / 2, dcol,
-              np.nanmax(hist), np.mean(col_bins[1:]) * 1.5, dcol]
+        p0 = [np.nanmax(hist), np.mean(col_bins[1:]) - np.mean(col_bins[1:])/2, dcol,
+              np.nanmax(hist), np.mean(col_bins[1:]) + np.mean(col_bins[1:])/2, dcol]
 
         mp_dg = mpfit(math_utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
         if mp_dg.covar is None:
-            return 0., 0., poission_noise, float(len(all_inds))
+            print 'not double guassian'
+            return 0., 0., poission_noise, float(len(all_inds)), color_sep
         perc_err = (np.array(mp_dg.perror)-np.array(mp_dg.params))/np.array(mp_dg.params)
         if np.sum([p**2 for p in perc_err]) > 10.:
-            return 0., 0., poission_noise, float(len(all_inds))
+            print 'not double guassian, errors too large'
+            return 0., 0., poission_noise, float(len(all_inds)), color_sep
         # take fit params and apply to guassians on an arb color scale
-        color_array = np.linspace(-10, 10, 1000)
+        color_array = np.linspace(col_bins[0], col_bins[-1], 1000)
         g_p1 = mp_dg.params[0: 3]
         g_p2 = mp_dg.params[3:]
         gauss1 = math_utils.gaussian(color_array, g_p1)
         gauss2 = math_utils.gaussian(color_array, g_p2)
-
+        print g_p1[1], g_p2[1]
         # color separatrion is the intersection of the two gaussians..
+        double_gauss = gauss1 + gauss2
+        #between_peaks = np.arange(
         min_locs = math_utils.find_peaks(gauss1 + gauss2)['minima_locations']
-        auto_color_sep = color_array[min_locs]
+        g1, g2 = np.sort([g_p1[1], g_p2[2]])
+        ginds, = np.nonzero( (color_array > g1) & (color_array < g2))
+        #ginds2, = np.nonzero(gauss2)
+        #ginds = list(set(ginds1) & set(ginds2))
+        min_locs = np.argmin(np.abs(gauss1[ginds]-gauss2[ginds]))
+        print min_locs
+        auto_color_sep = color_array[ginds][min_locs]
+        print auto_color_sep
+        if auto_color_sep == 0:
+            auto_color_sep = np.mean(col_bins[1:])
+            print 'using mean as color_sep'
         if color_sep is None:
             color_sep = auto_color_sep
         else:
@@ -643,8 +664,9 @@ class star_pop(object):
             ax1.text(0.1, 0.95, 'left in right: %i' % left_in_right, transform=ax1.transAxes)
             ax1.text(0.1, 0.90, 'right in left: %i' % right_in_left, transform = ax1.transAxes)
             fig1.savefig('heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1, self.filter2, self.target,np.mean(np.array(all_verts)[:, 1])))
+            print 'wrote heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1, self.filter2, self.target,np.mean(np.array(all_verts)[:, 1]))
             plt.close()
-        return left_in_right, right_in_left, poission_noise, float(len(all_inds))
+        return left_in_right, right_in_left, poission_noise, float(len(all_inds)), color_sep
 
 
 
@@ -1374,6 +1396,7 @@ class sim_and_gal(object):
         if not hasattr(self.sgal, 'norm_inds'):
             self.sgal.norm_inds = np.arange(len(self.sgal.data.data_array))
 
+
     def make_mini_hess(self, color, mag, scolor, smag, ax=None, hess_kw={}):
         
         hess_kw = dict({'binsize': 0.1, 'cbinsize': 0.05}.items() + hess_kw.items())
@@ -2036,3 +2059,41 @@ class artificial_star_tests(object):
             #fin2, = np.nonzero(np.isfinite(cor_mag2))
             #fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
+
+
+def stellar_prob(obs_hess, model_hess, normalize=False):
+    '''
+    FROM MATCH README
+    The quality of the fit is calculated using a Poisson maximum likelihood
+    statistic, based on the Poisson equivalent of chi^2.
+      2 m                                if (n=0)
+      2 [ 0.001 + n * ln(n/0.001) - n ]  if (m<0.001)
+      2 [ m + n * ln(n/m) - n ]          otherwise
+    m=number of model points; n=number of observed points
+
+    This statistic is based on the Poisson probability function:
+       P =  (e ** -m) (m ** n) / (n!),
+    Recalling that chi^2 is defined as -2lnP for a Gaussian distribution and
+    equals zero where m=n, we treat the Poisson probability in the same
+    manner to get the above formula.
+
+    '''
+    n = obs_hess[2]
+
+    m = model_hess[2]
+
+    if normalize is True:
+        n /= np.sum(n)
+        m /= np.sum(m)
+
+    d = 2.* (m + n * np.log(n / m) - n)
+
+    smalln = np.abs(n) < 1e-10
+    d[smalln] = 2. * m[smalln]
+
+    smallm = (m < 0.001) & (n != 0)
+    d[smallm] = 2. * (0.001 + n[smallm] * np.log(n[smallm]/0.001) - n[smallm])
+
+    sig = np.sqrt(2.*(m+n*(np.log(n/m)-1.)))*np.sign(n-m)
+    dif = m-n
+    return np.sum(d), dif, sig
