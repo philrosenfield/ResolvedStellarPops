@@ -17,7 +17,8 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
     return at
 
 
-def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
+def match_plot(ZS, extent, xlim, ylim, labels=["Data", "Model", "Diff", "Sig"],
+               **kwargs):
     '''
     ex ZS = [h[2],sh[2],diff_cmd,resid]
     '''
@@ -25,9 +26,9 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
     grid = ImageGrid(fig, 111,
                      nrows_ncols=(2, 2),
                      direction="row",
-                     axes_pad=0.23,
+                     axes_pad=.7,
                      add_all=True,
-                     label_mode="1",
+                     label_mode="all",
                      share_all=True,
                      cbar_location="top",
                      cbar_mode="each",
@@ -35,6 +36,8 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
                      cbar_pad="2%",
                      aspect=0)
 
+    # scale color bar data and model the same
+    
     for i, (ax, z) in enumerate(zip(grid, ZS)):
         if i > 1:
             # second row: make 0 on the color bar white
@@ -44,23 +47,30 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
             colors = cm.RdBu
         else:
             # first row: make white 0, but will be on the left of color bar
-            vmin = None
-            vmax = None
+            # scale color bar same for data and model.
+            vmin = 0
+            vmax = np.nanmax(ZS[0:2])
             if i == 0:
                 colors = cm.Blues
             if i == 1:
                 colors = cm.Reds
-        im = ax.imshow(z, extent=extent, interpolation="nearest",
+        im = ax.imshow(z, origin='upper', extent=extent, interpolation="nearest",
                        cmap=colors, vmin=vmin, vmax=vmax)
         ax.cax.colorbar(im)
         forceAspect(ax, aspect=1)
 
-    ylabel = kwargs.get('ylabel')
-    xlabel = kwargs.get('xlabel')
-    if ylabel:
-        [ax.set_ylabel(ylabel, fontsize=20) for ax in grid[0::2]]
-    if xlabel:
-        [ax.set_xlabel(xlabel, fontsize=20) for ax in grid[2:]]
+    ylabel = kwargs.get('ylabel', '')
+    xlabel = kwargs.get('xlabel', '')
+    # crop limits to possible data boundary
+    ylim = [np.min([extent[2], ylim[0]]), np.max([extent[3], ylim[1]])]
+    xlim = [np.min(np.abs([extent[0], xlim[0]])), np.min([extent[1], xlim[1]])]
+    for ax in grid:
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        ax.set_ylabel(ylabel, fontsize=20)
+        ax.set_xlabel(xlabel, fontsize=20)
+        ax.xaxis.label.set_visible(True)
+        ax.yaxis.label.set_visible(True)
 
     for ax, im_title in zip(grid, labels):
         t = add_inner_title(ax, im_title, loc=1)
@@ -109,6 +119,10 @@ def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
         grid = match_plot(ZS, extent, **kwargs)
     else:
         grid = match_plot(ZS, extent, labels=labels, **kwargs)
+
+    [ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20) for ax in grid.axes_all]
+    [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_all]
+    grid.axes_all[0].xaxis.label.set_visible(True)
 
     if saveplot:
         figname = rsp.fileIO.replace_ext(filename, '.png')

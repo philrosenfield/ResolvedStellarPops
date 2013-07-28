@@ -103,7 +103,8 @@ class AngstTables(object):
         backward compatibility to my old codes.
         input target,filter: get 50% comp.
         '''
-        target = target.upper().replace('-', '_')
+        target = target.upper().replace('-', '_').replace('C_', 'C')
+
         if 'F160W' in filter or 'F110W' in filter:
             return self.get_snap_50compmag(target, filter)
         try:
@@ -111,7 +112,7 @@ class AngstTables(object):
         except KeyError:
             print traceback.print_exc()
             print '%s not found' % target
-            target = target.replace('_', '-')
+            #target = target.replace('_', '-')
             target = difflib.get_close_matches(target,
                                                self.table5['target'])[0]
             datum = self.__dict__[target][filter]

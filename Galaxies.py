@@ -1456,7 +1456,7 @@ class sim_and_gal(object):
     def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
                 comp50=False, add_boxes=True, color_hist=False, plot_tpagb=False,
                 figname=None):
-
+        itpagb = None
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
         mag1 = self.gal.__getattribute__('mag%i' % f1)
@@ -1496,11 +1496,8 @@ class sim_and_gal(object):
  
         if plot_tpagb is True:
             self.sgal.all_stages('TPAGB')
-            itpagb = [list(self.sgal.norm_inds).index(i) for i in self.sgal.itpagb if i in self.sgal.norm_inds]
-            itpagb = list(set(self.sgal.itpagb) & set(self.sgal.norm_inds))
+            itpagb = np.intersect1d(self.sgal.itpagb, self.sgal.norm_inds)
             assert np.unique(self.sgal.stage[itpagb]).size == 1, 'Indexing Error'
-        else:
-            itpagb = None
 
         if len(self.sgal.norm_inds) < len(smag):
             self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
@@ -1550,7 +1547,7 @@ class sim_and_gal(object):
                            'color_hist': color_hist}.items() +
                           plot_LF_kw.items())
         
-        itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
+        #itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
         fig, axs, top_axs = self.plot_LF(color, mag,
                                          scolor[self.sgal.norm_inds],
                                          smag[self.sgal.norm_inds],
@@ -1595,7 +1592,7 @@ class sim_and_gal(object):
                 trgb = self.gal.ir_trgb
 
             text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
-            title = '$%s\ m_{TRGB}=%.3f$' % (self.gal.target, trgb)
+            title = '$m_{TRGB}=%.3f$' % trgb
 
             if np.isfinite(self.gal.z):
                 title += ' $Z=%.4f$' % (self.gal.z)
@@ -1707,10 +1704,10 @@ class sim_and_gal(object):
         # plot simulation
         plt_kw['plot_args']['color'] = self.model_plt_color
         self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
-        # hack --- should be plottpabg flag...
-        #if itpagb is not None:
-        #    plt_kw['plot_args']['color'] = 'royalblue'
-        #    self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
+
+        if itpagb is not None:
+            plt_kw['plot_args']['color'] = 'royalblue'
+            self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
         axs[1].set_ylabel('')
 
         # plot histogram
@@ -2094,6 +2091,6 @@ def stellar_prob(obs_hess, model_hess, normalize=False):
     smallm = (m < 0.001) & (n != 0)
     d[smallm] = 2. * (0.001 + n[smallm] * np.log(n[smallm]/0.001) - n[smallm])
 
-    sig = np.sqrt(2.*(m+n*(np.log(n/m)-1.)))*np.sign(n-m)
-    dif = m-n
-    return np.sum(d), dif, sig
+    sig = np.sqrt(d) * np.sign(n - m)
+    pct_dif = (m - n) / n
+    return np.sum(d), pct_dif, sig

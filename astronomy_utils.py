@@ -207,7 +207,11 @@ def mag2Mag(mag, filter, photsys, **kwargs):
     target = kwargs.get('target', None)
     A = 0.
     if target != None:
-        trgb, Av, dmod = get_tab5_trgb_Av_dmod(target)
+        filter2 = filter
+        filter1 = kwargs.get('filter1', None)
+        trgb, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target,
+                                                          ','.join((filter1, 
+                                                                    filter2)))
     else:
         Av = kwargs.get('Av', 0.0)
         dmod = kwargs.get('dmod', 0.)
