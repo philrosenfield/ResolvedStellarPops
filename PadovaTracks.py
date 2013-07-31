@@ -37,7 +37,7 @@ def add_comments_to_header(tracks_base, prefix, search_term):
             t.writelines(lines)
 
 def quick_color_em(tracks_base, prefix, photsys='UVbright',
-                   search_term='*F7_*PMS'):
+                   search_term='*F7_*PMS', fromHR2mags=None):
     '''
     This goes quickly through each directory and adds a [search_term].dat file
     that has # in the header and a [search_term].dat.[photsys]] file that is
@@ -60,7 +60,9 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
             z = float(name.split('Z')[1].split('_Y')[0])
             os.system(cmd % (name, z))
 
-    cmd = '/Users/phil/research/Italy/fromHR2mags/fromHR2mags %s ' % photsys
+    if fromHR2mags is None:
+        fromHR2mags = '/Users/phil/research/Italy/fromHR2mags/fromHR2mags'
+    cmd = '%s %s ' % (fromHR2mags, photsys)
     # this is set for .PMS and .PMS.HB tracks
     cmd += '%s 5 6 2 %.3f'
     add_comments_to_header(tracks_base, prefix, search_term)
@@ -1804,6 +1806,7 @@ class TrackSet(object):
             data_ind = track.ptcri.sptcri[eep_ind]
             inds.append(data_ind)
         return inds
+
 
 class MatchTracks(object):
     '''
