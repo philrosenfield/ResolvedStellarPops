@@ -125,7 +125,7 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None,
         im = ax.contourf(hess[2], **imshow_kw)
 
     if colorbar is True:    
-        fig.colorbar(im, shrink=0.77)
+        pass#fig.colorbar(im, shrink=0.77)
             
     if filter2 is not None and filter1 is not None:
         ax.set_ylabel('$%s$' % (filter2), fontsize=20)
@@ -207,7 +207,7 @@ def mag2Mag(mag, filter, photsys, **kwargs):
     target = kwargs.get('target', None)
     A = 0.
     if target != None:
-        filter2 = filter
+        filter2 = kwargs.get('filter2', filter)
         filter1 = kwargs.get('filter1', None)
         trgb, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target,
                                                           ','.join((filter1, 
