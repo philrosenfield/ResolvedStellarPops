@@ -529,8 +529,9 @@ class star_pop(object):
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
 
-    def double_gaussian_contamination(self, all_verts, dcol=0.05,
-                                      color_sep=None, diag_plot=False, absmag=False):
+    def double_gaussian_contamination(self, all_verts, dcol=0.05, Color=None,
+                                      Mag2=None, color_sep=None, diag_plot=False,
+                                      absmag=False, thresh=5):
         '''
         This function fits a double gaussian to a color histogram of stars
         within the <maglimits> and <colorlimits> (tuples).
@@ -551,16 +552,17 @@ class star_pop(object):
         # the indices of the stars within the MS/BHeB regions
     
         # poisson noise to compare with contamination
-        if absmag is True:
-            Color = self.Color
-            Mag2 = self.Mag2
-        else:
-            Color = self.color
-            Mag2 = self.mag2
+        if Color is None:
+            if absmag is True:
+                Color = self.Color
+                Mag2 = self.Mag2
+            else:
+                Color = self.color
+                Mag2 = self.mag2
         points = np.column_stack((Color, Mag2))
         all_inds, = np.nonzero(nxutils.points_inside_poly(points, all_verts))
-        if len(all_inds) == 0:
-            print 'no points found within verts'
+        if len(all_inds) <= thresh:
+            print 'not enough points found within verts'
             return np.nan, np.nan, np.nan, np.nan, np.nan
         poission_noise = np.sqrt(float(len(all_inds)))
 
@@ -581,17 +583,18 @@ class star_pop(object):
         # norm = max(hist),
         # mean set to be half mean, and 3/2 mean,
         # sigma set to be same as dcol spacing...
-        p0 = [np.nanmax(hist), np.mean(col_bins[1:]) - np.mean(col_bins[1:])/2, dcol,
-              np.nanmax(hist), np.mean(col_bins[1:]) + np.mean(col_bins[1:])/2, dcol]
+        p0 = [np.nanmax(hist)/2., np.mean(col_bins[1:]) - np.mean(col_bins[1:])/2, dcol,
+              np.nanmax(hist)/2., np.mean(col_bins[1:]) + np.mean(col_bins[1:])/2, dcol]
 
         mp_dg = mpfit(math_utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
         if mp_dg.covar is None:
             print 'not double guassian'
-            return 0., 0., poission_noise, float(len(all_inds)), color_sep
-        perc_err = (np.array(mp_dg.perror)-np.array(mp_dg.params))/np.array(mp_dg.params)
-        if np.sum([p**2 for p in perc_err]) > 10.:
-            print 'not double guassian, errors too large'
-            return 0., 0., poission_noise, float(len(all_inds)), color_sep
+            #return 0., 0., poission_noise, float(len(all_inds)), color_sep
+        else:
+            perc_err = (np.array(mp_dg.perror)-np.array(mp_dg.params))/np.array(mp_dg.params)
+            if np.sum([p**2 for p in perc_err]) > 10.:
+                print 'not double guassian, errors too large'
+                #return 0., 0., poission_noise, float(len(all_inds)), color_sep
         # take fit params and apply to guassians on an arb color scale
         color_array = np.linspace(col_bins[0], col_bins[-1], 1000)
         g_p1 = mp_dg.params[0: 3]
@@ -668,7 +671,194 @@ class star_pop(object):
             plt.close()
         return left_in_right, right_in_left, poission_noise, float(len(all_inds)), color_sep
 
+    def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
+            model_plt_color='red', data_plt_color='black', ylim=None,
+            xlim=None, xlim2=None, model_title='Model', title=False,
+            band='opt', color_hist=False, itpagb=None, gal_hist=None,
+            bins=None, sgal_hist=None, sbins=None):
 
+        def make_title(self, fig, band='opt'):
+
+            if band == 'opt':
+                trgb = self.trgb
+            elif band == 'ir':
+                trgb = self.ir_trgb
+
+            text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
+            title = '$m_{TRGB}=%.3f$' % trgb
+
+            if np.isfinite(self.z):
+                title += ' $Z=%.4f$' % (self.z)
+
+            fig.text(0.5, 0.96, title, **text_kwargs)
+
+        def setup_lfplot(self, filt1, filt2, model_title='Model',
+                         color_hist=False, lab_kw={}):
+
+            fig = plt.figure(figsize=(9, 9))
+            # plot limits determined by hand
+            if color_hist is False:
+                bottom, height = 0.1, 0.8
+            else:
+                bottom, height = 0.1, 0.6
+
+            widths = [0.29, 0.28, 0.22]
+            lefts = [0.1, 0.42, 0.73]
+
+            axs = [plt.axes([lefts[i], bottom, widths[i], height])
+                   for i in range(3)]
+            
+            if color_hist is False:
+                top_axs = []
+            else:
+                bottom, height = 0.7, 0.2
+                top_axs = [plt.axes([lefts[i], bottom, widths[i], height])
+                           for i in range(3)]
+
+            lab_kw = dict({'fontsize': 20}.items() + lab_kw.items())
+
+            # titles
+            axs[0].set_title('$%s$' % self.target,
+                             color=self.data_plt_color, **lab_kw)
+
+            axs[1].set_title('$%s$' % model_title, color=self.model_plt_color,
+                             **lab_kw)
+
+            axs[0].set_xlabel('$%s-%s$' % (filt1, filt2),
+                              **lab_kw)
+
+            axs[0].set_ylabel('$%s$' % filt2, **lab_kw)
+            axs[1].set_xlabel(axs[0].get_xlabel(), **lab_kw)
+            axs[2].set_xlabel('$\#$', **lab_kw)
+
+            for ax in axs:
+                ax.tick_params(labelsize=20)
+
+            return fig, axs, top_axs
+
+        def fix_plot(axs, xlim=None, xlim2=None, ylim=None, top_axs=[]):
+            # fix axes
+            if xlim is not None:
+                axs[0].set_xlim(xlim)
+            if ylim is not None:
+                axs[0].set_ylim(ylim)
+            if xlim2 is not None:
+                axs[2].set_xlim(xlim2)
+
+            for ax in axs[:2]:
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax.xaxis.set_minor_locator(MultipleLocator(0.2))
+
+            for ax in axs:
+                ax.set_ylim(axs[0].get_ylim())
+                ax.yaxis.set_major_locator(MultipleLocator(2))
+                ax.yaxis.set_minor_locator(MultipleLocator(0.5))
+
+            axs[1].set_xlim(axs[0].get_xlim())
+
+            # no formatters on mid and right plots
+            [ax.yaxis.set_major_formatter(NullFormatter()) for ax in axs[1:]]
+
+            if len(top_axs) > 0:
+                top_axs[-1].set_xlim(axs[0].get_xlim())
+                # Set the top histograms ylims to the ylim that is bigger
+                #ymax1 = top_axs[0].get_ylim()[1]
+                #ymax2 = top_axs[1].get_ylim()[1]
+                #ylim, = [ymax1 if ymax1 > ymax2 else ymax2]
+                #[ax.set_ylim(top_axs[0].get_ylim()[0], ylim) for ax in top_axs[:-1]]
+                #top_axs[1].xaxis.set_major_formatter(NullFormatter())
+                #[ax.xaxis.set_major_formatter(NullFormatter()) for ax in top_axs[:-1]]
+                top_axs[0].xaxis.set_major_formatter(NullFormatter())
+                top_axs[-1].xaxis.set_major_locator(MaxNLocator(integer=True))
+                top_axs[-1].xaxis.set_minor_locator(MultipleLocator(0.2))
+                top_axs[-1].set_ylim(axs[0].get_ylim())
+                top_axs[-1].yaxis.set_major_locator(MultipleLocator(2))
+                top_axs[-1].yaxis.set_minor_locator(MultipleLocator(0.5))                
+                top_axs[-1].set_ylim(self.comp_hess[1].max(), self.comp_hess[1].min())
+                top_axs[-1].set_xlim(self.comp_hess[0].min(), self.comp_hess[0].max())
+
+        if gal_hist is None:
+            gal_hist = self.gal_hist
+        if bins is None:
+            bins = self.bins
+        if sgal_hist is None:
+            sgal_hist = self.sgal_hist
+        if sbins is None:
+            sbins = bins
+        self.data_plt_color = data_plt_color
+        self.model_plt_color = model_plt_color
+
+        fig, axs, top_axs = setup_lfplot(self, filt1, filt2,
+                                         model_title=model_title,
+                                         color_hist=color_hist)
+
+        if title is True:
+            make_title(self, fig, band=band)
+
+        plt_kw = {'threshold': 25, 'levels': 3, 'scatter_off': True,
+                  'filter1': filt1, 'filter2': filt2,
+                  'plot_args': {'alpha': 1, 'color': self.data_plt_color,
+                                'mew': 0, 'mec': self.data_plt_color}}
+
+        # plot data
+        self.plot_cmd(color, mag, ax=axs[0], **plt_kw)
+
+        # plot simulation
+        plt_kw['plot_args']['color'] = self.model_plt_color
+        plt_kw['plot_args']['mec'] = self.model_plt_color
+        
+        self.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
+
+        if itpagb is not None:
+            print 'doing itpagb'
+            plt_kw['plot_args']['color'] = 'royalblue'
+            plt_kw['plot_args']['mec'] = 'royalblue'
+            self.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
+        axs[1].set_ylabel('')
+
+        # plot histogram
+        hist_kw = {'drawstyle': 'steps', 'color': self.data_plt_color, 'lw': 2}
+
+        axs[2].semilogx(gal_hist, bins[1:], **hist_kw)
+
+        if color_hist is True:
+            top_axs[0].plot(self.color_bins[1:], self.gal_color_hist, **hist_kw)
+
+        hist_kw['color'] = self.model_plt_color
+        axs[2].semilogx(sgal_hist, sbins[1:], **hist_kw)
+
+        if itpagb is not None:
+            hist_kw['color'] = 'royalblue'
+            if hasattr(self, 'sgal_tpagb_hist'):
+                axs[2].semilogx(self.sgal_tpagb_hist, self.bins[1:], **hist_kw)
+
+
+        if color_hist is True:
+            #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
+            #               **hist_kw)
+            #top_axs[1].semilogy(self.mass_bins[1:], self.mass_hist, **hist_kw)
+            
+            hist_kw['color'] = 'royalblue'
+            top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist, 
+                            **hist_kw)
+            top_axs[0].set_ylabel('$\#$', fontsize=16)
+            top_axs[1].semilogy(self.mass_bins[1:], self.tp_mass_hist, **hist_kw)
+            top_axs[1].set_xlabel('$M_\odot$', fontsize=16)
+            black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys, 
+                                             stitch_frac=0.555, dfrac=0.05)
+
+            astronomy_utils.hess_plot(self.comp_hess, ax=top_axs[2],
+                                      imshow_kw={'cmap': black2red,
+                                                 'interpolation': 'nearest',
+                                                 'aspect': 'equal',
+                                                 'norm': None,
+                                                 'vmax': np.abs(self.comp_hess[-1]).max(),
+                                                 'vmin': -np.abs(self.comp_hess[-1]).max()},
+                                      imshow=True)
+
+        fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim, top_axs=top_axs)
+
+        return fig, axs, top_axs
 
 class galaxies(star_pop):
     '''
@@ -1051,6 +1241,7 @@ class simgalaxy(star_pop):
         try:
             diff1 = self.data.get_col('%s_cor' % self.filter1)
             diff2 = self.data.get_col('%s_cor' % self.filter2)
+
             if self.get_header().count('cor') > 3:
                 self.filter3, self.filter4 = self.get_header().replace('_cor', '').split()[-2:]
                 diff3 = self.data.get_col('%s_cor' % self.filter3)
@@ -1383,7 +1574,8 @@ class simgalaxy(star_pop):
         hist, bins = np.histogram(data[inds], bins)
         
         return hist, bins
-        
+
+  
 class sim_and_gal(object):
     def __init__(self, galaxy, simgalaxy):
         self.gal = galaxy
@@ -1417,12 +1609,15 @@ class sim_and_gal(object):
         self.gal.nbrighter = []
 
         if band is None and hasattr(self.gal, 'mag4'):
+            '''
+            four filter catalogs.
+            '''
             mag = self.gal.mag4
             smag = self.sgal.ast_mag4
         else:
-            mag = self.gal.mag2
             smag = self.sgal.ast_mag2[self.sgal.norm_inds]
             scolor = self.sgal.ast_color[self.sgal.norm_inds]
+            mag = self.gal.mag2
             color = self.gal.color
 
         spoints = np.column_stack((scolor, smag))
@@ -1435,7 +1630,12 @@ class sim_and_gal(object):
             ginds = None
 
         # the number of rgb stars used for normalization
-        self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
+        # this is not set in this file! WTH PHIL? W T H?
+        try:               
+            self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
+        except TypeError:
+            self.gal.nbrighter.append(self.gal.rgb_norm_inds)
+
         # the number of data stars in the agb_verts polygon
         self.gal.nbrighter.append(len(ginds))
 
@@ -1545,14 +1745,16 @@ class sim_and_gal(object):
         plot_LF_kw = dict({'model_plt_color': 'red',
                            'data_plt_color': 'black',
                            'color_hist': color_hist}.items() +
-                          plot_LF_kw.items())
+                           plot_LF_kw.items())
         
         #itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
-        fig, axs, top_axs = self.plot_LF(color, mag,
-                                         scolor[self.sgal.norm_inds],
-                                         smag[self.sgal.norm_inds],
-                                         filt1, filt2, itpagb=itpagb, 
-                                         **plot_LF_kw)            
+        fig, axs, top_axs = self.gal.plot_LF(color, mag,
+                                             scolor[self.sgal.norm_inds],
+                                             smag[self.sgal.norm_inds],
+                                             filt1, filt2, itpagb=itpagb,
+                                             gal_hist=self.gal_hist, bins=self.bins,
+                                             sgal_hist=self.sgal_hist,
+                                             **plot_LF_kw)
         # not working not sure why, just hacking...
         #if self.maglims < 99.:
         fig, axs = self.add_lines_LF(fig, axs)
@@ -1579,179 +1781,6 @@ class sim_and_gal(object):
         print 'wrote %s' % figname
         return fig, axs, top_axs
 
-    def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
-                model_plt_color='red', data_plt_color='black', ylim=None,
-                xlim=None, xlim2=None, model_title='Model', title=False,
-                band='opt', color_hist=False, itpagb=None):
-
-        def make_title(self, fig, band='opt'):
-
-            if band == 'opt':
-                trgb = self.gal.trgb
-            elif band == 'ir':
-                trgb = self.gal.ir_trgb
-
-            text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
-            title = '$m_{TRGB}=%.3f$' % trgb
-
-            if np.isfinite(self.gal.z):
-                title += ' $Z=%.4f$' % (self.gal.z)
-
-            fig.text(0.5, 0.96, title, **text_kwargs)
-
-        def setup_lfplot(self, filt1, filt2, model_title='Model',
-                         color_hist=False, lab_kw={}):
-
-            fig = plt.figure(figsize=(9, 9))
-            # plot limits determined by hand
-            if color_hist is False:
-                bottom, height = 0.1, 0.8
-            else:
-                bottom, height = 0.1, 0.6
-
-            widths = [0.29, 0.28, 0.22]
-            lefts = [0.1, 0.42, 0.73]
-
-            axs = [plt.axes([lefts[i], bottom, widths[i], height])
-                   for i in range(3)]
-            
-            if color_hist is False:
-                top_axs = []
-            else:
-                bottom, height = 0.7, 0.2
-                top_axs = [plt.axes([lefts[i], bottom, widths[i], height])
-                           for i in range(3)]
-
-            lab_kw = dict({'fontsize': 20}.items() + lab_kw.items())
-
-            # titles
-            axs[0].set_title('$%s$' % self.gal.target,
-                             color=self.data_plt_color, **lab_kw)
-
-            axs[1].set_title('$%s$' % model_title, color=self.model_plt_color,
-                             **lab_kw)
-
-            axs[0].set_xlabel('$%s-%s$' % (filt1, filt2),
-                              **lab_kw)
-
-            axs[0].set_ylabel('$%s$' % filt2, **lab_kw)
-            axs[1].set_xlabel(axs[0].get_xlabel(), **lab_kw)
-            axs[2].set_xlabel('$\#$', **lab_kw)
-
-            for ax in axs:
-                ax.tick_params(labelsize=20)
-
-            return fig, axs, top_axs
-
-        def fix_plot(axs, xlim=None, xlim2=None, ylim=None, top_axs=[]):
-            # fix axes
-            if xlim is not None:
-                axs[0].set_xlim(xlim)
-            if ylim is not None:
-                axs[0].set_ylim(ylim)
-            if xlim2 is not None:
-                axs[2].set_xlim(xlim2)
-
-            for ax in axs[:2]:
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                ax.xaxis.set_minor_locator(MultipleLocator(0.2))
-
-            for ax in axs:
-                ax.set_ylim(axs[0].get_ylim())
-                ax.yaxis.set_major_locator(MultipleLocator(2))
-                ax.yaxis.set_minor_locator(MultipleLocator(0.5))
-
-            axs[1].set_xlim(axs[0].get_xlim())
-
-            # no formatters on mid and right plots
-            [ax.yaxis.set_major_formatter(NullFormatter()) for ax in axs[1:]]
-
-            if len(top_axs) > 0:
-                top_axs[-1].set_xlim(axs[0].get_xlim())
-                # Set the top histograms ylims to the ylim that is bigger
-                #ymax1 = top_axs[0].get_ylim()[1]
-                #ymax2 = top_axs[1].get_ylim()[1]
-                #ylim, = [ymax1 if ymax1 > ymax2 else ymax2]
-                #[ax.set_ylim(top_axs[0].get_ylim()[0], ylim) for ax in top_axs[:-1]]
-                #top_axs[1].xaxis.set_major_formatter(NullFormatter())
-                #[ax.xaxis.set_major_formatter(NullFormatter()) for ax in top_axs[:-1]]
-                top_axs[0].xaxis.set_major_formatter(NullFormatter())
-                top_axs[-1].xaxis.set_major_locator(MaxNLocator(integer=True))
-                top_axs[-1].xaxis.set_minor_locator(MultipleLocator(0.2))
-                top_axs[-1].set_ylim(axs[0].get_ylim())
-                top_axs[-1].yaxis.set_major_locator(MultipleLocator(2))
-                top_axs[-1].yaxis.set_minor_locator(MultipleLocator(0.5))                
-                top_axs[-1].set_ylim(self.comp_hess[1].max(), self.comp_hess[1].min())
-                top_axs[-1].set_xlim(self.comp_hess[0].min(), self.comp_hess[0].max())
-
-        self.data_plt_color = data_plt_color
-        self.model_plt_color = model_plt_color
-
-        fig, axs, top_axs = setup_lfplot(self, filt1, filt2,
-                                         model_title=model_title,
-                                         color_hist=color_hist)
-
-        if title is True:
-            make_title(self, fig, band=band)
-
-        plt_kw = {'threshold': 25, 'levels': 3, 'scatter_off': True,
-                  'filter1': filt1, 'filter2': filt2,
-                  'plot_args': {'alpha': 0.5, 'color': self.data_plt_color}}
-
-        # plot data
-        self.gal.plot_cmd(color, mag, ax=axs[0], **plt_kw)
-
-        # plot simulation
-        plt_kw['plot_args']['color'] = self.model_plt_color
-        self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
-
-        if itpagb is not None:
-            plt_kw['plot_args']['color'] = 'royalblue'
-            self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
-        axs[1].set_ylabel('')
-
-        # plot histogram
-        hist_kw = {'drawstyle': 'steps', 'color': self.data_plt_color, 'lw': 2}
-        axs[2].semilogx(self.gal_hist, self.bins[1:], **hist_kw)
-        if color_hist is True:
-            top_axs[0].plot(self.color_bins[1:], self.gal_color_hist, **hist_kw)
-
-        hist_kw['color'] = self.model_plt_color
-        axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
-
-        if itpagb is not None:
-            hist_kw['color'] = 'royalblue'
-            if hasattr(self, 'sgal_tpagb_hist'):
-                axs[2].semilogx(self.sgal_tpagb_hist, self.bins[1:], **hist_kw)
-
-
-        if color_hist is True:
-            #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
-            #               **hist_kw)
-            #top_axs[1].semilogy(self.mass_bins[1:], self.mass_hist, **hist_kw)
-            
-            hist_kw['color'] = 'royalblue'
-            top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist, 
-                            **hist_kw)
-            top_axs[0].set_ylabel('$\#$', fontsize=16)
-            top_axs[1].semilogy(self.mass_bins[1:], self.tp_mass_hist, **hist_kw)
-            top_axs[1].set_xlabel('$M_\odot$', fontsize=16)
-            black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys, 
-                                             stitch_frac=0.555, dfrac=0.05)
-
-            astronomy_utils.hess_plot(self.comp_hess, ax=top_axs[2],
-                                      imshow_kw={'cmap': black2red,
-                                                 'interpolation': 'nearest',
-                                                 'aspect': 'equal',
-                                                 'norm': None,
-                                                 'vmax': np.abs(self.comp_hess[-1]).max(),
-                                                 'vmin': -np.abs(self.comp_hess[-1]).max()},
-                                      imshow=True)
-
-        fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim, top_axs=top_axs)
-
-        return fig, axs, top_axs
-
     def add_lines_LF(self, fig, axs):
         '''
         must have attributes sgal, gal nbrighter
@@ -1761,7 +1790,7 @@ class sim_and_gal(object):
 
             line_on_it_kw = {'annotate': 0, 'ls': '-'}
             for ax, col, g in zip(axs[:2],
-                                  (self.data_plt_color, self.model_plt_color),
+                                  (self.gal.data_plt_color, self.gal.model_plt_color),
                                   (self.gal, self.sgal)):
                     self.gal.put_a_line_on_it(ax, maglim, color=col,
                                               **line_on_it_kw)
