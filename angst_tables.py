@@ -80,12 +80,13 @@ class AngstTables(object):
         try:
             datum = self.__dict__[target][filters]
         except KeyError:
-            print traceback.print_exc()
-            print '%s not found' % target
+            #print traceback.print_exc()
+            #print '%s not found' % target
+            otarget = target
             target = target.replace('_', '-').split('WIDE')[0]
             target = difflib.get_close_matches(target,
                                                self.table5['target'])[0]
-            print 'using %s' % target
+            print '%s using %s' % (otarget, target)
             filters = [k for k in
                        self.__dict__[target.replace('-', '_')].keys()
                        if ',' in k][0]

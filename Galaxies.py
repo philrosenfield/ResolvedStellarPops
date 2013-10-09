@@ -37,7 +37,7 @@ class star_pop(object):
                  yfilter=None, contour_args={}, scatter_args={}, plot_args={},
                  scatter_off=False, levels=20, threshold=10, contour_lw={},
                  color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None,
-                 hist_bin_res=0.05):
+                 hist_bin_res=0.05, make_labels=True, log_counts=False):
 
         set_fig, set_ax = 0, 0
         if fig is None and ax is None:
@@ -74,16 +74,20 @@ class star_pop(object):
 
             contour_lw = dict({'linewidths': 2, 'colors': 'white',
                                'zorder': 200}.items() + contour_lw.items())
-
-            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res)
-            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res)
+            if type(hist_bin_res) is list:
+                hist_bin_res_c, hist_bin_res_m = hist_bin_res
+            else:
+                hist_bin_res_c = hist_bin_res
+                hist_bin_res_m = hist_bin_res               
+            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res_c)
+            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res_m)
             plt_pts, cs = scatter_contour(color, mag,
                                           threshold=threshold, levels=levels,
                                           hist_bins=[ncolbin, nmagbin],
                                           contour_args=contour_args,
                                           scatter_args=scatter_args,
                                           contour_lw=contour_lw,
-                                          ax=ax)
+                                          ax=ax, log_counts=log_counts)
             self.plt_pts = plt_pts
             self.cs = cs
         else:
@@ -97,8 +101,9 @@ class star_pop(object):
             ylim = (mag.max(), mag.min())
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-        ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
-        ax.set_ylabel('$%s$' % yfilter, fontsize=20)
+        if make_labels is True:
+            ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
+            ax.set_ylabel('$%s$' % yfilter, fontsize=20)
         ax.tick_params(labelsize=16)
         if set_ax == 1:
             self.ax = ax
@@ -570,8 +575,8 @@ class star_pop(object):
         #dcol = 0.05
         color = Color[all_inds]
         col_bins = np.arange(color.min(), color.max() + dcol, dcol)
-        nbins = np.max([len(col_bins), int(poission_noise)])
-        hist, col_bins = np.histogram(color, bins=nbins)
+        #nbins = np.max([len(col_bins), int(poission_noise)])
+        hist = np.histogram(color, bins=col_bins)[0]
     
         # uniform errors
         err = np.zeros(len(col_bins[:1])) + 1.
@@ -589,12 +594,13 @@ class star_pop(object):
         mp_dg = mpfit(math_utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
         if mp_dg.covar is None:
             print 'not double guassian'
-            #return 0., 0., poission_noise, float(len(all_inds)), color_sep
+            return 0., 0., poission_noise, float(len(all_inds)), color_sep
         else:
-            perc_err = (np.array(mp_dg.perror)-np.array(mp_dg.params))/np.array(mp_dg.params)
+            perc_err = (np.array(mp_dg.perror) - np.array(mp_dg.params)) / \
+                        np.array(mp_dg.params)
             if np.sum([p**2 for p in perc_err]) > 10.:
                 print 'not double guassian, errors too large'
-                #return 0., 0., poission_noise, float(len(all_inds)), color_sep
+                return 0., 0., poission_noise, float(len(all_inds)), color_sep
         # take fit params and apply to guassians on an arb color scale
         color_array = np.linspace(col_bins[0], col_bins[-1], 1000)
         g_p1 = mp_dg.params[0: 3]
@@ -620,10 +626,12 @@ class star_pop(object):
         if color_sep is None:
             color_sep = auto_color_sep
         else:
-            print 'you want color_sep to be %.4f, I found it at %.4f' % (color_sep, auto_color_sep)
+            print 'you want color_sep to be %.4f, I found it at %.4f' % (color_sep,
+                                                                         auto_color_sep)
 
         # find contamination past the color sep...
-        g12_Integral = integrate.quad(math_utils.double_gaussian, -np.inf, np.inf, mp_dg.params)
+        g12_Integral = integrate.quad(math_utils.double_gaussian, -np.inf, np.inf,
+                                      mp_dg.params)
         try:
             norm =  float(len(all_inds)) / g12_Integral[0] 
         except ZeroDivisionError:
@@ -659,16 +667,26 @@ class star_pop(object):
             ax1.plot(color_array, gauss1)
             ax1.plot(color_array, gauss2)
             #ax1.set_ylim((0, 100))
-            ax1.set_xlim(-1, 2.5)
+            ax1.set_xlim(color.min(), color.max())
             ax1.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
             ax1.set_ylabel('$\#$', fontsize=20)
-            ax1.set_title('%s Mean Mag2: %.2f, Nbins: %i' % (self.target, np.mean(np.array(all_verts)[:, 1]), len(col_bins)))
+            ax1.set_title('%s Mean Mag2: %.2f, Nbins: %i' % (self.target,
+                                                             np.mean(np.array(all_verts)[:, 1]),
+                                                             len(col_bins)))
             ax1.vlines(color_sep, *ax1.get_ylim())
-            ax1.text(0.1, 0.95, 'left in right: %i' % left_in_right, transform=ax1.transAxes)
-            ax1.text(0.1, 0.90, 'right in left: %i' % right_in_left, transform = ax1.transAxes)
-            fig1.savefig('heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1, self.filter2, self.target,np.mean(np.array(all_verts)[:, 1])))
-            print 'wrote heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1, self.filter2, self.target,np.mean(np.array(all_verts)[:, 1]))
-            plt.close()
+            ax1.text(0.1, 0.95, 'left in right: %i' % left_in_right,
+                     transform=ax1.transAxes)
+            ax1.text(0.1, 0.90, 'right in left: %i' % right_in_left,
+                     transform = ax1.transAxes)
+            fig1.savefig('heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1,
+                                                                       self.filter2,
+                                                                       self.target,
+                                                                       np.mean(np.array(all_verts)[:, 1])))
+            print 'wrote heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1,
+                                                                      self.filter2,
+                                                                      self.target,
+                                                                      np.mean(np.array(all_verts)[:, 1]))
+            #plt.close()
         return left_in_right, right_in_left, poission_noise, float(len(all_inds)), color_sep
 
     def plot_LF(self, color, mag, scolor, smag, filt1, filt2,

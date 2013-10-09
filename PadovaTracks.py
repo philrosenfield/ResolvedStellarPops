@@ -1833,10 +1833,21 @@ class MatchTracks(object):
         self.eep_list_hb = eep_list_hb
         self._plot_all_tracks(self.tracks, eep_list=eep_list,
                               eep_lengths=eep_lengths, plot_dir=outfile_dir)
+
+        self._plot_all_tracks(self.tracks, eep_list=eep_list,
+                              eep_lengths=eep_lengths, plot_dir=outfile_dir,
+                              xcol='logAge')
+
         if self.eep_list_hb is not None:
             self._plot_all_tracks(self.hbtracks, eep_list=self.eep_list_hb,
                                   eep_lengths=eep_lengths_hb,
                                   plot_dir=outfile_dir, extra='_HB')
+
+            self._plot_all_tracks(self.hbtracks, eep_list=self.eep_list_hb,
+                                  eep_lengths=eep_lengths_hb,
+                                  plot_dir=outfile_dir, extra='_HB',
+                                  xcol='logAge')
+
 
     def _load_track(self, filename):
         '''
@@ -1849,7 +1860,11 @@ class MatchTracks(object):
         return data
 
     def _plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
-                         plot_dir=None, extra=''):
+                         plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L'):
+        if extra == '':
+            extra = '_%s' % xcol
+        else:
+            extra += '_%s' % xcol
 
         if eep_lengths is not None:
             eep_lengths = map(int, np.insert(np.cumsum(eep_lengths), 0, 1))
@@ -1863,13 +1878,13 @@ class MatchTracks(object):
         [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
          for i in range(len(eep_list))]
 
-        [ax.plot(t.LOG_TE, t.LOG_L, **line_pltkw) for t in tracks]
+        [ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks]
         xlims = np.array([])
         ylims = np.array([])
         for t in tracks:
             for i in range(len(eep_lengths)):
-                x = t.LOG_TE
-                y = t.LOG_L
+                x = t[xcol]
+                y = t[ycol]
                 ind = eep_lengths[i] - 1
 
                 if (len(x) < ind):
@@ -1880,12 +1895,14 @@ class MatchTracks(object):
         ax.set_title('$%s$' % self.prefix.replace('_', '\ '))
         ax.set_xlim(np.max(xlims), np.min(xlims))
         ax.set_ylim(np.min(ylims), np.max(ylims))
+        ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
+        ax.set_ylabel('$%s$' % ycol, fontsize=20)
         ax.legend(loc=0, numpoints=1, frameon=0)
         figname = 'match_%s%s.png' % (self.prefix, extra)
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname, dpi=300)
-
+    
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
@@ -2020,6 +2037,12 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         Mbol = 4.77 - 2.5 * logL
         logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
         logAge = np.log10(Age)
+        test = np.diff(logAge) > 0
+        bads, = np.nonzero(test==False)
+        if False in test:
+            print '\n AGE NOT MONOTONICALLY INCREASING', track.mass
+            print bads, logAge[bads]
+            print ''
         # CO place holder!
         CO = np.zeros(len(logL))
         mass_arr = np.repeat(track.mass, len(logL))
@@ -2027,7 +2050,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         with open(outfile, 'w') as f:
             f.write(header)
-            np.savetxt(f, to_write, fmt='%.6f')
+            np.savetxt(f, to_write, fmt='%.8f')
         logger.info('wrote %s' % outfile)
         self.match_data = to_write
 

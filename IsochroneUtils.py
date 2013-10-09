@@ -7,7 +7,7 @@ import fileIO
 import logging
 logger = logging.getLogger()
 
-class Isochone(object):
+class Isochrone(object):
     def __init__(self):
         pass
 
@@ -150,7 +150,7 @@ class Isochrones(object):
 
         self.isos = []
         for i in range(N_isochrones):
-            iso = Isochone()
+            iso = Isochrone()
             [iso.__setattr__(meta_names[j], meta_data[j][i]) for j in range(len(meta_names))]
             iso.__setattr__('data', self.all_data[start_inds[i]:
                                                   start_inds[i+1]].view(np.recarray))
