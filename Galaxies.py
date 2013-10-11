@@ -1803,6 +1803,9 @@ class sim_and_gal(object):
         '''
         must have attributes sgal, gal nbrighter
         '''
+        if not 'nbrighter' in self.gal:
+            self.gal.nbrighter = self.nbrighter
+
         for i, maglim in enumerate(self.maglims):
             # lines and numbers on plots
 
