@@ -951,6 +951,8 @@ class simgalaxy(star_pop):
         M star: C/O <= 1, LogL >= 3.3 Mdot <=-5, and TPAGB flag
         C star: C/O >= 1, Mdot <=-5, and TPAGB flag
         '''
+        if not hasattr(self, 'rec'):
+            self.rec = np.arange(len(self.data.get_col('C/O')))
         try:
             co = self.data.get_col('C/O')[self.rec]
         except KeyError:

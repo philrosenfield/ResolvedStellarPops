@@ -434,52 +434,32 @@ def find_photsys_number(photsys, filter):
     return magline.index(filter), mag_file
 
 
-def write_pytrilegal_params(sfh, parfile, photsys, filter, object_mass=1e7):
-    mag_num = find_photsys_number(photsys, filter)[0]
-    lines = ("photosys           %s" % photsys,
-             "mag_num            %s" % mag_num,
-             "mag_lim            2               ",
-             "mag_res            0.1             ",
-             "dust               0               ",
-             "dustM              dpmod60alox40   ",
-             "dustC              AMCSIC15        ",
-             "binary_kind        0               ",
-             "binary_frac        0.              ",
-             "extinction_kind    0               ",
-             "thindisk_kind      0               ",
-             "thickdisk_kind     0               ",
-             "halo_kind          0               ",
-             "bulge_kind         0               ",
-             "object_kind        1               ",
-             "object_mass        %g" % object_mass,
-             "object_dist        10.0            ",
-             "object_avkind      1               ",
-             "object_av          0.000           ",
-             "object_cutoffmass  0.8             ",
-             "object_sfr         %s" % os.path.abspath(sfh),
-             "object_sfr_A       1.              ",
-             "object_sfr_B       0.0             ")
-
-    with open(parfile, 'w') as oo:
-        [oo.write(line + '\n') for line in lines]
-
-    logger.info('wrote  %s' % parfile)
-    return
-
-
-def run_trilegal(cmd_input, galaxy_input, output, loud=False):
+def run_trilegal(cmd_input, galaxy_input, output, loud=False,
+                 rmfiles=True):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
     changes directory to trilegal root, if that's not in a .cshrc need to
     somehow tell it where to go.
-
+    
+    rmfiles: set to false if running with multiprocessing, destroying files,
+    even if not necessary, seem to break .get()
+    
+    loud: after the trilegal run, prints trilegal messages
+    
     to do:
     add -a or any other flag options
     possibly add the stream output to the end of the output file.
     '''
     here = os.getcwd()
     os.chdir(os.environ['TRILEGAL_ROOT'])
-
+    remove = False
+    
+    # trilegal 1.4 doesn't do well with top level files outside tri dr.
+    if '..' in cmd_input:
+        remove = True
+        os.system('cp %s .' % cmd_input)
+        cmd_input = os.path.split(cmd_input)[1]
+    
     logger.info('running trilegal...')
     # this way can run many at a time.
     lixo = str(np.random.rand()).replace('.','')
@@ -492,41 +472,17 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False):
 
     if loud is True:
         print '\n'.join([l.strip() for l in open(msg).readlines()])
-
+    
+    if rmfiles is True and remove is True:
+        # cmd file was copied into cwd
+        os.remove(cmd_input)
+    
     if t != 0:
         logger.debug('\n'.join([l.strip() for l in open(msg).readlines()]))
-    else:
+    if rmfiles is True:
         os.remove(msg)
+
     os.chdir(here)
-    return
-
-
-def run_pytrilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
-    '''
-    This is to run Marco's python trilegal implementation.
-    '''
-    from subprocess import Popen, PIPE
-    cmd = "/Users/phil/research/PyTRILEGAL/run_trilegal.py  -e code/main"
-    cmd += "%s" % parfile
-    if agb is True:
-        cmd += " -a"
-    if tagstages is True:
-        cmd += " -l"
-    cmd += " -i  %s" % inp
-    cmd += " -o  %s" % out
-    cmd += " -f  %s" % cmd_input
-
-    logger.debug(cmd)
-    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
-    stdout, stderr = (p.stdout, p.stderr)
-    lines = stdout.readlines()
-    p.wait()
-    # append the standard output to the end of the output file
-    with open(out, 'a') as ff:
-        for l in lines:
-            ff.write("# %s" % l)
-
-    logger.debug([l.strip() for l in lines])
     return
 
 
