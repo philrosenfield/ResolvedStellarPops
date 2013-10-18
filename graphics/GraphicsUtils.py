@@ -90,7 +90,8 @@ def plot_numbs(ax, item, xpos, ypos, **kwargs):
     return
 
 
-def setup_multiplot(nplots, **subplots_kwargs):
+def setup_multiplot(nplots, xlabel=None, ylabel=None, title=None,
+                    subplots_kwargs={}):
     '''
     fyi subplots args:
         nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True, 
@@ -105,7 +106,17 @@ def setup_multiplot(nplots, **subplots_kwargs):
     ny = int(ny)
     
     (fig, axs) = plt.subplots(nrows=nx, ncols=ny, **subplots_kwargs)
-    
+    if ylabel is not None:
+        axs[0][0].annotate(ylabel, fontsize=60, xy=(0.025, 0.5),
+                         xycoords='figure fraction', va='center',
+                         rotation='vertical')
+    if xlabel is not None:
+        axs[0][0].annotate(xlabel, fontsize=60, xy=(0.5, 0.025),
+                         xycoords='figure fraction', va='center')
+    if title is not None:
+        axs[0][0].annotate(title, fontsize=60, xy=(0.5, 1. - 0.025),
+                         xycoords='figure fraction', va='center')
+        
     return (fig, axs)
 
 
