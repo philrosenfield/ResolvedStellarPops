@@ -16,6 +16,30 @@ def make_exclude_gates(gal, outfile=None):
     # i just did this by hand looking at a cmd...
 
 
+def read_binned_sfh(filename):
+    '''
+    reads the *.zc.sfh file from match, the one created using HMC from
+    Dolphin 2013. Not sure what one of the cols is, so I have it a lixo.
+    '''
+    dtype = [('lagei', '<f8'),
+            ('lagef', '<f8'),
+            ('dmod', '<f8'),
+            ('sfr', '<f8'),
+            ('sfr_errm', '<f8'),
+            ('sfr_errp', '<f8'),
+            ('mh', '<f8'),
+            ('mh_errm', '<f8'),
+            ('mh_errp', '<f8'),
+            ('lixo', '<f8'),
+            ('lixo_errm', '<f8'),
+            ('lixo_errp', '<f8'),
+            ('csfr', '<f8'),
+            ('csfr_errm', '<f8'),
+            ('csfr_errp', '<f8')]
+    data = np.genfromtxt(filename, dtype=dtype)
+    return data.view(np.recarray)
+
+
 def read_zctmp(filename):
     data = {'To': np.array([]), 
             'Tf': np.array([]),
@@ -56,6 +80,7 @@ def plot_zctmp(filename):
     ax.set_xlabel('$Gyr\ ago$', fontsize=20)
     ax.set_ylabel('$SFR\ M_\odot/yr$', fontsize=20)
     plt.savefig(filename + '.png')
+
 
 def read_match_sfh(filename, bgfile=False):
     footer = 2
@@ -335,6 +360,65 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB'],
     if bg_file != 0:
         os.remove(bg_file)
     return out
+
+
+def match_param_fmt():
+    return '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
+%(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
+%(BF).2f %(bad0).6f %(bad1).6f
+%(ncmds)i
+%(Vstep).2f %(V-Istep).2f %(fake_sm)i %(V-Imin).2f %(V-Imax).2f %(V)s,%(I)s
+%(Vmin).2f %(Vmax).2f %(V)s
+%(Imin).2f %(Imax).2f %(I)s
+0 0
+43
+7.30 7.40
+7.40 7.50
+7.50 7.60
+7.60 7.70
+7.70 7.80
+7.80 7.90
+7.90 8.00
+8.00 8.10
+8.10 8.20
+8.20 8.30
+8.30 8.40
+8.40 8.50
+8.50 8.60
+8.60 8.70
+8.70 8.75
+8.75 8.80
+8.80 8.85
+8.85 8.90
+8.90 8.95
+8.95 9.00
+9.00 9.05
+9.05 9.10
+9.10 9.15
+9.15 9.20
+9.20 9.25
+9.25 9.30
+9.30 9.35
+9.35 9.40
+9.40 9.45
+9.45 9.50
+9.50 9.55
+9.55 9.60
+9.60 9.65
+9.65 9.70
+9.70 9.75
+9.75 9.80
+9.80 9.85
+9.85 9.90
+9.90 9.95
+9.95 10.00
+10.00 10.05
+10.05 10.10
+10.10 10.15
+-1 5 -1bg.dat
+-1  1 -1
+'''
+
 
 
 def match_param_kwargs(filename, track_time=False):

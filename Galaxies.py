@@ -1068,7 +1068,16 @@ class galaxy(star_pop):
         elif 'fits' in filetype:
             hdu = pyfits.open(fname)
             #self.data =  fileIO.read_fits(fname)
-            ext = self.photsys.upper().split('_')[0]
+            if photsys is not None:
+                ext = self.photsys.upper().split('_')[0]
+            else:
+                cam = hdu[0].header['CAMERA']
+                if cam == 'ACS':
+                    self.photsys = 'acs_wfc'
+                elif cam == 'WFPC2':
+                    self.photsys = 'wfpc2'
+                else:
+                    logger.error('I do not know the photsys.')
             self.data = hdu[1].data
             self.ra = self.data['ra']
             self.dec = self.data['dec']
@@ -2000,7 +2009,7 @@ class artificial_star_tests(object):
         rec1, = np.nonzero(self.mag1diff > threshold)
         rec2, = np.nonzero(self.mag2diff > threshold)
         self.rec = list(set(rec1) & set(rec2))
-        return self.rec
+        return rec1, rec2
 
     def load_fake(self, filename):
         '''
@@ -2107,6 +2116,11 @@ class artificial_star_tests(object):
             #fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
 
+    def completeness(self):
+        # not finished ...
+        rec1, rec2 = self.recovered()
+        self.bin_asts()
+        qhist1, _ = np.histogram(self.mag1, bins=self.ast_bins)
 
 def stellar_prob(obs_hess, model_hess, normalize=False):
     '''

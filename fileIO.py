@@ -163,6 +163,7 @@ def readfile(filename, col_key_line=0, comment_char='#'):
                          skip_header=col_key_line+1)
     return data
 
+
 def replace_ext(filename, ext):
     '''
     input 
@@ -271,7 +272,7 @@ class Table(object):
     def get_col(self, key):
         return self.data_array[:, self.key_dict[key]]
 
-            
+
 def get_files(src, search_string):
     '''
     returns a list of files, similar to ls src/search_string
