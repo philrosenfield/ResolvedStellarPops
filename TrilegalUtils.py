@@ -444,21 +444,27 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):
     add -a or any other flag options
     possibly add the stream output to the end of the output file.
     '''
-    
+    import subprocess
     here = os.getcwd()
     os.chdir(os.environ['TRILEGAL_ROOT'])
-    os.system('cp %s .' % cmd_input)
+    if here != os.getcwd():
+        os.system('cp %s .' % cmd_input)
     cmd_input = os.path.split(cmd_input)[1]
     
     logger.info('running trilegal...')
     # this way can run many at a time.
     lixo = str(np.random.rand()).replace('.','')
     msg = 'trilegal%s.msg' % lixo
-    cmd = 'code/main -f %s -a -l %s %s > %s \n' % (cmd_input, galaxy_input,
+    cmd = 'code_2.3/main -f %s -a -l %s %s > %s' % (cmd_input, galaxy_input,
                                                    output, msg)
     print cmd
     logger.debug(cmd)
-    t = os.system(cmd)
+    #t = os.system(cmd)
+    t=0
+    #p = subprocess.Popen(['/bin/bash', '-c', cmd])
+    p = subprocess.Popen(cmd, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
+    p.wait()
+    print p.communicate()
     logger.info('done.')
 
     
@@ -473,35 +479,6 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):
     if rmfiles is True:
         os.remove(cmd_input)
     os.chdir(here)
-    return
-
-
-def run_pytrilegal(cmd_input, parfile, inp, out, agb=True, tagstages=True):
-    '''
-    This is to run Marco's python trilegal implementation.
-    '''
-    from subprocess import Popen, PIPE
-    cmd = "/Users/phil/research/PyTRILEGAL/run_trilegal.py  -e code/main"
-    cmd += "%s" % parfile
-    if agb is True:
-        cmd += " -a"
-    if tagstages is True:
-        cmd += " -l"
-    cmd += " -i  %s" % inp
-    cmd += " -o  %s" % out
-    cmd += " -f  %s" % cmd_input
-
-    logger.debug(cmd)
-    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
-    stdout, stderr = (p.stdout, p.stderr)
-    lines = stdout.readlines()
-    p.wait()
-    # append the standard output to the end of the output file
-    with open(out, 'a') as ff:
-        for l in lines:
-            ff.write("# %s" % l)
-
-    logger.debug([l.strip() for l in lines])
     return
 
 

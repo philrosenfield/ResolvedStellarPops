@@ -212,7 +212,7 @@ class star_pop(object):
             self.put_a_line_on_it(ax, self.trgb)
 
     def put_a_line_on_it(self, ax, val, consty=True, color='black',
-                         ls='--', lw=2, annotate=True,
+                         ls='--', lw=2, annotate=True, filter1=None,
                          annotate_fmt='$TRGB=%.2f$'):
         """
         if consty is True: plots a constant y value across ax.xlims().
@@ -232,9 +232,10 @@ class star_pop(object):
             # where a constant value of x is
             new_yarr = yarr
             # if you make the ability to make the yaxis filter1...
-            #if filter1 == None:
-            #    new_xarr = val - yarr
-            new_xarr = val - yarr
+            if filter1 == None:
+                new_xarr = yarr - val
+            else:
+                new_xarr = val - yarr
         ax.plot(new_xarr, new_yarr, ls, color=color, lw=lw)
         if annotate is True:
             ax.annotate(annotate_fmt % val, xy=(new_xarr[-1]-0.1,

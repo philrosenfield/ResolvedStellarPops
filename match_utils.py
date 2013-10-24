@@ -1,19 +1,11 @@
 import fileIO
 import match_graphics
 import numpy as np
-from subprocess import PIPE, Popen
 import matplotlib.pyplot as plt
 import re
 import os
 import logging
 logger = logging.getLogger()
-
-
-def make_exclude_gates(gal, outfile=None):
-    if outfile is None:
-        outfile = gal.name + 'exclude_gate'
-    pass
-    # i just did this by hand looking at a cmd...
 
 
 def read_binned_sfh(filename):
@@ -30,9 +22,9 @@ def read_binned_sfh(filename):
             ('mh', '<f8'),
             ('mh_errm', '<f8'),
             ('mh_errp', '<f8'),
-            ('lixo', '<f8'),
-            ('lixo_errm', '<f8'),
-            ('lixo_errp', '<f8'),
+            ('mh_disp', '<f8'),
+            ('mh_disp_errm', '<f8'),
+            ('mh_disp_errp', '<f8'),
             ('csfr', '<f8'),
             ('csfr_errm', '<f8'),
             ('csfr_errp', '<f8')]
@@ -40,8 +32,118 @@ def read_binned_sfh(filename):
     return data.view(np.recarray)
 
 
+class StarFormationHistories(object):
+    '''
+    something
+    '''
+    def __ini__(self):
+        '''
+        something
+        '''
+        pass
+
+    def make_trilegal_sfh(self, match_sfh_file, random_sfr=False, random_z=False,
+                          zdisp=True, outfile='default'):
+        '''
+        turn binned sfh in to trilegal sfh
+        '''
+        zsun = 0.01524
+        if outfile == 'default':
+            outfile = match_sfh_file.replace('.zc.sfh', '.tri.dat')
+
+        msfh = read_binned_sfh(match_sfh_file)
+
+        age1a = 10 ** (msfh.lagei)
+        age1p = 1.0 * 10 ** (msfh.lagei + 0.0001)
+        age2a = 1.0 * 10 ** msfh.lagef
+        age2p = 1.0 * 10 ** (msfh.lagef + 0.0001)
+
+        raw_sfr = msfh.sfr
+        if random_sfr is False:
+            sfr = raw_sfr
+
+        raw_z = zsun * 10 ** msfh.mh
+        if random_z is False:
+            metalicity = raw_z
+
+        if zdisp is True:
+            zdisp = msfh.mh_disp
+        fmt = '%.4e %.3f %.4f %.4f \n'
+        with open(outfile, 'w') as out:
+            for i in range(len(sfr)):
+                if sfr[i] == 0:
+                    continue
+                out.write(fmt % (age1a[i], 0.0, metalicity[i], zdisp[i]))
+                out.write(fmt % (age1p[i], sfr[i], metalicity[i], zdisp[i]))
+                out.write(fmt % (age2a[i], sfr[i], metalicity[i], zdisp[i]))
+                out.write(fmt % (age2p[i], 0.0, metalicity[i], zdisp[i]))
+        return
+
+
+def match_param_fmt():
+    '''
+    calcsfh parameter format, set up for dan's runs and parsec M<12.
+    '''
+    return '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
+%(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
+%(BF).2f %(bad0).6f %(bad1).6f
+%(ncmds)i
+%(Vstep).2f %(V-Istep).2f %(fake_sm)i %(V-Imin).2f %(V-Imax).2f %(V)s,%(I)s
+%(Vmin).2f %(Vmax).2f %(V)s
+%(Imin).2f %(Imax).2f %(I)s
+0 0
+43
+7.30 7.40
+7.40 7.50
+7.50 7.60
+7.60 7.70
+7.70 7.80
+7.80 7.90
+7.90 8.00
+8.00 8.10
+8.10 8.20
+8.20 8.30
+8.30 8.40
+8.40 8.50
+8.50 8.60
+8.60 8.70
+8.70 8.75
+8.75 8.80
+8.80 8.85
+8.85 8.90
+8.90 8.95
+8.95 9.00
+9.00 9.05
+9.05 9.10
+9.10 9.15
+9.15 9.20
+9.20 9.25
+9.25 9.30
+9.30 9.35
+9.35 9.40
+9.40 9.45
+9.45 9.50
+9.50 9.55
+9.55 9.60
+9.60 9.65
+9.65 9.70
+9.70 9.75
+9.75 9.80
+9.80 9.85
+9.85 9.90
+9.90 9.95
+9.95 10.00
+10.00 10.05
+10.05 10.10
+10.10 10.15
+-1 5 -1bg.dat
+-1  1 -1
+'''
+
+## All the code below is old, and could use rsp.fileIO or soemthing else.
+
 def read_zctmp(filename):
-    data = {'To': np.array([]), 
+    data = {'To': np.array([]),
             'Tf': np.array([]),
             'sfr': np.array([]),
             'logz': np.array([])}
@@ -59,7 +161,7 @@ def read_zctmp(filename):
         data['To'] = np.append(data['To'], to)
         data['Tf'] = np.append(data['Tf'], tf)
         data['sfr'] = np.append(data['sfr'], sfr)
-    
+
     data['sfr'] = data['sfr'].reshape(nrow, ncol)
     return data
 
@@ -92,7 +194,7 @@ def read_match_sfh(filename, bgfile=False):
     sfh = sfh.view(np.recarray)
     return sfh
 
-    
+
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
                       sarah_sim=False, footer=2):
     '''
@@ -108,8 +210,8 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
     to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=2,
                                                      skip_footer=footer,
                                                      unpack=True)
-    
-    half_bin = np.diff(dlogz[0: 2])[0] / 2.        
+
+    half_bin = np.diff(dlogz[0: 2])[0] / 2.
     # correct age for trilegal isochrones.
     tf[tf == 10.15] = 10.13
     with open(outfile, 'w') as out:
@@ -161,7 +263,7 @@ def check_exclude_gates(matchpars=None, qsub=None, match=None, save=True):
             sfh = command[4]
             flags = command[5:command.index('>')]
         for flag in flags:
-            if flag == '-allstars': 
+            if flag == '-allstars':
                 mc = 1
             if flag == '-zinc':
                 zinc = 1
@@ -177,7 +279,7 @@ def check_exclude_gates(matchpars=None, qsub=None, match=None, save=True):
 
     if (zinc == 1) & (len(m[1].split()) != 7): print 'zinc might not be set right in matchpars'
     if (zinc == 0) & (len(m[1].split()) == 7): print 'zinc flag should be on according to matchpars.'
-    
+
     for mm in m:
         if re.search('bg.dat', mm):
             bg = 0
@@ -195,18 +297,18 @@ def check_exclude_gates(matchpars=None, qsub=None, match=None, save=True):
         mag = excludes[2:-1:2]
         col.append(col[0])
         mag.append(mag[0])
-        if len(col) > 5: 
+        if len(col) > 5:
             print 'not ready to do more than one region'
-    
+
     colmin = float(m[4].split()[3])
     colmax = float(m[4].split()[4])
     mag1min = float(m[5].split()[1])
     mag1max = float(m[5].split()[0])
     mag2min = float(m[6].split()[1])
     mag2max = float(m[6].split()[0])
-    
+
     mag2cut = np.nonzero((mag2 > mag2max) & (mag2 < mag2min))
-    
+
     plt.plot(mag1-mag2,mag1,'.',color='grey')
     plt.plot(mag1[mag2cut]- mag2[mag2cut], mag1[mag2cut], '.', color='black')
     plt.plot([colmin, colmin], [mag1min, mag1max],'--', lw=3, color='green')
@@ -263,7 +365,7 @@ def write_qsub(param, phot, fake, qsubfile, zinc=True, mc=False, cwd=None):
     lines += '#PBS -l walltime=12:00:00 \n'
     if mc is False:
         lines += '#PBS -M philrose@astro.washington.edu \n'
-    
+
     lines += '#PBS -m abe \n#PBS -V \n'
     lines += 'cd %s \n' % cwd
     if mc is False:
@@ -362,108 +464,10 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB'],
     return out
 
 
-def match_param_fmt():
-    return '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
-%(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
-%(BF).2f %(bad0).6f %(bad1).6f
-%(ncmds)i
-%(Vstep).2f %(V-Istep).2f %(fake_sm)i %(V-Imin).2f %(V-Imax).2f %(V)s,%(I)s
-%(Vmin).2f %(Vmax).2f %(V)s
-%(Imin).2f %(Imax).2f %(I)s
-0 0
-43
-7.30 7.40
-7.40 7.50
-7.50 7.60
-7.60 7.70
-7.70 7.80
-7.80 7.90
-7.90 8.00
-8.00 8.10
-8.10 8.20
-8.20 8.30
-8.30 8.40
-8.40 8.50
-8.50 8.60
-8.60 8.70
-8.70 8.75
-8.75 8.80
-8.80 8.85
-8.85 8.90
-8.90 8.95
-8.95 9.00
-9.00 9.05
-9.05 9.10
-9.10 9.15
-9.15 9.20
-9.20 9.25
-9.25 9.30
-9.30 9.35
-9.35 9.40
-9.40 9.45
-9.45 9.50
-9.50 9.55
-9.55 9.60
-9.60 9.65
-9.65 9.70
-9.70 9.75
-9.75 9.80
-9.80 9.85
-9.85 9.90
-9.90 9.95
-9.95 10.00
-10.00 10.05
-10.05 10.10
-10.10 10.15
--1 5 -1bg.dat
--1  1 -1
-'''
-
-
-
-def match_param_kwargs(filename, track_time=False):
-    '''
-    a horribly ugly way to read a file into kwargs. not caring....
-    '''
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-    
-    (imf, dmod, dmod2, ddmod, Av, Av2, dAv) = map(float, lines[0].strip().split())
-    zline = map(float, lines[1].strip().split())
-    if len(zline) <= 3:
-        (logzmin, logzmax, dlogz) = zline[:3]
-        (ilogzmin, ilogzmax, flogzmin, flogzmax) = (None, None, None, None)
-    else:
-        (logzmin, logzmax, dlogz, ilogzmin, ilogzmax, flogzmin, flogzmax) = zline
-    
-    (bf, bad0, bad1) = map(float, lines[2].strip().split())
-    Ncmds = int(lines[3].strip())
-    (dmag, dcol, fake_sm, colmin, colmax) = map(float, 
-                                                lines[4].strip().split()[:5])
-    (filter1, filter2) = lines[4].strip().split()[-1].split(',')
-    (bright1, faint1) = map(float, lines[5].strip().split()[:2])
-    (bright2, faint2) = map(float, lines[6].strip().split()[:2])
-    (nexclude_gates, ncombine_gates) = map(int, lines[7].strip().split())
-    if track_time is True:
-        print 'write some code if you want to care about time bins.'
-    
-    kwargs = {'imf': imf, 'dmod': dmod, 'dmod2': dmod2, 'ddmod': ddmod,
-              'Av': Av, 'Av2': Av2, 'dAv': dAv, 'logzmin': logzmin,
-              'logzmax': logzmax, 'dlogz': dlogz, 'ilogzmin': ilogzmin,
-              'ilogzmax': ilogzmax, 'flogzmin': flogzmin, 'flogzmax': flogzmax,
-              'logzmin': logzmin, 'logzmax': logzmax, 'dlogz': dlogz, 
-              'ilogzmin': ilogzmin, 'ilogzmax': ilogzmax, 'flogzmin': flogzmin,
-              'flogzmax': flogzmax, 'bf': bf, 'bad0': bad0, 'bad1': bad1,
-              'Ncmds': Ncmds, 'dmag': dmag, 'dcol': dcol, 'fake_sm': fake_sm, 
-              'colmin': colmin, 'colmax': colmax, 'filter1': filter1,
-              'filter2': filter2, 'bright1': bright1, 'faint1': faint1,
-              'bright2': bright2, 'faint2': faint2,
-              'nexclude_gates': nexclude_gates,
-              'ncombine_gates': ncombine_gates}
-    return kwargs
-
-
 def calcsfh_dict():
+    '''
+    default dictionary for calcsfh.
+    '''
     return {'dmod': 10.,
             'Av': 0.,
             'filter1': None,
@@ -514,9 +518,8 @@ class calcsfh_params(object):
     def __init__(self, default_dict=None):
         if default_dict is None:
             default_dict = calcsfh_dict()
-        if len(default_dict) == 0: 
-            print 'need values in default dictionary.'
-            return -1
+        assert len(default_dict) != 0, 'need values in default dictionary.'
+
         
         self.calcsfh_possible_params(default_dict)
         

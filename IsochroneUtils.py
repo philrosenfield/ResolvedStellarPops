@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
 import os
-import math_utils
 import fileIO
 import logging
 logger = logging.getLogger()
@@ -94,6 +92,7 @@ class Isochrone(object):
         ax.tick_params(labelsize=16)
 
         return ax
+
 
 class Isochrones(object):
     def __init__(self, filename):
@@ -192,6 +191,7 @@ def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
 
     os.chdir(here)
 
+
 def prepare_isoch_cmd(cmd_input_file, isoch_file, isoch_input_kw={}):
 
     iso_inp = fileIO.input_parameters(default_dict=isoch_input_dict())
@@ -200,7 +200,8 @@ def prepare_isoch_cmd(cmd_input_file, isoch_file, isoch_input_kw={}):
     iso_inp.add_params(iso_dict)
     cmd = isoch_input_fmt() % iso_inp.__dict__
     return cmd
-    
+
+
 def write_cmd_input_for_isoch(cmd_input_file, photsys, cmd_input_kw={}):
     cmd_dict = cmd_input_for_isoch_dict(photsys)
     cmd_inp = fileIO.input_parameters(default_dict=cmd_dict)
