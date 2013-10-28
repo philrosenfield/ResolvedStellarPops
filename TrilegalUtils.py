@@ -424,14 +424,51 @@ class trilegal_sfh(object):
         self.current_sfh_file = new_file
         return self.current_galaxy_input
 
+    def adjust_value(self, val_str, str_operation, filename='default'):
+        '''
+        do some operation to a value.
+        '''
+        val = self.__getattribute__(val_str)
+        if filename == 'default':
+            base_dir = os.path.split(self.sfh_file)[0]
+            new_dir = '_'.join([base_dir, 'adj/'])
+            fileIO.ensure_dir(new_dir)
+            with open(os.path.join(new_dir, 'readme'), 'a') as out:
+                out.write('SFH file %s adjusted from %s.' %
+                          (os.path.split(self.sfh_file)[1], self.sfh_file))
+                out.write('\n     operation: %s %s.\n' % (val_str,
+                                                          str_operation))
+            filename = os.path.join(new_dir, os.path.split(self.sfh_file)[1])
 
-def find_photsys_number(photsys, filter):
+        newval = np.array([eval('%.4f %s' % (v, str_operation)) for v in val])
+        self.write_sfh(filename, val_dict={val_str: newval})
+
+    def write_sfh(self, filename, val_dict=None):
+        '''
+        write the sfh file either give age, sfr, or z or will use
+        self.age self.sfr or self.z
+        '''
+        val_dict = val_dict or {}
+        default_dict = {'age': self.age, 'sfr': self.sfr, 'z': self.z}
+        new_dict = dict(default_dict.items() + val_dict.items())
+
+        np.savetxt(filename, np.array((new_dict['age'],
+                                       new_dict['sfr'],
+                                       new_dict['z'])).T,
+                   fmt='%.3f %g %.4f')
+        
+        print 'wrote %s' % filename
+
+
+def find_photsys_number(photsys, filter1):
+    '''
+    grabs the index of the filter in the tab mag file for this photsys.
+    returns the index, and the file name
+    '''
     mag_file = os.path.join(os.environ['BCDIR'],
                             'tab_mag_odfnew/tab_mag_%s.dat' % photsys)
-    mf = open(mag_file, 'r')
-    mf.readline()
-    magline = mf.readline().strip().split()
-    return magline.index(filter), mag_file
+    magline = open(mag_file, 'r').readline().strip().split()
+    return magline.index(filter1), mag_file
 
 
 def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):

@@ -59,12 +59,12 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
         for name in track_names:
             z = float(name.split('Z')[1].split('_Y')[0])
             os.system(cmd % (name, z))
-
+            print cmd % (name, z)
     if fromHR2mags is None:
-        fromHR2mags = '/Users/phil/research/Italy/fromHR2mags/fromHR2mags'
+        fromHR2mags = '/home/rosenfield/research/padova_apps/fromHR2mags/fromHR2mags'
     cmd = '%s %s ' % (fromHR2mags, photsys)
     # this is set for .PMS and .PMS.HB tracks
-    cmd += '%s 5 6 2 %.3f'
+    cmd += '%s 5 6 2 %.4f'
     add_comments_to_header(tracks_base, prefix, search_term)
     search_term += '.dat'
     color_tracks(tracks_base, prefix, cmd)
@@ -84,17 +84,26 @@ class Track(object):
             print self.data.MODE[bads]
             
     def calc_Mbol(self):
+        '''
+        Uses Z_sun = 4.77
+        '''
         Mbol = 4.77 - 2.5 * self.data.LOG_L
         self.Mbol = Mbol
         return Mbol
 
     def calc_logg(self):
+        '''
+        cgs constant is -10.616
+        '''
         logg = -10.616 + np.log10(self.mass) + 4.0 * self.data.LOG_TE - \
             self.data.LOG_L
         self.logg = logg
         return logg
 
     def calc_core_mu(self):
+        '''
+        Uses X, Y, C, and O.
+        '''
         xi = np.array(['XCEN', 'YCEN', 'XC_cen', 'XO_cen'])
         ai = np.array([1., 4., 12., 16.])
         # fully ionized
@@ -103,6 +112,9 @@ class Track(object):
                          (1 + qi[i]) for i in range(len(xi))))
 
     def filename_info(self):
+        '''
+        I wish I knew regex...
+        '''
         (pref, __, smass) = self.name.split('.PMS')[0].split('_')
         #self.__setattr__[]
         #get that into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
@@ -1575,9 +1587,10 @@ class TrackSet(object):
                                track_search_term))
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-        mass = map(float, [t.split('.dat')[0].split('_')[-1].split('.P')[0].replace('M', '')
-                           for t in track_names])
-        mass = np.array(mass)[np.argsort(mass)]
+        mass = np.array([t.split('_M')[1].split('.P')[0] for t in track_names],
+                        dtype=float)
+        track_names = track_names[np.argsort(mass)]
+        mass = mass[np.argsort(mass)]
 
         # only do a subset of masses
         if masses is not None:
@@ -1592,7 +1605,6 @@ class TrackSet(object):
             track_masses = np.array(track_masses)
         else:
             track_masses = np.argsort(mass)
-
         # ordered by mass
         track_str = 'track'
         mass_str = 'masses'
@@ -1953,7 +1965,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                  eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
                  hbtrack_search_term='*F7_*HB', plot_dir=None, debug=False,
-                 outfile_dir=None, masses=None, diag_plot=None, hb_only=False):
+                 outfile_dir=None, masses=None, diag_plot=None, hb_only=False,
+                 do_interpolation=True):
         
         # load all tracks
         TrackSet.__init__(self, tracks_dir=tracks_dir, prefix=prefix,
@@ -1967,6 +1980,10 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         DefineEeps.__init__(self)
 
+        if do_interpolation is True:
+            self.match_interpoation()
+
+    def match_interpolation(self):
         if hb_only is False:
             for track in self.tracks:
                 # do the work! Assign eeps either from sandro, or eep_list and
@@ -2090,7 +2107,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10))
                 for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):
                     ax.scatter(track.data[xcol][track.ptcri.iptcri],
-                               track.data.LOG_L[track.ptcri.iptcri], s=60, c='k')
+                               track.data.LOG_L[track.ptcri.iptcri],
+                               s=60, c='k')
                     xlim = ax.get_xlim()
                     ylim = ax.get_ylim()
                     ax.plot(track.data[xcol], track.data.LOG_L, color='k')
@@ -2105,7 +2123,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                c=np.arange(len(bads)),
                                cmap=plt.cm.Spectral)
                     ax.set_xscale('log')
-                fig.suptitle('$%s$' % track.name.replace('_', '\! '))
+                fig.suptitle('$%s$' % track.name.replace('_', r'\! '))
                 plt.show()
         #  This was to make Leo's isochrones files... incomplete...
         #print new_eep_dict

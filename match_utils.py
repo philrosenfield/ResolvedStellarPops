@@ -1,4 +1,6 @@
 import fileIO
+import Galaxies
+import graphics
 import match_graphics
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,9 +82,80 @@ class StarFormationHistories(object):
         return
 
 
+def make_phot(gal, fname='phot.dat'):
+    '''
+    makes phot.dat input file for match, a list of V and I mags.
+    '''
+    np.savetxt(fname, np.column_stack((gal.mag1, gal.mag2)), fmt='%.4f')
+
+
+def make_match_param(gal, more_gal_kw=None):
+    '''
+    Make param.sfh input file for match
+    see rsp.match_utils.match_param_fmt()
+
+    takes calcsfh search limits to be the photometric limits of the stars in the cmd.
+    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
+    comp50mag2 are there.
+
+    only set up for acs and wfpc, if other photsystems need to check syntax with match
+    filters.
+
+    All values passed to more_gal_kw overwrite defaults.
+    '''
+
+    more_gal_kw = more_gal_kw or {}
+
+    # load parameters
+    inp = fileIO.input_parameters(default_dict=match_param_default_dict())
+
+    # update parameteres
+    cmin = gal.color.min()
+    cmax = gal.color.max()
+    vmin = gal.mag1.min()
+    imin = gal.mag2.min()
+
+    if 'acs' in gal.photsys:
+        V = gal.filter1.replace('F', 'WFC')
+        I = gal.filter2.replace('F', 'WFC')
+    elif 'wfpc' in gal.photsys:
+        V = gal.filter1.lower()
+        I = gal.filter2.lower()
+    else:
+        print gal.photsys, gal.name, gal.filter1, gal.filter2
+
+    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av, 'av2': gal.Av,
+              'V': V, 'I': I, 'Vmax': gal.comp50mag1, 'Imax': gal.comp50mag2,
+              'V-Imin': cmin, 'V-Imax': cmax, 'Vmin': vmin, 'Imin': imin}
+
+    # combine sources of params
+    phot_kw = dict(match_param_default_dict.items() + gal_kw.items() + more_gal_kw.items())
+
+    inp.update_params(phot_kw)
+
+    # write out
+    inp.write_params('param.sfh', match_param_fmt())
+
+    phot_kw = {}
+    return
+
+
+def match_param_default_dict():
+    dd = {'ddmod': 0.05, 'dav': 0.05,
+          'logzmin': -2.3, 'logzmax': 0.1, 'dlogz': 0.1,
+          'logzmin0': -2.3, 'logzmax0': -1.0, 'logzmin1': -1.3, 'logzmax1': -0.1,
+          'BF': 0.35, 'bad0': 1e-6, 'bad1': 1e-6,
+          'ncmds': 1,
+          'Vstep': 0.1, 'V-Istep': 0.05, 'fake_sm': 5,
+          'nexclude_gates': 0, 'excludegates': '',
+          'ninclude_gates': 0, 'include_gates': ''}
+    return dd
+
 def match_param_fmt():
     '''
     calcsfh parameter format, set up for dan's runs and parsec M<12.
+    NOTE exclude and include gates are strings and must have a space at
+    their beginning.
     '''
     return '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
 %(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
@@ -91,7 +164,7 @@ def match_param_fmt():
 %(Vstep).2f %(V-Istep).2f %(fake_sm)i %(V-Imin).2f %(V-Imax).2f %(V)s,%(I)s
 %(Vmin).2f %(Vmax).2f %(V)s
 %(Imin).2f %(Imax).2f %(I)s
-0 0
+%(nexclude_gates)i%(exclude_gates)s %(ninclude_gates)i%(include_gates)s
 43
 7.30 7.40
 7.40 7.50
@@ -139,6 +212,62 @@ def match_param_fmt():
 -1 5 -1bg.dat
 -1  1 -1
 '''
+
+
+def make_exclude_gates(fits_files, trgb=True, make_plot=False):
+    '''
+    Create the string for the match input file 'exclude gates'
+    this only works for the trgb, assumes V vs V-I cmds in match
+    takes arbitary values for color max and min (hard coded)
+
+    send a string of fits_files (abspath preferred)
+
+    also has a hardcoded edge for hs117.
+    '''
+    if make_plot is True:
+        fig, (axs) = graphics.GraphicsUtils.setup_multiplot(len(fits_files),
+                                                                figsize=(30,30))
+        axs = np.squeeze(np.concatenate(axs))
+    exclude_gate = ' %(c0).2f %(m0).2f %(c1).2f %(m1).2f %(c2).2f %(m2).2f %(c3).2f %(m3).2f'
+    exclude_gates = {}
+    gal_kw = {'filetype': 'fitstable', 'hla': True, 'angst': True, 'band': 'opt'}
+
+    for i, fits_file in enumerate(fits_files):
+        gal = Galaxies.galaxy(fits_file, **gal_kw)
+        if trgb is True:
+            cmin = -0.5
+            cmax = 3
+            Vmax = gal.mag1.min()
+            Vmin = gal.trgb
+        else:
+            print 'need to code in cmin, cmax, vmin, vmax...'
+            return exclude_gates
+        if 'hs117' in fits_file:
+            cmax = 2
+            Vmax = 24
+        exclude_dict = {'c0': cmin, 'm0': cmin + Vmin,
+                        'c1': cmax, 'm1': cmax + Vmin,
+                        'c2': cmax, 'm2': Vmax,
+                        'c3': cmin, 'm3': Vmax}
+        exclude_gates[fits_file] = exclude_gate % exclude_dict
+        if make_plot is True:
+            test_arr = np.column_stack(([cmin, cmin + Vmin],
+                                        [cmax, cmax + Vmin],
+                                        [cmax, Vmax],
+                                        [cmin, Vmax],
+                                        [cmin, cmin + Vmin]))
+
+            gal.plot_cmd(gal.color, gal.mag1, levels=3, threshold=100, ax=axs[i],
+                            filter1=gal.filter1)
+            gal.photsys = 'wfc3snap'
+            gal.decorate_cmd(ax=axs[i], trgb=True, filter1=gal.filter1)
+            axs[i].plot(test_arr[0, :], test_arr[1,:], lw=3, ls='--', color='green')
+            axs[i].set_ylim(gal.mag1.max()+1, Vmax-1)
+    plt.savefig('exclude_gates_%i.png' % len(fits_files), dpi=300)
+    print 'wrote exclude_gates_%i.png' % len(fits_files)
+    return exclude_gates
+
+
 
 ## All the code below is old, and could use rsp.fileIO or soemthing else.
 

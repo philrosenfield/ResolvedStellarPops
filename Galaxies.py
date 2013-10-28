@@ -203,13 +203,18 @@ class star_pop(object):
 
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
                      reddening=True, dmag=0.5, text_extra=None, errors=True,
-                     cmd_errors_kw={}):
-        self.redding_vector(dmag=dmag)
+                     cmd_errors_kw={}, filter1=None):
+        self.redding_vector(dmag=dmag, ax=ax)
         if errors is True:
+            cmd_errors_kw['ax'] = ax
             self.cmd_errors(**cmd_errors_kw)
-        self.text_on_cmd(extra=text_extra)
+        self.text_on_cmd(extra=text_extra, ax=ax)
         if trgb is True:
-            self.put_a_line_on_it(ax, self.trgb)
+            if filter1 is None:
+                self.put_a_line_on_it(ax, self.trgb)
+            else:
+                self.put_a_line_on_it(ax, self.trgb, filter1=filter1,
+                                      consty=False)
 
     def put_a_line_on_it(self, ax, val, consty=True, color='black',
                          ls='--', lw=2, annotate=True, filter1=None,
@@ -222,27 +227,29 @@ class star_pop(object):
         (ymin, ymax) = ax.get_ylim()
         xarr = np.linspace(xmin, xmax, 20)
         # y axis is magnitude...
-        yarr = np.linspace(ymax, ymin, 20)
+        yarr = np.linspace(ymin, ymax, 20)
         if consty is True:
             # just a contsant y value over the plot range of x.
-            new_yarr = np.repeat(val, len(xarr))
+            ax.hlines(val, xmin, xmax, color=color, lw=lw)
             new_xarr = xarr
         if consty is False:
             # a plot of y vs x-y and we want to mark
             # where a constant value of x is
-            new_yarr = yarr
-            # if you make the ability to make the yaxis filter1...
-            if filter1 == None:
-                new_xarr = yarr - val
-            else:
-                new_xarr = val - yarr
-        ax.plot(new_xarr, new_yarr, ls, color=color, lw=lw)
+            # e.g, f814w vs f555-f814; val is f555
+            new_xarr = val - yarr
+            # e.g, f555w vs f555-f814; val is f814
+            if filter1 is not None:
+                yarr = xarr + val
+                new_xarr = xarr
+            ax.plot(new_xarr, yarr, ls, color=color, lw=lw)
         if annotate is True:
             ax.annotate(annotate_fmt % val, xy=(new_xarr[-1]-0.1,
-                        new_yarr[-1]-0.2), ha='right', fontsize=16,
+                        yarr[-1]-0.2), ha='right', fontsize=16,
                         **rspgraph.load_ann_kwargs())
 
-    def redding_vector(self, dmag=1.):
+    def redding_vector(self, dmag=1., ax=None):
+        if ax == None:
+            ax = self.ax
         Afilt1 = astronomy_utils.parse_mag_tab(self.photsys, self.filter1)
         Afilt2 = astronomy_utils.parse_mag_tab(self.photsys, self.filter2)
         Rslope = Afilt2 / (Afilt1 - Afilt2)
@@ -250,17 +257,19 @@ class star_pop(object):
         pstart = np.array([0., 0.])
         pend = pstart + np.array([dcol, dmag])
         points = np.array([pstart, pend])
-        data_to_display = self.ax.transData.transform
-        display_to_axes = self.ax.transAxes.inverted().transform
+        data_to_display = ax.transData.transform
+        display_to_axes = ax.transAxes.inverted().transform
         ax_coords = display_to_axes(data_to_display(points))
         dy_ax_coords = ax_coords[1, 1] - ax_coords[0, 1]
         dx_ax_coords = ax_coords[1, 0] - ax_coords[0, 0]
         arr = FancyArrow(0.05, 0.95, dx_ax_coords, (1.)*dy_ax_coords,
-                         transform=self.ax.transAxes, color='black', ec="none",
+                         transform=ax.transAxes, color='black', ec="none",
                          width=.005, length_includes_head=1, head_width=0.02)
-        self.ax.add_patch(arr)
+        ax.add_patch(arr)
 
-    def cmd_errors(self, binsize=0.1, errclr=-1.5, absmag=False):
+    def cmd_errors(self, binsize=0.1, errclr=-1.5, absmag=False, ax=None):
+        if ax == None:
+            ax = self.ax
         if type(self.data) == pyfits.fitsrec.FITS_rec:
             mag1err = self.data.MAG1_ERR
             mag2err = self.data.MAG2_ERR
@@ -295,13 +304,15 @@ class star_pop(object):
             errmagerr[q] = np.mean(mag2err[m2inds])
             errcolerr[q] = np.sqrt(np.mean(mag1err[cinds] ** 2 +
                                            mag2err[cinds] ** 2))
-        self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
+        ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='white', lw=3, capsize=0, fmt=None)
-        self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
+        ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
-    def text_on_cmd(self, extra=None):
+    def text_on_cmd(self, extra=None, ax=None):
         #an_kw = rspgraph.load_ann_kwargs()
+        if ax is None:
+            ax = self.ax
         strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target, self.dmod,
                                                   self.Av)
         offset = .15
@@ -310,7 +321,7 @@ class star_pop(object):
             offset = 0.2
         for string in strings.split():
             offset -= 0.04
-            self.ax.text(0.95, offset, string, transform=self.ax.transAxes,
+            ax.text(0.95, offset, string, transform=ax.transAxes,
                          ha='right', fontsize=16, color='black')
 
     def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
