@@ -489,30 +489,24 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):
     cmd_input = os.path.split(cmd_input)[1]
     
     logger.info('running trilegal...')
-    # this way can run many at a time.
-    lixo = str(np.random.rand()).replace('.','')
-    msg = 'trilegal%s.msg' % lixo
-    cmd = 'code_2.3/main -f %s -a -l %s %s > %s' % (cmd_input, galaxy_input,
-                                                   output, msg)
+
+    cmd = 'code_2.3/main -f %s -a -l %s %s' % (cmd_input, galaxy_input, output)
+
     print cmd
+
     logger.debug(cmd)
-    #t = os.system(cmd)
-    t=0
+
     #p = subprocess.Popen(['/bin/bash', '-c', cmd])
-    p = subprocess.Popen(cmd, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
+                         stdout=subprocess.PIPE)
     p.wait()
-    print p.communicate()
+
     logger.info('done.')
 
     
     if loud is True:
-        print '\n'.join([l.strip() for l in open(msg).readlines()])
+        print '\n'.join([l.strip() for l in p.communicate()])
 
-    if t != 0:
-        logger.debug('\n'.join([l.strip() for l in open(msg).readlines()]))
-    else:
-        if rmfiles is True:
-            os.remove(msg)
     if rmfiles is True:
         os.remove(cmd_input)
     os.chdir(here)

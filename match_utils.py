@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import re
 import os
 import logging
+import random
 logger = logging.getLogger()
 
 
@@ -19,17 +20,17 @@ def read_binned_sfh(filename):
             ('lagef', '<f8'),
             ('dmod', '<f8'),
             ('sfr', '<f8'),
-            ('sfr_errm', '<f8'),
             ('sfr_errp', '<f8'),
+            ('sfr_errm', '<f8'),
             ('mh', '<f8'),
-            ('mh_errm', '<f8'),
             ('mh_errp', '<f8'),
+            ('mh_errm', '<f8'),
             ('mh_disp', '<f8'),
-            ('mh_disp_errm', '<f8'),
             ('mh_disp_errp', '<f8'),
+            ('mh_disp_errm', '<f8'),
             ('csfr', '<f8'),
-            ('csfr_errm', '<f8'),
-            ('csfr_errp', '<f8')]
+            ('csfr_errp', '<f8'),
+            ('csfr_errm', '<f8')]
     data = np.genfromtxt(filename, dtype=dtype)
     return data.view(np.recarray)
 
@@ -38,20 +39,77 @@ class StarFormationHistories(object):
     '''
     something
     '''
-    def __ini__(self):
+    def __init__(self, match_sfh_file):
         '''
         something
         '''
-        pass
+        self.data = read_binned_sfh(match_sfh_file)
+
+    def random_draw_within_uncertainty(self, attr, npoints=2e5):
+        '''
+        attr is the string name of the array that also has attr_errm and
+        attr_errp (p and m are important due to the sign).
+
+        If errm and errp are equal, just returns a randomly chosen point
+        (of npoints) of a gaussian with mean attr and sigma = attr_errm
+
+        If not, will stick to gaussians together at attr using sigma=attr_errm
+        and sigm=attr_errp and returning a random value from there.
+
+        If one of the err values is zero, will just use the other half of
+        the gaussian.
+
+        If they are both zero, well, just returns attr.
+        '''
+        assert attr in ['sfr', 'mh'], 'Only set up for sfr and mh'
+        val_arr = self.data.__getattribute__(attr)
+        errm_arr = self.data.__getattribute__('%s_errm' % attr)
+        errp_arr = self.data.__getattribute__('%s_errp' % attr)
+        rand_arr = np.array([])
+
+        if attr == 'sfr':
+            lowlim = 0
+        else:
+            lowlim = -999
+        for val, errm, errp in zip(val_arr, errm_arr, errp_arr):
+            if errp == errm and errp > 0:
+                # even uncertainties, easy.
+                new_arr = np.random.normal(val, errp,  npoints)
+            elif errp != 0 and errm != 0:
+                # stitch two gaussians together
+                pos_gauss = np.random.normal(val, errp,  npoints)
+                neg_gauss = np.random.normal(val, errm, npoints)
+                new_arr = np.concatenate([pos_gauss[pos_gauss >= val],
+                                          neg_gauss[neg_gauss <= val]])
+
+            elif errp == 0 and errm != 0:
+                # no positive uncertainties
+                neg_gauss = np.random.normal(val, errm, npoints)
+                new_arr = neg_gauss[neg_gauss <= val]
+            elif errp !=0 and errm == 0:
+                # no negative uncertainties
+                pos_gauss = np.random.normal(val, errp,  npoints)
+                new_arr = pos_gauss[pos_gauss >= val]
+            else:
+                # um... no errors, why was this called
+                print 'Warning: no uncertainties'
+                new_arr = np.ones(4) * val
+            new_arr = new_arr[new_arr > lowlim]
+            rand_arr = np.append(rand_arr, random.choice(new_arr))
+        return rand_arr
 
     def make_trilegal_sfh(self, match_sfh_file, random_sfr=False, random_z=False,
                           zdisp=True, outfile='default'):
         '''
         turn binned sfh in to trilegal sfh
         '''
-        zsun = 0.01524
+        # In MATCH [M/H] = log(Z/Zsun) with Zsun = 0.02 (see MATCH's makemod.cpp)
+        # It doesn't matter if this is "correct". Stellar models have absolute Z.
+        # Zsun is just a scaling that needs to be undone from MATCH to here.
+        zsun = 0.02
+
         if outfile == 'default':
-            outfile = match_sfh_file.replace('.zc.sfh', '.tri.dat')
+          outfile = match_sfh_file.replace('.zc.sfh', '.tri.dat')
 
         msfh = read_binned_sfh(match_sfh_file)
 
@@ -62,24 +120,68 @@ class StarFormationHistories(object):
 
         raw_sfr = msfh.sfr
         if random_sfr is False:
-            sfr = raw_sfr
+          sfr = raw_sfr
 
         raw_z = zsun * 10 ** msfh.mh
         if random_z is False:
-            metalicity = raw_z
+          metalicity = raw_z
 
         if zdisp is True:
-            zdisp = msfh.mh_disp
-        fmt = '%.4e %.3f %.4f %.4f \n'
+          zdisp = msfh.mh_disp
+        fmt = '%.4e %.3e %.4f %.4f \n'
         with open(outfile, 'w') as out:
-            for i in range(len(sfr)):
-                if sfr[i] == 0:
-                    continue
-                out.write(fmt % (age1a[i], 0.0, metalicity[i], zdisp[i]))
-                out.write(fmt % (age1p[i], sfr[i], metalicity[i], zdisp[i]))
-                out.write(fmt % (age2a[i], sfr[i], metalicity[i], zdisp[i]))
-                out.write(fmt % (age2p[i], 0.0, metalicity[i], zdisp[i]))
+          for i in range(len(sfr)):
+              if sfr[i] == 0:
+                  continue
+              out.write(fmt % (age1a[i], 0.0, metalicity[i], zdisp[i]))
+              out.write(fmt % (age1p[i], sfr[i], metalicity[i], zdisp[i]))
+              out.write(fmt % (age2a[i], sfr[i], metalicity[i], zdisp[i]))
+              out.write(fmt % (age2p[i], 0.0, metalicity[i], zdisp[i]))
         return
+
+    def compare_tri_match(self, trilegal_catalog, filter1, filter2,
+                          outfig=None):
+        '''
+        Two plots, one M/H vs Age for match and trilegal, the other
+        sfr for match vs age and number of stars of a given age for trilegal.
+        '''
+        sgal = Galaxies.simgalaxy(trilegal_catalog, filter1=filter1,
+                                  filter2=filter2)
+        sgal.lage = sgal.data.get_col('logAge')
+        sgal.mh = sgal.data.get_col('[M/H]')
+        issfr, = np.nonzero(self.sfr > 0)
+        age_bins = np.digitize(sgal.lage, self.lagef[issfr])
+        mean_mh= [np.mean(sgal.mh[age_bins==i]) for i in range(len(issfr))]
+
+        bins = self.lagei
+        sfr = np.array(np.histogram(sgal.lage, bins=bins)[0], dtype=float)
+
+        fig, (ax1, ax2) = plt.subplots(figsize=(8,8), ncols=2, sharex=True)
+        # should be density, weighted by number anyway...
+        ax1.plot(sgal.lage, sgal.mh, '.', color='grey')
+        ax1.plot(self.lagei[issfr], mean_mh, linestyle='steps', color='navy',
+                 lw=3, label='TRILEGAL')
+
+        ax1.plot(self.lagei[issfr], self.mh[issfr], linestyle='steps', lw=3,
+                color='k', label='MATCH')
+        ax1.fill_between(self.lagei[issfr], self.mh[issfr] + self.mh_disp[issfr],
+                        self.mh[issfr] - self.mh_disp[issfr],
+                        lw=2, color='red', alpha=0.2)
+        ax1.set_ylabel('$[M/H]$', fontsize=20)
+        ax1.set_xlabel('$\log {\\rm Age (yr)}$', fontsize=20)
+        ax1.legend(loc=0, frameon=False)
+
+        ax2.plot(bins[:-1], sfr/(np.sum(sfr)), linestyle='steps', color='navy',
+                lw=3, label='TRILEGAL')
+        ax2.plot(self.lagei, self.sfr/np.sum(self.sfr),
+                 linestyle='steps', lw=2, color='k', label='MATCH')
+        ax2.set_ylabel('$ {\propto \\rm SFR}$', fontsize=20)
+        ax2.set_xlabel('$\log {\\rm Age (yr)}$', fontsize=20)
+        ax2.legend(loc=0, frameon=False)
+        ax2.set_xlim(8, 10.5)
+        if outfig is not None:
+            fig.savefig(outfig, dpi=300)
+
 
 
 def make_phot(gal, fname='phot.dat'):
@@ -109,7 +211,7 @@ def make_match_param(gal, more_gal_kw=None):
     # load parameters
     inp = fileIO.input_parameters(default_dict=match_param_default_dict())
 
-    # update parameteres
+    # add parameteres
     cmin = gal.color.min()
     cmax = gal.color.max()
     vmin = gal.mag1.min()
@@ -124,14 +226,15 @@ def make_match_param(gal, more_gal_kw=None):
     else:
         print gal.photsys, gal.name, gal.filter1, gal.filter2
 
+    # default doesn't move dmod or av.
     gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av, 'av2': gal.Av,
               'V': V, 'I': I, 'Vmax': gal.comp50mag1, 'Imax': gal.comp50mag2,
               'V-Imin': cmin, 'V-Imax': cmax, 'Vmin': vmin, 'Imin': imin}
 
     # combine sources of params
-    phot_kw = dict(match_param_default_dict.items() + gal_kw.items() + more_gal_kw.items())
+    phot_kw = dict(match_param_default_dict().items() + gal_kw.items() + more_gal_kw.items())
 
-    inp.update_params(phot_kw)
+    inp.add_params(phot_kw)
 
     # write out
     inp.write_params('param.sfh', match_param_fmt())
@@ -244,7 +347,7 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
             return exclude_gates
         if 'hs117' in fits_file:
             cmax = 2
-            Vmax = 24
+            Vmax = 23
         exclude_dict = {'c0': cmin, 'm0': cmin + Vmin,
                         'c1': cmax, 'm1': cmax + Vmin,
                         'c2': cmax, 'm2': Vmax,
@@ -263,8 +366,9 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
             gal.decorate_cmd(ax=axs[i], trgb=True, filter1=gal.filter1)
             axs[i].plot(test_arr[0, :], test_arr[1,:], lw=3, ls='--', color='green')
             axs[i].set_ylim(gal.mag1.max()+1, Vmax-1)
-    plt.savefig('exclude_gates_%i.png' % len(fits_files), dpi=300)
-    print 'wrote exclude_gates_%i.png' % len(fits_files)
+    if make_plot is True:
+        plt.savefig('exclude_gates_%i.png' % len(fits_files), dpi=300)
+        print 'wrote exclude_gates_%i.png' % len(fits_files)
     return exclude_gates
 
 
