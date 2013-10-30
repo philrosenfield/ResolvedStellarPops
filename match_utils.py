@@ -43,6 +43,7 @@ class StarFormationHistories(object):
         '''
         something
         '''
+        self.base, self.name = os.path.split(match_sfh_file)
         self.data = read_binned_sfh(match_sfh_file)
 
     def random_draw_within_uncertainty(self, attr, npoints=2e5):
@@ -71,6 +72,7 @@ class StarFormationHistories(object):
             lowlim = 0
         else:
             lowlim = -999
+
         for val, errm, errp in zip(val_arr, errm_arr, errp_arr):
             if errp == errm and errp > 0:
                 # even uncertainties, easy.
@@ -98,7 +100,7 @@ class StarFormationHistories(object):
             rand_arr = np.append(rand_arr, random.choice(new_arr))
         return rand_arr
 
-    def make_trilegal_sfh(self, match_sfh_file, random_sfr=False, random_z=False,
+    def make_trilegal_sfh(self, random_sfr=False, random_z=False,
                           zdisp=True, outfile='default'):
         '''
         turn binned sfh in to trilegal sfh
@@ -109,26 +111,33 @@ class StarFormationHistories(object):
         zsun = 0.02
 
         if outfile == 'default':
-          outfile = match_sfh_file.replace('.zc.sfh', '.tri.dat')
+          outfile = os.path.join(self.base,
+                                 self.name.replace('.zc.sfh', '.tri.dat'))
 
-        msfh = read_binned_sfh(match_sfh_file)
+        age1a = 10 ** (self.data.lagei)
+        age1p = 1.0 * 10 ** (self.data.lagei + 0.0001)
+        age2a = 1.0 * 10 ** self.data.lagef
+        age2p = 1.0 * 10 ** (self.data.lagef + 0.0001)
 
-        age1a = 10 ** (msfh.lagei)
-        age1p = 1.0 * 10 ** (msfh.lagei + 0.0001)
-        age2a = 1.0 * 10 ** msfh.lagef
-        age2p = 1.0 * 10 ** (msfh.lagef + 0.0001)
-
-        raw_sfr = msfh.sfr
         if random_sfr is False:
-          sfr = raw_sfr
+            sfr = self.data.sfr
+        else:
+            sfr = self.random_draw_within_uncertainty('sfr')
 
-        raw_z = zsun * 10 ** msfh.mh
+
         if random_z is False:
-          metalicity = raw_z
+            mh = self.data.mh
+        else:
+            mh = self.random_draw_within_uncertainty('mh')
+        metalicity = zsun * 10 ** mh
 
         if zdisp is True:
-          zdisp = msfh.mh_disp
-        fmt = '%.4e %.3e %.4f %.4f \n'
+            zdisp = self.data.mh_disp
+            fmt = '%.4e %.3e %.4f %.4f \n'
+        else:
+            zdisp = '' * len(mh)
+            fmt = '%.4e %.3e %.4f %s\n'
+
         with open(outfile, 'w') as out:
           for i in range(len(sfr)):
               if sfr[i] == 0:
@@ -137,7 +146,51 @@ class StarFormationHistories(object):
               out.write(fmt % (age1p[i], sfr[i], metalicity[i], zdisp[i]))
               out.write(fmt % (age2a[i], sfr[i], metalicity[i], zdisp[i]))
               out.write(fmt % (age2p[i], 0.0, metalicity[i], zdisp[i]))
-        return
+        return outfile
+
+    def plot_random_arrays(self, val_arrs, attr_str, ax=None, outfig=None):
+        '''
+        after making a bunch of arrays that sample the sfr or mh uncertainties
+        plot up where they are.
+        '''
+        val_arr = self.data.__getattribute__(attr_str)
+        errm_arr = self.data.__getattribute__('%s_errm' % attr_str)
+        errp_arr = self.data.__getattribute__('%s_errp' % attr_str)
+
+        if 'sfr' in attr_str:
+            ylab = '${\\rm SFR}$'
+        if 'mh' in attr_str:
+            ylab = '${\\rm [M/H]}$'
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(12,12))
+
+        [ax.errorbar(self.data.lagei, val_arrs[i], linestyle='steps-mid',
+                     color='k', alpha=0.3) for i in range(len(val_arrs))]
+        ax.errorbar(self.data.lagei, val_arr, [errm_arr, errp_arr],
+                    linestyle='steps-mid', lw=2, color='r')
+        ax.set_ylabel(ylab, fontsize=20)
+        ax.set_xlabel('$\log {\\rm Age (yr)}$', fontsize=20)
+        ax.set_xlim(8, 10.5)
+        if outfig is not None:
+            plt.savefig(outfig, dpi=300)
+        return ax
+
+    def make_many_trilegal_sfhs(self, nsfhs=100, random_sfr=True,
+                                random_z=True):
+        '''
+        make nsfhs number of trilegal sfh input files.
+        '''
+        new_dir = os.path.join(self.base, 'mc/')
+        fileIO.ensure_dir(new_dir)
+        outfile_fmt = os.path.join(new_dir,
+                                   self.name.replace('.zc.sfh', '%02i.tri.dat'))
+
+        outfiles = [self.make_trilegal_sfh(outfile=outfile_fmt % i,
+                                           random_sfr=random_sfr,
+                                           random_z=random_z)
+                    for i in range(nsfhs)]
+        return outfiles
 
     def compare_tri_match(self, trilegal_catalog, filter1, filter2,
                           outfig=None):

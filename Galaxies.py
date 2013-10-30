@@ -545,7 +545,6 @@ class star_pop(object):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
-
     def double_gaussian_contamination(self, all_verts, dcol=0.05, Color=None,
                                       Mag2=None, color_sep=None, diag_plot=False,
                                       absmag=False, thresh=5):
@@ -1534,7 +1533,7 @@ class simgalaxy(star_pop):
         nplots = ustage.size + 1.
         bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
         cols = bcols.mpl_colors
-        subplots_kwargs = {'sharex': 1, 'sharey': 1, 'figsize': (12, 8)}
+        subplots_kwargs = {'sharex': True, 'sharey': True, 'figsize': (12, 8)}
         fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
         return fig, (axs), cols
 

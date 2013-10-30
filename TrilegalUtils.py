@@ -471,7 +471,8 @@ def find_photsys_number(photsys, filter1):
     return magline.index(filter1), mag_file
 
 
-def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):
+def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
+                 dry_run=False):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
     changes directory to trilegal root, if that's not in a .cshrc need to
@@ -497,15 +498,17 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True):
     logger.debug(cmd)
 
     #p = subprocess.Popen(['/bin/bash', '-c', cmd])
-    p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
-                         stdout=subprocess.PIPE)
-    p.wait()
+    if dry_run is True:
+        print cmd
+    else:
+        p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
+                             stdout=subprocess.PIPE)
+        p.wait()
+
+        if loud is True:
+            print '\n'.join([l.strip() for l in p.communicate()])
 
     logger.info('done.')
-
-    
-    if loud is True:
-        print '\n'.join([l.strip() for l in p.communicate()])
 
     if rmfiles is True:
         os.remove(cmd_input)
