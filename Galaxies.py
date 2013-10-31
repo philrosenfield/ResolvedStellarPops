@@ -333,6 +333,9 @@ class star_pop(object):
         '''
         adds the indices of some stage as an attribute.
         '''
+        if stages is ():
+            stages = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB',
+                      'EAGB', 'TPAGB', 'POSTAGB', 'WD']
         for stage in stages:
             i = self.stage_inds(stage)
             self.__setattr__('i%s' % stage.lower(), i)
@@ -1364,7 +1367,7 @@ class simgalaxy(star_pop):
         INPUT
         stage_lab: the label of the stage, probably 'ms' or 'rgb' it will be
         used to set attribute names
-        by_stage:
+        by_stage: DO NOT USE THIS
            mag2, stage: data arrays of filter2 and the tagged stage inds
            if using galaxy object, mag2 = gal.mag2, stage = gal.stage.
         else, by verts: requires verts and ndata_stars
@@ -1463,9 +1466,20 @@ class simgalaxy(star_pop):
         # random sample the data distribution
         rands = np.random.random(len(smag))
         ind, = np.nonzero(rands < normalization)
-        self.nsim_stars = nsim_stars
-        self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
-        self.__setattr__('%s' % new_attr, normalization)
+        if hasattr(self, 'filter3'):
+            # insert the band in the attribute names so they are not
+            # overwritten.
+            if '814' in [filt1, filt2]:
+                extra = 'opt'
+            if '160' in [filt1, filt2]:
+                extra = 'nir'
+            self.__setattr__('%s_nsim_stars' % extra, nsim_stars)
+            self.__setattr__('%s_%s_inds' % (extra, new_attr), np.array(rec)[ind])
+            self.__setattr__('%s_%s' % (extra, new_attr), normalization)
+        else:
+            self.nsim_stars = nsim_stars
+            self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
+            self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
 
     def diagnostic_cmd(self, trgb=None, figname=None, inds=None, **kwargs):
@@ -1920,13 +1934,22 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 
         logger.debug("%s + %s -> %s" % (sim_file, fake_file, spread_outfile))
         logger.debug('Running %s...' % os.path.split(leo_code)[1])
-
         p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE,
                   close_fds=True)
 
         stdout, stderr = (p.stdout, p.stderr)
         p.wait()
         return
+
+    def add_cols_leo_method(sgal, spread_outfile):
+        spout = fileIO.readfile(spread_outfile)
+        ast_filts = [s for s in spout.dtype.names if '_cor' in s]
+        new_cols = {}
+        for ast_filt in ast_filts:
+            new_cols[ast_filt] = spout[ast_filt]
+            print len(spout[ast_filt])
+        print len(sgal.mag2)
+        print sgal.add_data(**new_cols)
 
     assert fake_file is not None, \
         'ast_correct_trilegal_sim: fake_file now needs to be passed'
@@ -1940,7 +1963,8 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         sim_file = os.path.join(sgal.base, sgal.name)
 
         # special version of spread_angst made for wfc3snap photsys!
-        leo_code = '/Users/phil/research/TP-AGBcalib/SNAP/models/spread_angst'
+        # THIS IS BAD CODING HARD LINK?!
+        leo_code = '/home/rosenfield/research/TP-AGBcalib/SNAP/models/spread_angst'
 
         if type(fake_file) == list:
             assert spread_outfile2 is not None, \
@@ -1950,28 +1974,33 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
             ir_too = True
 
         leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile)
+        add_cols_leo_method(sgal, spread_outfile)
         if ir_too is True:
             # run the out ast corrections through a version of spread_angst to
             # correct the ir.
             leo_code += '_ir'
             leo_ast_correction(leo_code, fake_file_ir, spread_outfile, spread_outfile2)
+            add_cols_leo_method(sgal, spread_outfile2)
             # no need to keep the spread_outfile now that we have a new one.
             os.remove(spread_outfile)
     else:
         if type(fake_file) is str:
-            asts = artificial_star_tests(fake_file)
-            sgal.fake_file = fake_file
+            fake_files = [fake_file]
         else:
-            asts = fake_file
-        if sgal.filter1 != asts.filter1 or sgal.filter2 != asts.filter2:
-            logger.error('bad filter match between sim gal and ast.')
-            return -1
-        mag1 = sgal.mag1
-        mag2 = sgal.mag2
-        cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2, **{'binsize': 0.2})
-        new_cols = {'%s_cor' % asts.filter1: cor_mag1,
-                    '%s_cor' % asts.filter2: cor_mag2}
-        sgal.add_data(**new_cols)
+            fake_files = fake_file
+
+        sgal.fake_files = fake_files
+        for fake_file in fake_files:
+            asts = artificial_star_tests(fake_file)
+            mag1 = sgal.data.get_col(asts.filter1)
+            mag2 = sgal.data.get_col(asts.filter2)
+
+            cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2,
+                                                     **{'binsize': 0.2})
+            new_cols = {'%s_cor' % asts.filter1: cor_mag1,
+                        '%s_cor' % asts.filter2: cor_mag2}
+            sgal.add_data(**new_cols)
+
         if outfile is not None:
             if overwrite or not os.path.isfile(outfile):
                 TrilegalUtils.write_trilegal_sim(sgal, outfile)
