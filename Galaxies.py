@@ -892,6 +892,33 @@ class star_pop(object):
 
         return fig, axs, top_axs
 
+    def stars_in_region(self, mag2, mag_dim, mag_bright, mag1=None,
+                        verts=None, col_min=None, col_max=None):
+        '''
+        counts stars in a region. Give mag2 and the mag2 limits.
+        If col_min, col_max, and verts are none, will just give all stars
+        between those mag limits (if no color info is used mag2 can actually
+        be mag1.)
+        If verts are given (Nx2) array, will use those, otherwise will build
+        a polygon from col_* and mag_* limits.
+
+        Returns indices inside.
+        '''
+        if verts is None:
+            if col_min is None:
+                inds = math_utils.between(mag2, mag_dim, mag_bright)
+            else:
+                verts = np.array([[col_min, mag_dim],
+                                  [col_min, mag_bright],
+                                  [col_max, mag_bright],
+                                  [col_max, mag_dim],
+                                  [col_min, mag_dim]])
+
+                points = np.column_stack((mag1 - mag2, mag2))
+                inds, = np.nonzero(nxutils.points_inside_poly(points, verts))
+        return inds
+
+
 class galaxies(star_pop):
     '''
     wrapper for lists of galaxy objects, each method returns lists, unless they
@@ -1904,7 +1931,8 @@ def get_fake(target, fake_loc='.'):
 
 def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
                              overwrite=False, spread_outfile=None,
-                             leo_method=False, spread_outfile2=None):
+                             leo_method=False, spread_outfile2=None,
+                             asts_obj=None):
     '''
     correct trilegal simulation with artificial star tests.
     options to write the a copy of the trilegal simulation with the corrected
@@ -1951,8 +1979,8 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         print len(sgal.mag2)
         print sgal.add_data(**new_cols)
 
-    assert fake_file is not None, \
-        'ast_correct_trilegal_sim: fake_file now needs to be passed'
+    #assert fake_file is not None and asts_obj is not None, \
+    #    'ast_correct_trilegal_sim: fake_file now needs to be passed'
 
     if leo_method is True:
         assert spread_outfile is not None, \
@@ -1990,8 +2018,13 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
             fake_files = fake_file
 
         sgal.fake_files = fake_files
-        for fake_file in fake_files:
-            asts = artificial_star_tests(fake_file)
+
+        if asts_obj is None:
+            asts_obj = [artificial_star_tests(fake_file)
+                    for fake_file in fake_files]
+        elif type(asts_obj) is str:
+            asts_obj = [asts_obj]
+        for asts in asts_obj:
             mag1 = sgal.data.get_col(asts.filter1)
             mag2 = sgal.data.get_col(asts.filter2)
 

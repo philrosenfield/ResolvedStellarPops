@@ -164,6 +164,22 @@ def readfile(filename, col_key_line=0, comment_char='#'):
     return data
 
 
+def item_from_row(arr, index_key, index, column_name):
+    '''
+    send a np.array with dtype.names and choose a column item.
+    For example:
+    $ data.dtype.names
+    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
+    'nir_agb')
+    # for an array like:
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
+    $ item_from_row(data, 'target', 'kkh37', 'opt_trgb')
+    23.54
+    '''
+    columns = arr.dtype.names
+    item_key = columns.index(column_name)
+    return arr[index_key == index][item_key]
+
 def replace_ext(filename, ext):
     '''
     input 
