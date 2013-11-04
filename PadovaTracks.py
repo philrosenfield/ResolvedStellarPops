@@ -71,11 +71,19 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
 
 
 class Track(object):
-    def __init__(self, filename, ptcri=None, min_lage=0.2, cut_long=False):
+    '''
+    Padova stellar evolutoni track object. 
+    '''
+    def __init__(self, filename, ptcri=None, min_lage=0.1, cut_long=False):
         (self.base, self.name) = os.path.split(filename)
         self.load_track(filename, min_lage=min_lage, cut_long=cut_long)
         self.filename_info()
         self.mass = self.data.MASS[0]
+        if self.mass >= 12:
+            # for high mass tracks, the mass starts much larger than it is
+            # for (age<0.2). The mass only currect at the beginning of the MS.
+            # Rather than forcing a ptcri load, we read the mass from the title.
+            self.mass = float(self.name.split('_M')[1].split('.PMS')[0])
         self.ptcri = ptcri
         test = np.diff(self.data.AGE) >= 0
         if False in test:
@@ -133,7 +141,7 @@ class Track(object):
     def cut_long_track(self):
         '''
         cuts tracks at the first thermal pulse or c burning. Taken from
-        Bressan's save_isoc_set
+        Bressan's save_isoc_set This is not used.
         '''
         icburn = []
         ycen = self.data.YCEN
@@ -162,7 +170,7 @@ class Track(object):
         itpagb = itpagb + 1
         self.data = self.data[np.arange(itpagb)]
 
-    def load_track(self, filename, min_lage=0.2, cut_long=True):
+    def load_track(self, filename, min_lage=0.1, cut_long=True):
         '''
         reads PMS file into a record array. Stores header as string self.header
         '''
@@ -173,17 +181,18 @@ class Track(object):
         self.header = lines[:begin_track]
         col_keys = lines[begin_track + 1].replace('#', '').strip().split()
         begin_track_skip = 2
-
+        
+        # Hack to read tracks that have been "colored"
         if 'information' in lines[begin_track + 2]:
             col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])
             begin_track_skip += 1
 
-        # dtype = [(c, 'd') for c in col_keys]
         try:
             data = np.genfromtxt(filename,
                                  skiprows=begin_track + begin_track_skip,
                                  names=col_keys)
         except ValueError:
+            # comp time is often a footer.
             data = np.genfromtxt(filename,
                                  skiprows=begin_track + begin_track_skip,
                                  names=col_keys, skip_footer=2,
@@ -218,52 +227,64 @@ class Track(object):
 
         name_dat = '%s.dat' % self.name
         filename = os.path.join(self.base, name_dat)
-        #to_write = [np.column_stack(self.data[c]) for c in columns_list]
-        #to_write = np.squeeze(np.array(to_write).T)
         with open(filename, 'w') as f:
             f.writelines(self.header)
             f.write('# %s \n' % ' '.join(self.col_keys))
             np.savetxt(f, self.data, dtype=self.data.dtype)
         return filename
 
-    def write_trilegal_isotrack_ptcri(self, age, logl, logte, new_eep_dict,
-                                      outfile=None):
-        '''
-        in dev... not finished.
-        '''
-        if self.mass >= 1.65:
-            extra = 'INT2'
-        else:
-            return
-
-        if outfile is None:
-            outfile = 'ptcri_%s_Z%.4f_Y%.3f.dat.%s' % \
-                      (os.path.split(self.base)[1], self.Z, self.Y, extra)
-
-        with open(outfile, 'a') as f:
-            for i in range(len(age)):
-                extra = ''
-                if i in new_eep_dict.values():
-                    key, = [k for (k, v) in new_eep_dict.items() if v == i]
-                    if key == 'PMS_BEG':
-                        age[i] = 0.
-                        extra = ' M=%.6f PMS_BEG 0 \n' % self.mass
-                    else:
-                        extra += ' %s %i \n' % (key, i)
-                else:
-                    extra += ' %i \n' % i
-                isoc = '%.12e %.5f %.5f' % (age[i], logl[i], logte[i])
-
-                f.write(isoc+extra)
-
 
 class DefineEeps(object):
+    '''
+    Define the stages if not simply using Sandro's defaults.
+    * denotes stages defined here.
+
+    1 MS_BEG   Starting of the central H-burning phase
+    2 MS_TMIN* First Minimum in Teff for high-mass or Xc=0.30 for low-mass
+                  stars (BaSTi)
+    3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT (BaSTi)
+    4 SG_MAXL* Maximum in logL for high-mass or Xc=0.0 for low-mass stars
+                  (BaSTi)
+    5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
+                  low-mass stars (BaSTi, but found with parametric
+                  interpolation)
+    6 RG_BMP1  The maximum luminosity during the RGB Bump
+    7 RG_BMP2  The minimum luminosity during the RGB Bump
+    8 RG_TIP   Tip of the RGB defined in 3 ways:
+                  1) if the last track model still has a YCEN val > 0.1
+                     the TRGB is either the min te or the last model, which
+                     ever comes first. (low masses)
+                  2) if there is no YCEN left in the core at the last track
+                     model, TRGB is the min TE where YCEN > 1-Z-0.1.
+                  3) if there is still XCEN in the core (very low mass), TRGB
+                     is the final track model point.
+    9 HE_BEG*  Start quiescent central He-burning phase
+    10 YCEN_0.550* Central abundance of He equal to 0.55
+    11 YCEN_0.500* Central abundance of He equal to 0.50
+    12 YCEN_0.400* Central abundance of He equal to 0.40
+    13 YCEN_0.200* Central abundance of He equal to 0.20
+    14 YCEN_0.100* Central abundance of He equal to 0.10
+    15 YCEN_0.000* Central abundance of He equal to 0.00
+    16 C_BUR Starting of the central C-burning phase
+
+    HB Tracks:
+    AGB_LY1     Helium (shell) fusion first overpowers hydrogen (shell) fusion
+    AGB_LY2     Hydrogen wins again (before TPAGB).
+       **For low-mass HB (<0.485) the hydrogen fusion is VERY low (no atm!),
+            and never surpasses helium, this is still a to be done!!
+    
+    Not yet implemented, no TPAGB tracks decided:
+    x When the energy produced by the CNO cycle is larger than that
+    provided by the He burning during the AGB (Lcno > L3alpha)
+    x The maximum luminosity before the first Thermal Pulse
+    x The AGB termination
+    '''
     def __init__(self):
         self.setup_eep_info()
 
     def setup_eep_info(self):
         '''
-        I'd like to make something that'd record wwhat was sent to peak_finder
+        I'd like to make something that'd record what was sent to peak_finder
         for each mass and Z...
         '''
         self.eep_info = {}
@@ -284,7 +305,7 @@ class DefineEeps(object):
             default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
                             'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
                             'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                            'YCEN_0.000']
+                            'YCEN_0.000', 'C_BUR']
             eep_list = self.ptcri.please_define
 
         assert default_list == eep_list, \
@@ -292,44 +313,6 @@ class DefineEeps(object):
 
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True, debug=False):
-        '''
-        must define the stages here if not using Sandro's defaults.
-        * denotes stages defined here.
-
-        1 MS_BEG  Starting of the central H-burning phase
-        2 MS_TMIN* First Minimum in Teff for high-mass or Xc=0.30 for low-mass
-        stars
-        3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT
-        4 SG_MAXL*   Maximum in logL for high-mass or Xc=0.0 for low-mass stars
-        5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
-        low-mass stars
-        6 RG_BMP1 The maximum luminosity during the RGB Bump
-        7 RG_BMP2 The minimum luminosity during the RGB Bump
-        8 RG_TIP  Tip of the RGB defined in 3 ways:
-            1) if the last track model still has a YCEN val > 0.1
-                the TRGB is either the min te or the last model, which ever
-                comes first. (low masses)
-            2)  if there is no YCEN left in the core at the last track model,
-                TRGB is the min TE where YCEN > 1-Z-0.1.
-            3) If there is still XCEN in the core (very low mass), TRGB is the
-                final track model point.
-
-        9 Start quiescent central He-burning phase
-
-        10 YCEN_0.550* Central abundance of He equal to 0.55
-        11 YCEN_0.500* Central abundance of He equal to 0.50
-        12 YCEN_0.400* Central abundance of He equal to 0.40
-        13 YCEN_0.200* Central abundance of He equal to 0.20
-        14 YCEN_0.100* Central abundance of He equal to 0.10
-        15 YCEN_0.000* Central abundance of He equal to 0.00
-        16 C_BUR Starting of the central C-burning phase
-
-        Not yet implemented, no TPAGB tracks decided:
-        x When the energy produced by the CNO cycle is larger than that
-        provided by the He burning during the AGB (Lcno > L3alpha)
-        x The maximum luminosity before the first Thermal Pulse
-        x The AGB termination
-        '''
         self.validate_eeps(hb=hb)
 
         if hb is True:
@@ -390,8 +373,7 @@ class DefineEeps(object):
             logger.error(pprint.pprint(self.ptcri.iptcri))
         if debug is True:
             pass
-
-            
+  
     def remove_dupes(self, x, y, z, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
@@ -846,7 +828,7 @@ class DefineEeps(object):
             ydata = ydata[non_dupes]
             k = 3
             if len(non_dupes) <= k:
-                k = len(non_dupes) - 1
+                k = 1
                 logger.warning('only %i indices to fit... %s-%s' %
                                (len(non_dupes), eep1, eep2))
                 logger.warning('new spline_level %i' % k)
@@ -1397,7 +1379,7 @@ class critical_point(object):
         self.load_ptcri(filename, eep_obj=eep_obj)
         self.base, self.name = os.path.split(filename)
         self.get_args_from_name(filename)
-
+    
     def get_args_from_name(self, filename):
         '''
         god i wish i knew regex
@@ -1472,7 +1454,10 @@ class critical_point(object):
 
         # ptcri file has filename as col #19 so skip the last column
         usecols = range(0, 18)
-        data = np.genfromtxt(filename, usecols=usecols, skip_header=begin + 2)
+        # invalid_raise will skip the last rows that Sandro uses to fake the
+        # youngest MS ages (600Msun).
+        data = np.genfromtxt(filename, usecols=usecols, skip_header=begin + 2,
+                             invalid_raise=False)
         self.data = data
         self.masses = data[:, 1]
 
@@ -1487,21 +1472,23 @@ class critical_point(object):
         self.please_define_hb = []
 
         if eep_obj is not None:
-            please_define = [c for c in eep_obj.eep_list if c not in col_keys]
-            self.eep = eep_obj
             self.key_dict = dict(zip(eep_obj.eep_list,
                                      range(len(eep_obj.eep_list))))
-            self.please_define = please_define
+            self.please_define = [c for c in eep_obj.eep_list
+                                  if c not in col_keys]
+            
             if eep_obj.eep_list_hb is not None:
                 self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
                                         range(len(eep_obj.eep_list_hb))))
                 # there is no mixture between Sandro's HB eeps since there
                 # are no HB eeps in the ptcri files. Define them all here.
                 self.please_define_hb = eep_obj.eep_list_hb
+            
+            self.eep = eep_obj
         else:
             self.please_define = []
             self.key_dict = self.sandros_dict
-            
+
     def load_sandro_eeps(self, track):
         try:
             mptcri = self.data_dict['M%.3f' % track.mass]
@@ -1526,55 +1513,49 @@ class eep(object):
 
 
 class TrackSet(object):
-    def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
-                 eep_list=None, eep_lengths=None, eep_list_hb=None,
-                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
-                 hbtrack_search_term='*F7_*HB', plot_dir=None, masses=None,
-                 ptcri_file=None, hb_only=False, from_p2m=False, **kwargs):
-
-        if ptcrifile_loc is not None or ptcri_file is not None:
-            self.load_ptcri_eep(prefix=prefix, ptcri_file=ptcri_file,
-                                ptcrifile_loc=ptcrifile_loc,
-                                eep_list=eep_list, eep_lengths=eep_lengths,
-                                eep_list_hb=eep_list_hb,
-                                eep_lengths_hb=eep_lengths_hb,
-                                from_p2m=from_p2m)
+    def __init__(self, inputs):
+        
+        if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
+            self.load_ptcri_eep(inputs)
         else:
             self.ptcri = None
 
-        self.tracks_base = os.path.join(tracks_dir, prefix)
-        if hb_only is False:
-            self.load_tracks(track_search_term=track_search_term, masses=masses)
-        if hb is True:
-            self.load_tracks(track_search_term=hbtrack_search_term, hb=hb,
-                             masses=masses)
+        self.tracks_base = os.path.join(inputs.tracks_dir, inputs.prefix)
+        if inputs.hb_only is False:
+            self.load_tracks(track_search_term=inputs.track_search_term,
+                             masses=inputs.masses)
+        if inputs.hb is True:
+            self.load_tracks(track_search_term=inputs.hbtrack_search_term,
+                             hb=inputs.hb,
+                             masses=inputs.masses)
 
-    def load_ptcri_eep(self, prefix=None, ptcri_file=None, ptcrifile_loc=None,
-                       eep_list=None, eep_lengths=None, eep_list_hb=None,
-                       eep_lengths_hb=None, from_p2m=False):
+    def load_ptcri_eep(self, inputs):
         '''
         load the ptcri and eeps, simple call to the objects.
         way isn't this in eep?
         '''
         self.ptcri = None
         self.eep = None
-        if ptcri_file is not None:
-            self.ptcri_file = ptcri_file
+        if hasattr(inputs, 'ptcri_file'):
+            self.ptcri_file = inputs.ptcri_file
         else:
-            self.prefix = prefix
-            if from_p2m is True:
-                search_term = 'p2m*%s*dat' % prefix
-                self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
+            self.prefix = inputs.prefix
+            if inputs.from_p2m is True:
+                # this is the equivalent of Sandro's ptcri files, but mine.
+                search_term = 'p2m*%s*dat' % self.prefix
+                self.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc,
+                                                    search_term)
                 logger.info('reading ptcri from saved p2m file.')
             else:
-                search_term = 'pt*%s*dat' % prefix
-                self.ptcri_file, = fileIO.get_files(ptcrifile_loc, search_term)
+                search_term = 'pt*%s*dat' % self.prefix
+                self.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc,
+                                                    search_term)
 
-        if eep_list is not None:
-            eep_kw = {'eep_lengths': eep_lengths,
-                      'eep_list_hb': eep_list_hb,
-                      'eep_lengths_hb': eep_lengths_hb}
-            self.eep = eep(eep_list, **eep_kw)
+        if inputs.eep_list is not None:
+            eep_kw = {'eep_lengths': inputs.eep_lengths,
+                      'eep_list_hb': inputs.eep_list_hb,
+                      'eep_lengths_hb': inputs.eep_lengths_hb}
+            self.eep = eep(inputs.eep_list, **eep_kw)
 
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
 
@@ -1587,8 +1568,8 @@ class TrackSet(object):
                                track_search_term))
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-        mass = np.array([t.split('_M')[1].split('.P')[0] for t in track_names],
-                        dtype=float)
+        mass = np.array([os.path.split(t)[1].split('_M')[1].split('.P')[0]
+                         for t in track_names], dtype=float)
         track_names = track_names[np.argsort(mass)]
         mass = mass[np.argsort(mass)]
 
@@ -1608,13 +1589,14 @@ class TrackSet(object):
         # ordered by mass
         track_str = 'track'
         mass_str = 'masses'
+
         if hb is True:
             track_str = 'hb%s' % track_str
             mass_str = 'hb%s' % mass_str
         self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
         self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri,
-                                                   min_lage=0., cut_long=0)
+                                                   min_lage=0.1, cut_long=0)
                                              for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
@@ -1855,14 +1837,13 @@ class MatchTracks(object):
     a simple check of the output from TracksForMatch. I want it to run on the
     same input file as TracksForMatch.
     '''
-    def __init__(self, outfile_dir=None, eep_list=None, eep_lengths=None,
-                 track_search_term='match_*dat', eep_list_hb=None,
-                 eep_lengths_hb=None, prefix=None, **kwargs):
+    def __init__(self, inputs):
 
-        self.tracks_base = outfile_dir
-        self.prefix = prefix
+        self.tracks_base = inputs.outfile_dir
+        self.prefix = inputs.prefix
         # hard coding where the match files are kept tracks_base/match/
-        all_track_names = fileIO.get_files(self.tracks_base, track_search_term)
+        all_track_names = fileIO.get_files(self.tracks_base,
+                                           inputs.track_search_term)
 
         self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
         self.track_names = [t for t in all_track_names
@@ -1884,25 +1865,24 @@ class MatchTracks(object):
                         print ''
         self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
 
-        self.eep_list = eep_list
-        self.eep_lengths = eep_lengths
-        self.eep_list_hb = eep_list_hb
-        self._plot_all_tracks(self.tracks, eep_list=eep_list,
-                              eep_lengths=eep_lengths, plot_dir=outfile_dir)
+        self.eep_list = inputs.eep_list
+        self.eep_lengths = inputs.eep_lengths
+        self.eep_list_hb = inputs.eep_list_hb
 
-        self._plot_all_tracks(self.tracks, eep_list=eep_list,
-                              eep_lengths=eep_lengths, plot_dir=outfile_dir,
-                              xcol='logAge')
+        pat_kw = {'eep_list': self.eep_list,
+                  'eep_lengths': self.eep_lengths,
+                  'plot_dir': inputs.outfile_dir}
+
+        self._plot_all_tracks(self.tracks, **pat_kw)
+
+        pat_kw[xcol] = 'logAge'
+        self._plot_all_tracks(self.tracks, **pat_kw)
 
         if self.eep_list_hb is not None:
-            self._plot_all_tracks(self.hbtracks, eep_list=self.eep_list_hb,
-                                  eep_lengths=eep_lengths_hb,
-                                  plot_dir=outfile_dir, extra='_HB')
-
-            self._plot_all_tracks(self.hbtracks, eep_list=self.eep_list_hb,
-                                  eep_lengths=eep_lengths_hb,
-                                  plot_dir=outfile_dir, extra='_HB',
-                                  xcol='logAge')
+            pat_kw[extra] = '_HB'
+            self._plot_all_tracks(self.hbtracks, **pat_kw)
+            del pat_kw[xcol]
+            self._plot_all_tracks(self.hbtracks, **pat_kw)
 
 
     def _load_track(self, filename):
@@ -1961,69 +1941,60 @@ class MatchTracks(object):
     
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
-    def __init__(self, tracks_dir=None, prefix=None, ptcrifile_loc=None,
-                 eep_list=None, eep_lengths=None, eep_list_hb=None,
-                 eep_lengths_hb=None, hb=False, track_search_term='*F7_*PMS',
-                 hbtrack_search_term='*F7_*HB', plot_dir=None, debug=False,
-                 outfile_dir=None, masses=None, diag_plot=None, hb_only=False,
-                 do_interpolation=True):
-        
+    def __init__(self, inputs):
         # load all tracks
-        TrackSet.__init__(self, tracks_dir=tracks_dir, prefix=prefix,
-                          ptcrifile_loc=ptcrifile_loc, eep_list=eep_list,
-                          eep_lengths=eep_lengths, eep_list_hb=eep_list_hb,
-                          eep_lengths_hb=eep_lengths_hb, hb=hb, masses=masses,
-                          track_search_term=track_search_term,
-                          hbtrack_search_term=hbtrack_search_term,
-                          plot_dir=plot_dir, outfile_dir=outfile_dir,
-                          hb_only=hb_only)
+        TrackSet.__init__(self, inputs)
 
         DefineEeps.__init__(self)
 
-        if do_interpolation is True:
-            self.match_interpoation()
+        if inputs.do_interpolation is True:
+            self.match_interpolation(inputs)
 
-    def match_interpolation(self):
-        if hb_only is False:
+    def match_interpolation(self, inputs):
+        if inputs.hb_only is False:
             for track in self.tracks:
                 # do the work! Assign eeps either from sandro, or eep_list and
                 # make some diagnostic plots.
                 track = self.load_critical_points(track, ptcri=self.ptcri,
-                                                  plot_dir=plot_dir,
-                                                  diag_plot=diag_plot,
-                                                  debug=debug)
+                                                  plot_dir=inputs.plot_dir,
+                                                  diag_plot=inputs.diag_plot,
+                                                  debug=inputs.debug)
 
                 # make match output files.
-                self.prepare_track(track, outfile_dir=outfile_dir)
+                self.prepare_track(track, outfile_dir=inputs.outfile_dir)
 
-                if diag_plot is True:
+                if inputs.diag_plot is True:
                     # make diagnostic plots
-                    self.check_ptcris(track, plot_dir=plot_dir)
-                    self.check_ptcris(track, plot_dir=plot_dir, xcol='AGE')
+                    self.check_ptcris(track, plot_dir=inputs.plot_dir)
+                    self.check_ptcris(track, plot_dir=inputs.plot_dir,
+                                      xcol='AGE')
 
             # make summary diagnostic plots
             self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L', sandro=False,
-                                 reverse_x=True, plot_dir=plot_dir)
+                                 reverse_x=True, plot_dir=inputs.plot_dir)
 
         else:
             logger.info('Only doing HB.')
 
         # do the same as above but for HB.
-        if hb is True:
+        if inputs.hb is True:
             #self.hbtracks = []
             self.hbtrack_names = fileIO.get_files(self.tracks_base,
-                                                  hbtrack_search_term)
+                                                  inputs.hbtrack_search_term)
             for track in self.hbtracks:
                 track = self.load_critical_points(track, ptcri=self.ptcri,
-                                                  hb=hb, plot_dir=plot_dir,
-                                                  debug=debug)
+                                                  hb=inputs.hb,
+                                                  plot_dir=inputs.plot_dir,
+                                                  debug=inputs.debug)
                 #self.hbtracks.append(track)
-                self.prepare_track(track, outfile_dir=outfile_dir, hb=hb)
-                if diag_plot is True:
-                    self.check_ptcris(track, hb=hb, plot_dir=plot_dir)
+                self.prepare_track(track, outfile_dir=inputs.outfile_dir,
+                                   hb=inputs.hb)
+                if inputs.diag_plot is True:
+                    self.check_ptcris(track, hb=inputs.hb,
+                                      plot_dir=inputs.plot_dir)
 
-            self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=hb,
-                                 reverse_x=True, plot_dir=plot_dir)
+            self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L', hb=inputs.hb,
+                                 reverse_x=True, plot_dir=inputs.plot_dir)
         try:
             fh.close()
             ch.close()
@@ -2147,64 +2118,66 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         self.match_data = to_write
 
 
-def do_entire_set(input_dict={}):
-    tracks_dir = input_dict['tracks_dir']
-    if input_dict['prefixs'] == 'all':
+def do_entire_set(inputs):
+    tracks_dir = inputs.tracks_dir
+    if inputs.prefixs == 'all':
         prefixs = [d for d in os.listdir(tracks_dir)
                    if os.path.isdir(os.path.join(tracks_dir, d))]
     else:
-        prefixs = input_dict['prefixs']
+        prefixs = inputs.prefixs
 
-    del input_dict['prefixs']
+    del inputs.prefixs
     assert type(prefixs) == list, 'prefixs must be a list'
 
     for prefix in prefixs:
         logger.info('\n\n Current mix: %s \n\n' % prefix)
-        this_dict = set_outdirs(input_dict, prefix)
-        tm = TracksForMatch(**this_dict)
-        tm.save_ptcri(hb=this_dict['hb'])
-        MatchTracks(**this_dict)
+        these_inputs = set_outdirs(inputs, prefix)
+        tm = TracksForMatch(these_inputs)
+        tm.save_ptcri(hb=this_dict.hb)
+        MatchTracks(these_inputs)
         plt.close('all')
 
 
-def set_outdirs(indict, prefix):
-    newdict = deepcopy(indict)
-    newdict['prefix'] = prefix
-    wkd = os.path.join(indict['tracks_dir'], newdict['prefix'])
-    if 'plot_dir' in indict.keys() and indict['plot_dir'] == 'default':
-        newdict['plot_dir'] = os.path.join(wkd, 'plots')
+def set_outdirs(inputs, prefix):
+    new_inputs = deepcopy(inputs)
+    new_inputs.prefix = prefix
+    wkd = os.path.join(inputs.tracks_dir, new_inputs.prefix)
+    if hasattr(inputs, 'plot_dir') and inputs.plot_dir == 'default':
+        new_inputs.plot_dir = os.path.join(wkd, 'plots')
+        
+    if hasattr(inputs, 'outfile_dir') and inputs.outfile_dir == 'default':
+        new_inputs.outfile_dir = os.path.join(wkd, 'match')
+    
+    [fileIO.ensure_dir(d) for d in [new_inputs.plot_dir,
+                                       new_inputs.outfile_dir]]
+    return new_inputs
 
-    if 'outfile_dir' in indict.keys() and indict['outfile_dir'] == 'default':
-        newdict['outfile_dir'] = os.path.join(wkd, 'match')
-    return newdict
 
-
-def default_params(input_dict):
-    # if prefix not prefixs, set the location of plots if given default.
-    if 'prefix' in input_dict.keys():
-        input_dict = set_outdirs(input_dict, input_dict.get('prefix'))
-
-    input_dict['eep_list'] = ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
-                              'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
-                              'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
-                              'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
-                              'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                              'YCEN_0.000', 'C_BUR']
-
-    input_dict['eep_lengths'] = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
-                                 10, 150, 100, 80, 100, 80, 80, 140, 200]
-
-    if 'hb' in input_dict.keys() and input_dict['hb'] is True:
-        input_dict['eep_list_hb'] = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
-                                     'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
-                                     'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
-                                     'AGB_LY2']
-
-        input_dict['eep_lengths_hb'] = [150, 100, 80, 100, 80, 80, 140, 100,
-                                        100]
-    else:
-        input_dict['hb'] = False
-
+def initialize_inputs():
+    '''
+    Load default inputs, the eep lists, and number of equally spaced points
+    between eeps. Input file will overwrite these.
+    '''
+    input_dict =  {'eep_list': ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
+                                'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
+                                'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
+                                'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
+                                'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
+                                'YCEN_0.000', 'C_BUR'],
+                   'eep_lengths': [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
+                                  10, 150, 100, 80, 100, 80, 80, 140, 200],
+                   'eep_list_hb': ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
+                                  'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
+                                  'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
+                                  'AGB_LY2'],
+                   'eep_lengths_hb': [150, 100, 80, 100, 80, 80, 140, 100, 100],
+                   'track_search_term': '*F7_*PMS',
+                   'hbtrack_search_term':'*F7_*HB',
+                   'from_p2m': False,
+                   'hb_only': False,
+                   'masses': None,
+                   'do_interpolation': True,
+                   'debug': False}
     return input_dict
 
 
@@ -2278,10 +2251,18 @@ class f4_file(object):
         self.center.dtype.names = tuple('Center CNO SLY RH_BOT LOG_L LOG_TE B_SLC HM_CHE'.split()) + self.center.dtype.names[8:]
         
 
+def verify_ptcri_file(ptcri_file, track_files):
+    ptcri =  critical_point.load_ptcri(ptcri_file)
+    tracks = [Track(t, min_lage=0) for t in track_files]
+    
+    
 
 if __name__ == '__main__':
-    import pdb
-    input_dict = default_params(fileIO.load_input(sys.argv[1]))
+    inputs = fileIO.input_file(sys.argv[1], default_dict=initialize_inputs())
+    # if prefix not prefixs, set the location of plots if given default.
+    if hasattr(inputs, 'prefix'):
+        inputs = set_outdirs(inputs, inputs.prefix)
+
     logfile = sys.argv[1].replace('inp', 'log')
     fh = logging.FileHandler(logfile)
     fmt = '%(asctime)s - %(levelname)s - %(module)s: %(lineno)d - %(message)s'
@@ -2289,15 +2270,17 @@ if __name__ == '__main__':
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     logger.setLevel(logging.DEBUG)
-
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+
+    import pdb
     pdb.set_trace()
-    if 'prefixs' in input_dict.keys():
-        do_entire_set(input_dict=input_dict)
+
+    if hasattr(inputs, 'prefixs'):
+        do_entire_set(inputs)
     else:
-        tm = TracksForMatch(**input_dict)
-        tm.save_ptcri(hb=input_dict['hb'])
-        MatchTracks(**input_dict)
+        tm = TracksForMatch(inputs)
+        tm.save_ptcri(hb=inputs.hb)
+        MatchTracks(inputs)

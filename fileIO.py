@@ -77,7 +77,8 @@ class input_file(object):
     a class to replace too many kwargs from the input file.
     does two things:
     1. sets a default dictionary (see input_defaults) as attributes
-    2. unpacks the dictionary from load_input as attributes.
+    2. unpacks the dictionary from load_input as attributes
+        (overwrites defaults).
     '''
     def __init__(self, filename, default_dict=None):
         if default_dict is not None:
@@ -224,8 +225,11 @@ def ensure_file(f, mad=True):
 def ensure_dir(f):
     '''
     will make all dirs necessary for input to be an existing directory.
-    if input does not end with '/' it will not make it a directory.
+    if input does not end with '/' it will add it, and then make a directory.
     '''
+    if not f.endswith('/'):
+        f += '/'
+
     d = os.path.dirname(f)
     if not os.path.isdir(d):
         os.makedirs(d)
