@@ -1577,19 +1577,22 @@ class TrackSet(object):
         if masses is not None:
             if type(masses) == float:
                 masses = [masses]
-            track_masses = []
-            for set_mass in masses:
-                try:
-                    track_masses.append(list(mass).index(set_mass))
-                except ValueError:
-                    pass
-            track_masses = np.array(track_masses)
-        else:
-            track_masses = np.argsort(mass)
-        # ordered by mass
+            else:
+                masses = mass[np.array([i for i in mass if eval(masses % i)])]
+            if type(masses) == list:
+                track_masses = []
+                for set_mass in masses:
+                    try:
+                        track_masses.append(list(mass).index(set_mass))
+                    except ValueError:
+                        pass
+                track_masses = np.array(track_masses)
+            else:
+                track_masses = np.argsort(mass)
+
+
         track_str = 'track'
         mass_str = 'masses'
-
         if hb is True:
             track_str = 'hb%s' % track_str
             mass_str = 'hb%s' % mass_str
