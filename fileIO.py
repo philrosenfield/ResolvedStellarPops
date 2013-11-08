@@ -178,8 +178,8 @@ def item_from_row(arr, index_key, index, column_name):
     23.54
     '''
     columns = arr.dtype.names
-    item_key = columns.index(column_name)
-    return arr[index_key == index][item_key]
+    item_key, = np.nonzero(arr[index_key]==index)
+    return arr[item_key][column_name][0]
 
 def replace_ext(filename, ext):
     '''

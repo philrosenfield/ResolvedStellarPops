@@ -1446,7 +1446,8 @@ class simgalaxy(star_pop):
             scolor = smag1 - smag
             rec = np.arange(smag.size)
 
-        # initialize slices
+        # initialize slices, they will just be the enitre array if not
+        # changed below
         ibright = np.arange(smag.size)
         st_inds = np.arange(smag.size)
         reg_inds = np.arange(smag.size)
@@ -1473,6 +1474,7 @@ class simgalaxy(star_pop):
                      set(sinds_cut))
 
         nsim_stars = float(len(sinds))
+        
         if len(sinds) == 0:
             logger.warning('no stars with %s < %.2f' % (new_attr, magcut))
             self.__setattr__('%s_inds' % new_attr, [-1])
@@ -2194,6 +2196,7 @@ class artificial_star_tests(object):
         rec1, rec2 = self.recovered()
         self.bin_asts()
         qhist1, _ = np.histogram(self.mag1, bins=self.ast_bins)
+
 
 def stellar_prob(obs_hess, model_hess, normalize=False):
     '''

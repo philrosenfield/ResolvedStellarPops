@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.nxutils as nxutils
+from scipy.interpolate import interp1d
 
 
 def brighter(mag2, trgb, inds=None):
@@ -10,6 +11,33 @@ def brighter(mag2, trgb, inds=None):
         i = np.intersect1d(i, inds)
     return i
 
+
+def extrap1d(x, y, xout_arr):
+    '''
+    linear extapolation from interp1d class, a way around bounds_error.
+    Adapted from:
+    http://stackoverflow.com/questions/2745329/how-to-make-scipy-interpolate-give-an-extrapolated-result-beyond-the-input-range
+    Returns the interpolator class and yout_arr
+    '''
+    # Interpolator class
+    f = interp1d(x, y)
+    xo = xout_arr
+    # Boolean indexing approach
+    # Generate an empty output array for "y" values
+    yo = np.empty_like(xo)
+    
+    # Values lower than the minimum "x" are extrapolated at the same time
+    low = xo < f.x[0]
+    yo[low] =  f.y[0] + (xo[low] - f.x[0]) * (f.y[1] - f.y[0]) / (f.x[1] - f.x[0])
+    
+    # Values higher than the maximum "x" are extrapolated at same time
+    high = xo > f.x[-1]
+    yo[high] = f.y[-1] + (xo[high] - f.x[-1]) * (f.y[-1] - f.y[-2]) / (f.x[-1] - f.x[-2])
+    
+    # Values inside the interpolation range are interpolated directly
+    inside = np.logical_and(xo >= f.x[0], xo <= f.x[-1])
+    yo[inside] = f(xo[inside])
+    return f, yo
 
 def find_peaks(arr):
     '''

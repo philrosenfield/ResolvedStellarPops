@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger()
 import fileIO
 import graphics
-
+import sys
 
 class HRD(object):
     def __init__(self, age, logl, logte, mass, eep_list, ieep):
@@ -491,22 +491,35 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
     
     logger.info('running trilegal...')
 
-    cmd = 'code_2.3/main -f %s -a -l %s %s' % (cmd_input, galaxy_input, output)
+    # trilegal 2.3 not working on my mac...
+    if 'Linux' in os.uname():
+        ver = 2.3
+    else:
+        ver = 2.2
+    cmd = 'code_%.1f/main -f %s -a -l %s %s' % (ver, cmd_input, galaxy_input,
+                                                output)
 
     print cmd
 
     logger.debug(cmd)
 
-    #p = subprocess.Popen(['/bin/bash', '-c', cmd])
     if dry_run is True:
         print cmd
     else:
-        p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
-                             stdout=subprocess.PIPE)
-        p.wait()
-
-        if loud is True:
-            print '\n'.join([l.strip() for l in p.communicate()])
+        try:
+           retcode = subprocess.call(cmd, shell=True)
+           if retcode < 0:
+               print >> sys.stderr, 'TRILEGAL was terminated by signal', -retcode
+           else:
+               print >> sys.stderr, 'TRILEGAL was terminated successfully'
+        except OSError, err:
+            print >> sys.stderr, 'TRILEGAL failed:', err
+        #p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
+        #                     stdout=subprocess.PIPE)
+        #p.wait()
+        
+        #if loud is True:
+        #    print '\n'.join([l.strip() for l in p.communicate()])
 
     logger.info('done.')
 
