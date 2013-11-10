@@ -36,6 +36,7 @@ def add_comments_to_header(tracks_base, prefix, search_term):
         with open(oname, 'w') as t:
             t.writelines(lines)
 
+
 def quick_color_em(tracks_base, prefix, photsys='UVbright',
                    search_term='*F7_*PMS', fromHR2mags=None):
     '''
@@ -1654,8 +1655,9 @@ class TrackSet(object):
 
         if one_plot is True:
             for t in tracks:
+                td = TrackDiag()
                 all_inds, = np.nonzero(t.data.AGE > 0.2)
-                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
+                ax = td.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
                                      plt_kw=line_pltkw, cmd=cmd,
                                      convert_mag_kw=convert_mag_kw, hb=hb)
             return ax

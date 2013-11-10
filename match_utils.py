@@ -32,7 +32,11 @@ def read_binned_sfh(filename):
             ('csfr', '<f8'),
             ('csfr_errp', '<f8'),
             ('csfr_errm', '<f8')]
-    data = np.genfromtxt(filename, dtype=dtype)
+    try:
+        data = np.genfromtxt(filename, dtype=dtype)
+    except ValueError:
+        data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                             skip_footer=2)
     return data.view(np.recarray)
 
 
@@ -278,7 +282,7 @@ def read_match_sfh(filename, bgfile=False):
                         names=col_head)
     sfh = sfh.view(np.recarray)
     return sfh
-
+        
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
                       sarah_sim=False, footer=2):
