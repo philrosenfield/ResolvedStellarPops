@@ -306,7 +306,7 @@ class DefineEeps(object):
             default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
                             'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
                             'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                            'YCEN_0.000', 'C_BUR']
+                            'YCEN_0.000']
             eep_list = self.ptcri.please_define
 
         assert default_list == eep_list, \
@@ -1509,6 +1509,9 @@ class eep(object):
 
 
 class TrackSet(object):
+    '''
+    
+    '''
     def __init__(self, inputs):
         
         if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
@@ -1943,6 +1946,11 @@ class MatchTracks(object):
     
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
+    '''
+    This class is for interpolating tracks for use in MATCH. While the
+    DefineEeps code is made for one track at a time, TracksForMatch takes a
+    track set as input.
+    '''
     def __init__(self, inputs):
         # load all tracks
         TrackSet.__init__(self, inputs)
