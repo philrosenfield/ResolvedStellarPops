@@ -1781,7 +1781,8 @@ class sim_and_gal(object):
             assert np.unique(self.sgal.stage[itpagb]).size == 1, 'Indexing Error'
 
         if len(self.sgal.norm_inds) < len(smag):
-            self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
+            self.sgal_hist, _ = np.histogram(smag[self.sgal.rec], bins=self.bins)
+            self.sgal_hist *= self.sgal.rgb_norm
         else:
             # lmc, eg, doesn't need normalization. 
             self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
@@ -1866,7 +1867,7 @@ class sim_and_gal(object):
         '''
         must have attributes sgal, gal nbrighter
         '''
-        if not 'nbrighter' in self.gal:
+        if not 'nbrighter' in self.gal.__dict__.keys():
             self.gal.nbrighter = self.nbrighter
 
         for i, maglim in enumerate(self.maglims):
