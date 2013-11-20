@@ -244,9 +244,8 @@ def read_table(filename, comment_char='#', loud=False):
         def elapsed():
             return time.time() - start
 
-    f = open(filename, 'r')
-    lines = f.readlines()
-    f.close()
+    with open(filename) as f:
+        lines = [line for line in f]
 
     if loud:
         print '%.3fs: lines read' % (elapsed())

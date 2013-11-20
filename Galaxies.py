@@ -11,6 +11,7 @@ from matplotlib.ticker import NullFormatter, MaxNLocator, MultipleLocator
 import pyfits
 import itertools
 import copy
+from scipy.interpolate import interp1d
 import logging
 logger = logging.getLogger()
 
@@ -1941,18 +1942,19 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
     options to write the a copy of the trilegal simulation with the corrected
     mag columns, and also just the color, mag into a file (spread_too).
 
-    input:
+    ARGS:
     sgal: simgalaxy instance with convert_mag method already called.
-    fake_file: string - matchfake file, or an artifical_star_tests instance.
+    fake_file: string - matchfake file(s), or an artifical_star_tests instance(s).
     outfile: string - ast_file to write
     overwrite: overwrite output files, is also passed to write_spread
     spread_too: call write_spread flag
     spread_outfile: outfile for write_spread
-    returns
+
+    RETURNS:
     adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
 
-    if fake file is a list of opt, and ir fake files, will run this twice
-    leo's method is the only one that works so far.
+    if fake_file is an a list of opt and ir, will do the corrections twice.
+    fake_file as artificial_star_instance won't work if leo_method=True.
     '''
     ir_too = False
 
@@ -1986,6 +1988,10 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
     #    'ast_correct_trilegal_sim: fake_file now needs to be passed'
 
     if leo_method is True:
+        print 'ARE YOU SURE YOU WANT TO USE THIS METHOD!?'
+        # this method tosses model stars where there are no ast corrections
+        # which is fine for completeness < .50 but not for completeness > .50!
+        # so don't use it!! It's also super fucking slow.
         assert spread_outfile is not None, \
             'need spread_outfile set for Leo AST method'
 
@@ -2024,10 +2030,13 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 
         if asts_obj is None:
             asts_obj = [artificial_star_tests(fake_file)
-                    for fake_file in fake_files]
+                        for fake_file in fake_files]
         elif type(asts_obj) is str:
             asts_obj = [asts_obj]
+
         for asts in asts_obj:
+            # sgal.filter1 or sgal.mag1 doesn't have to match the asts.filter1
+            # in fact, it won't if this is done on both opt and nir data.
             mag1 = sgal.data.get_col(asts.filter1)
             mag2 = sgal.data.get_col(asts.filter2)
 
@@ -2038,10 +2047,11 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
             sgal.add_data(**new_cols)
 
         if outfile is not None:
-            if overwrite or not os.path.isfile(outfile):
+            if overwrite is True or not os.path.isfile(outfile):
                 TrilegalUtils.write_trilegal_sim(sgal, outfile)
             else:
                 logger.warning('%s exists, not overwriting' % outfile)
+
         if spread_outfile is not None:
             TrilegalUtils.write_spread(sgal, outfile=spread_outfile,
                                        overwrite=overwrite)
@@ -2079,19 +2089,22 @@ class artificial_star_tests(object):
 
     def recovered(self, threshold=9.99):
         '''
-        indicies of recovered stars in both filters.
-        threshold of recovery [9.99]
+        find indicies of stars with magdiff < threshold
+
+        ARGS:
+        threshold: [9.99] magin - magout threshold for recovery
+
+        RETURNS:
+        self.rec: recovered stars in both filters
+        rec1, rec2: recovered stars in filter1, filter2
         '''
-        rec1, = np.nonzero(self.mag1diff > threshold)
-        rec2, = np.nonzero(self.mag2diff > threshold)
+        rec1, = np.nonzero(self.mag1diff < threshold)
+        rec2, = np.nonzero(self.mag2diff < threshold)
         self.rec = list(set(rec1) & set(rec2))
         return rec1, rec2
 
     def load_fake(self, filename):
-        '''
-        reads matchfake file and assigns each column to its own attribute
-        see artificial_star_tests.__doc__
-        '''
+        '''read MATCH fake file into attributes'''
         names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
         self.data = np.genfromtxt(filename, names=names)
         # unpack into attribues
@@ -2100,9 +2113,16 @@ class artificial_star_tests(object):
 
     def bin_asts(self, binsize=0.2, bins=None):
         '''
-        bins the artificial star tests in bins of *binsize* or with *bins*
-        assigns attributes am1_inds and am2_inds, the indices of the bins to
-        which each value in mag1 and mag2 belong (see np.digitize).
+        bin the artificial star tests
+
+        ARGS:
+        bins: bins for the asts
+        binsize: width of bins for the asts
+
+        RETURNS:
+        self.am1_inds, self.am2_inds: the indices of the bins to
+            which each value in mag1 and mag2 belong (see np.digitize).
+        self.ast_bins: bins used for the asts.
         '''
         if bins is None:
             ast_max = np.max(np.concatenate((self.mag1, self.mag2)))
@@ -2116,12 +2136,13 @@ class artificial_star_tests(object):
 
     def _random_select(self, arr, nselections):
         '''
-        randomly sample *arr* *nselections* times, used in ast_correction
+        randomly sample *arr* *nselections* times
 
-        input
+        ARGS:
         arr: array or list to sample
         nselections: int times to sample
-        returns
+
+        RETURNS:
         rands: list of selections, length nselections
         '''
         import random
@@ -2132,23 +2153,39 @@ class artificial_star_tests(object):
                        not_rec_val=np.nan):
         '''
         apply ast correction to input mags.
-        This is done by going through obs_mag1 in bins of *bin_asts* (which
-        will be called if not already) and randomly selecting magdiff values
-        in that ast_bin. obs_mag2 simply follows along since it is tied to
-        obs_mag1.
-        Random selection was chosen because of the spatial nature of artificial
-        star tests. If there are 400 asts in one mag bin, and 30 are not
-        recovered, random selection should match that distribution (if there
-        are many obs stars).
-        input:
+
+        ARGS:
         obs_mag1, obs_mag2: N, 1 arrays
-        kwargs:
+
+        KWARGS:
         binsize, bins: for bin_asts if not already run.
+
+        RETURNS:
+        cor_mag1, cor_mag2: ast corrected magnitudes
+
+        RAISES:
+        returns -1 if obs_mag1 and obs_mag2 are different sizes
+
+        Corrections are made by going through obs_mag1 in bins of
+        bin_asts and randomly selecting magdiff values in that ast_bin.
+        obs_mag2 simply follows along since it is tied to obs_mag1.
+
+        Random selection was chosen because of the spatial nature of
+        artificial star tests. If there are 400 asts in one mag bin,
+        and 30 are not recovered, random selection should match the
+        distribution (if there are many obs stars).
+
+        If there are obs stars in a mag bin where there are no asts,
+        will throw the star out unless the completeness in that mag bin
+        is more than 50%.
+
         TODO:
         possibly return magXdiff rather than magX + magXdiff?
         reason not to: using AST results from one filter to another isn't
         kosher. At least not glatt kosher.
         '''
+        self.completeness(combined_filters=True, interpolate=True)
+
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
             logger.error('mag arrays of different lengths')
@@ -2166,6 +2203,7 @@ class artificial_star_tests(object):
         om1_inds = np.digitize(obs_mag1, self.ast_bins)
 
         for i in range(len(self.ast_bins)):
+            # the obs and artificial stars in each bin
             obsbin, = np.nonzero(om1_inds == i)
             astbin, = np.nonzero(self.am1_inds == i)
             nobs = len(obsbin)
@@ -2176,11 +2214,18 @@ class artificial_star_tests(object):
             if nast == 0:
                 # no asts in this bin, probably means the simulation
                 # is too deep
-                continue
-            # randomly select the appropriate ast correction for obs stars
-            # in this bin
-            cor1 = self._random_select(self.mag1diff[astbin], nobs)
-            cor2 = self._random_select(self.mag2diff[astbin], nobs)
+                if self.fcomp2(self.ast_bins[i]) < 0.5:
+                    continue
+                else:
+                    # model is producing stars where there was no data.
+                    # assign no corrections.
+                    cor1 = 0.
+                    cor2 = 0.
+            else:
+                # randomly select the appropriate ast correction for obs stars
+                # in this bin
+                cor1 = self._random_select(self.mag1diff[astbin], nobs)
+                cor2 = self._random_select(self.mag2diff[astbin], nobs)
 
             # apply corrections
             cor_mag1[obsbin] = obs_mag1[obsbin] + cor1
@@ -2192,12 +2237,52 @@ class artificial_star_tests(object):
             #fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
 
-    def completeness(self):
-        # not finished ...
+    def completeness(self, combined_filters=False, interpolate=False):
+        '''
+        calculate the completeness of the data in each filter
+        ARGS:
+        combined_filters: Use individual or combined ast recovery
+        interpolate: add a 1d spline the completeness function to self
+        RETURNS:
+        self.comp1 the completeness in filter1 binned with self.ast_bins
+        self.comp2 same as above but filter2
+        '''
+        # calculate stars recovered, could pass theshold here.
         rec1, rec2 = self.recovered()
-        self.bin_asts()
-        qhist1, _ = np.histogram(self.mag1, bins=self.ast_bins)
 
+        # make sure ast_bins are good to go
+        if not hasattr(self, 'ast_bins'):
+            self.bin_asts()
+
+        # gst uses both filters for recovery.
+        if combined_filters is True:
+            rec1 = rec2 = self.rec
+
+        # historgram of all artificial stars
+        qhist1 = np.array(np.histogram(self.mag1, bins=self.ast_bins)[0],
+                          dtype=float)
+
+        # histogram of recovered artificial stars
+        rhist1 = np.array(np.histogram(self.mag1[rec1], bins=self.ast_bins)[0],
+                          dtype=float)
+
+        # completeness histogram
+        self.comp1 = rhist1 / qhist1
+
+        qhist2 = np.array(np.histogram(self.mag2, bins=self.ast_bins)[0],
+                          dtype=float)
+        rhist2 = np.array(np.histogram(self.mag2[rec2], bins=self.ast_bins)[0],
+                          dtype=float)
+        self.comp2 = rhist2 / qhist2
+
+        if interpolate is True:
+            # sometimes the histogram isn't as useful as the a spline
+            # function... add the interp1d function to self.
+            self.fcomp1 = interp1d(self.ast_bins[1:], self.comp1,
+                                   bounds_error=False)
+            self.fcomp2 = interp1d(self.ast_bins[1:], self.comp2,
+                                   bounds_error=False)
+        return
 
 def stellar_prob(obs_hess, model_hess, normalize=False):
     '''
