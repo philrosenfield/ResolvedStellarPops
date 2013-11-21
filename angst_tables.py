@@ -5,7 +5,6 @@ import difflib
 
 TABLE_DIR = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'tables')
 
-
 class AngstTables(object):
     def __init__(self):
         self.table5 = read_angst_tab5()
@@ -15,6 +14,31 @@ class AngstTables(object):
         self.targets = np.unique(np.concatenate((self.table4['target'],
                                                  self.table5['target'])))
         self.load_data()
+
+    def get_item(self, target, item, extra_key=None):
+        '''
+        The problem with writing basic necessity code before I got the hang
+        of python is that I need to write shitty wrappers now...
+        '''
+        target = self.correct_target(target)
+        table_row = self.__getattribute__(target)
+        if not item in table_row.keys():
+            keys, vals = zip(*[(k, [v for l, v in tvals.items() if item == l])
+                for k, tvals in table_row.items() if type(tvals) is dict])
+            not_empty, = np.nonzero(vals)
+            keys = np.array(keys)[not_empty]
+            vals = np.concatenate(vals)
+            if len(vals) > 1 and extra_key is None:
+                print '%s is ambiguous, please provide extra_key.' % item
+                print keys
+                return vals
+            elif len(vals) > 1 and extra_key is not None:
+                val = vals[keys==extra_key][0]
+            else:
+                val = vals[0]
+        else:
+            val = table_row[item]
+        return val
 
     def load_data(self):
         '''
@@ -56,11 +80,14 @@ class AngstTables(object):
             else:
                 self.__dict__[target].update(target_dict)
 
-    def correct_target(target):
+    def correct_target(self, target):
         '''
         NOT FINISHED
         '''
-        pass
+        target = target.upper().replace('-', '_')
+        if '404' in target:
+            target = 'NGC404_DEEP'
+        return target
 
     def get_tab5_trgb_av_dmod(self, target, filters):
         '''

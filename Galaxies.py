@@ -2284,6 +2284,7 @@ class artificial_star_tests(object):
                                    bounds_error=False)
         return
 
+
 def stellar_prob(obs_hess, model_hess, normalize=False):
     '''
     FROM MATCH README
