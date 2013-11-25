@@ -558,7 +558,6 @@ def get_stage_label(region):
     stage_lab = regions.index(region.upper())
     return stage_lab
 
-
 def get_label_stage(stage_lab):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
