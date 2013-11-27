@@ -36,10 +36,13 @@ class star_pop(object):
 
     def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None,
                  yfilter=None, contour_args={}, scatter_args={}, plot_args={},
-                 scatter_off=False, levels=20, threshold=10, contour_lw={},
+                 scatter_off=False, levels=5, threshold=75, contour_lw={},
                  color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None,
                  hist_bin_res=0.05, make_labels=True, log_counts=False):
+        '''
+        plot the galaxy cmd
 
+        '''
         set_fig, set_ax = 0, 0
         if fig is None and ax is None:
             fig = plt.figure(figsize=(8, 8))
@@ -283,10 +286,11 @@ class star_pop(object):
         color = mag1 - mag2
 
         nbins = (np.max(mag2) - np.min(mag2)) / binsize
-        errmag = np.arange(int(nbins / 5) - 1) * 1.
-        errcol = np.arange(int(nbins / 5) - 1) * 1.
-        errmagerr = np.arange(int(nbins / 5) - 1) * 1.
-        errcolerr = np.arange(int(nbins / 5) - 1) * 1.
+        nbars = int(nbins / 5) - 1
+        errmag = np.zeros(nbars)
+        errcol = np.zeros(nbars)
+        errmagerr = np.zeros(nbars)
+        errcolerr = np.zeros(nbars)
         for q in range(len(errmag) - 1):
             test = mag2.min() + 5. * (q + 2) * binsize + 2.5 * binsize
             test2, = np.nonzero((mag2 > test - 2.5 * binsize) &
