@@ -782,11 +782,11 @@ class star_pop(object):
                 print 'no stars found with stage %s' % stages[i]
                 continue
             if original_bins is None:
-                nbins = (np.max(imag) - np.min(imag)) / bin_width
+                bins = (np.max(imag) - np.min(imag)) / bin_width
             if hist_it_up is True:
                 hist, bins = math_utils.hist_it_up(imag, threash=5)
             else:
-                hist, bins = np.histogram(imag, bins=nbins)
+                hist, bins = np.histogram(imag, bins=bins)
             self.__setattr__('%slfhist' % extra[i], hist)
             self.__setattr__('%slfbins' % extra[i], bins)
         return hist, bins
@@ -2344,8 +2344,34 @@ class artificial_star_tests(object):
                                    bounds_error=False)
         return
 
+    def get_completeness_fraction(self, frac, dmag=0.01):
+        assert hasattr(self, 'fcomp1'), \
+            'need to run completeness with interpolate=True'
 
-def stellar_prob(obs_hess, model_hess, normalize=False):
+        # set up array to evaluate interpolation
+        arr_min = 16
+        arr_max = 31
+        search_arr = np.arange(arr_min, arr_max, dmag)
+
+        # completeness in each filter, and the finite vals
+        # (frac - nan = frac)
+        cfrac1 = self.fcomp1(search_arr)
+        ifin1 = np.isfinite(cfrac1)
+
+        cfrac2 = self.fcomp2(search_arr)
+        ifin2 = np.isfinite(cfrac2)
+
+        # closest completeness fraction to passed fraction
+        icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1]))
+        icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2]))
+
+        # mag associated with completeness
+        comp1 = search_arr[ifin1][icomp1]
+        comp2 = search_arr[ifin2][icomp2]
+
+        return comp1, comp2
+
+def stellar_prob(obs, model, normalize=False):
     '''
     FROM MATCH README
     The quality of the fit is calculated using a Poisson maximum likelihood
@@ -2362,15 +2388,14 @@ def stellar_prob(obs_hess, model_hess, normalize=False):
     manner to get the above formula.
 
     '''
-    n = obs_hess[2]
-
-    m = model_hess[2]
+    n = obs
+    m = model
 
     if normalize is True:
         n /= np.sum(n)
         m /= np.sum(m)
 
-    d = 2.* (m + n * np.log(n / m) - n)
+    d = 2. * (m + n * np.log(n / m) - n)
 
     smalln = np.abs(n) < 1e-10
     d[smalln] = 2. * m[smalln]
@@ -2380,4 +2405,4 @@ def stellar_prob(obs_hess, model_hess, normalize=False):
 
     sig = np.sqrt(d) * np.sign(n - m)
     pct_dif = (m - n) / n
-    return np.sum(d), pct_dif, sig
+    return np.sum(d)/float(len(n)-1), pct_dif, sig

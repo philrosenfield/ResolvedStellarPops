@@ -5,6 +5,7 @@ import pyfits
 import math_utils
 import sys
 from pprint import pprint
+import difflib
 
 
 class input_parameters(object):
@@ -164,6 +165,27 @@ def readfile(filename, col_key_line=0, comment_char='#'):
                          skip_header=col_key_line+1)
     return data
 
+def get_row(arr, index_key, index):
+    '''
+    send a np.array with dtype.names and choose a column item.
+    For example:
+    $ data.dtype.names
+    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
+    'nir_agb')
+    # for an array like:
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
+    get_row(data, 'target', 'kkh37')
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0)
+    '''
+    fixed_index = difflib.get_close_matches(index.lower(), arr[index_key])
+    if len(fixed_index) == 0:
+        fixed_index = difflib.get_close_matches(index.upper(), arr[index_key])
+    fixed_index = fixed_index[0]
+    if index.lower() != fixed_index:
+        if index.upper() != fixed_index:
+            print 'using %s instead of %s' % (fixed_index, index)
+    item_key, = np.nonzero(arr[index_key]==fixed_index)
+    return arr[item_key]
 
 def item_from_row(arr, index_key, index, column_name):
     '''
@@ -177,9 +199,8 @@ def item_from_row(arr, index_key, index, column_name):
     $ item_from_row(data, 'target', 'kkh37', 'opt_trgb')
     23.54
     '''
-    columns = arr.dtype.names
-    item_key, = np.nonzero(arr[index_key]==index)
-    return arr[item_key][column_name][0]
+    row = get_row(arr, index_key, index)
+    return row[column_name][0]
 
 def replace_ext(filename, ext):
     '''
