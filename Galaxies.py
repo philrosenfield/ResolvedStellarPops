@@ -735,7 +735,7 @@ class star_pop(object):
         return inds
 
     def make_lf(self, mag, bins=None, stages=None, inds=None, bin_width=0.1,
-                hist_it_up=False):
+                hist_it_up=False, stage_inds=None):
         '''
         make a lf out of mag
 
@@ -745,7 +745,7 @@ class star_pop(object):
         stages: evolutionary stages (will add individually)
         inds: indices of array include
         bin_width: width of mag bin for histogram
-
+        stage_inds: indices to slice the stages
         RETURNS
         if stages, will name the attributes
         self.i[stage]_lfhist
@@ -776,6 +776,8 @@ class star_pop(object):
             extra = [s + '_' for s in stage_names]
 
         for i, sinds in enumerate(sindss):
+            if stage_inds is not None:
+                s_inds = stage_inds
             s_inds = np.intersect1d(inds, sinds)
             imag = mag[s_inds]
             if len(imag) < 2:
@@ -2405,4 +2407,5 @@ def stellar_prob(obs, model, normalize=False):
 
     sig = np.sqrt(d) * np.sign(n - m)
     pct_dif = (m - n) / n
-    return np.sum(d)/float(len(n)-1), pct_dif, sig
+    prob = np.sum(d)/float(len(n)-1)
+    return prob, pct_dif, sig

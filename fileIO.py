@@ -237,10 +237,12 @@ def ensure_file(f, mad=True):
     optional
     mad (bool)[True]: if mad is True, will exit program.
     '''
-    if not os.path.isfile(f):
+    test = os.path.isfile(f)
+    if test is False:
         print 'there is no file', f
         if mad:
             sys.exit()
+    return test
 
 
 def ensure_dir(f):
@@ -324,6 +326,6 @@ def get_files(src, search_string):
     except IndexError:
         print 'Can''t find %s in %s' % (search_string, src)
         sys.exit(2)
-    files = [os.path.join(src, f) for f in files]
-    [ensure_file(f) for f in files] 
+    files = [os.path.join(src, f)
+             for f in files if ensure_file(os.path.join(src, f), mad=False)]
     return files

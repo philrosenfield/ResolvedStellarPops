@@ -166,15 +166,19 @@ def find_mag_num(file_mag, filter1):
         print '%s not found in %s.' (filter1, file_mag)
 
 
-def galaxy_input_dict(photsys=None, filter1=None, object_mass=None, object_sfr_file=None):
-    file_mag = 'tab_mag_odfnew/tab_mag_%s.dat' % photsys
+def galaxy_input_dict(photsys=None, filter1=None, object_mass=None,
+                      object_sfr_file=None, aringer=False):
+    photom_dir = 'odfnew'
+    if aringer is True:
+        photom_dir += 'bern'
+    file_mag = 'tab_mag_%s/tab_mag_%s.dat' % (photom_dir, photsys)
     return {'coord_kind': 1,
             'coord1': 0.0,
             'coord2': 0.0,
             'field_area': 1.0,
             'kind_mag': 3,
             'file_mag': file_mag,
-            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys, 
+            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys,
             'kind_dustM': 1,
             'file_dustM': 'tab_dust/tab_dust_dpmod60alox40_%s.dat' % photsys,
             'kind_dustC': 1,

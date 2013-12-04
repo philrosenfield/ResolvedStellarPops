@@ -2,15 +2,24 @@ import fileIO
 import Galaxies
 import graphics
 import match_graphics
-import math_utils
 import numpy as np
 import matplotlib.pyplot as plt
 import re
 import os
 import logging
-import random
 logger = logging.getLogger()
 
+def read_match_old(filename):
+    '''read older than v2.5 match output'''
+    dtype = [('lagei', '<f8'),
+            ('lagef', '<f8'),
+            ('sfr', '<f8'),
+            ('nstars', '<f8'),
+            ('mh', '<f8'),
+            ('dmod', '<f8')]
+    data = np.genfromtxt(filename, skip_header=2, skip_footer=2,
+                         dtype=dtype)
+    return data.view(np.recarray)
 
 def read_binned_sfh(filename):
     '''
