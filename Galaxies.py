@@ -793,6 +793,26 @@ class star_pop(object):
             self.__setattr__('%slfbins' % extra[i], bins)
         return hist, bins
 
+    def interp_errs(self, mag1err=None, mag2err=None, binsize=0.1):
+        if type(self.data) == pyfits.fitsrec.FITS_rec:
+            mag1err = self.data.MAG1_ERR
+            mag2err = self.data.MAG2_ERR
+        if absmag is True:
+            mag1 = self.Mag1
+            mag2 = self.Mag2
+        else:
+            mag1 = self.mag1
+            mag2 = self.mag2
+
+        interp_arr = np.linspace(0, 1, len(mag1))
+        mag1e_hist = np.array(np.histogram(mag1err, bins=mag_bins)[0], dtype=float)
+
+        mag2e_hist = np.array(np.histogram(mag2err, bins=mag_bins)[0], dtype=float)
+
+        self.fmag1err = interp1d(mag_bins, mag1e_hist, bounds_error=False)
+        self.fmag2err = interp1d(mag_bins, mag2e_hist, bounds_error=False)
+        return
+
 class galaxies(star_pop):
     '''
     wrapper for lists of galaxy objects, each method returns lists, unless they
@@ -2145,8 +2165,11 @@ class artificial_star_tests(object):
                 self.target, self.filter1, filter2 = self.name.split('_')
                 self.filter2 = filter2.split('.')[0]
             except:
-                __, self.target, __, self.filter1, self.filter2, _ = \
-                    self.name.split('_')
+                try:
+                    __, self.target, __, self.filter1, self.filter2, _ = \
+                        self.name.split('_')
+                except:
+                    pass
         artificial_star_tests.load_fake(self, filename)
 
     def recovered(self, threshold=9.99):
