@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import subprocess
 import fileIO
 import logging
 logger = logging.getLogger()
@@ -16,13 +17,12 @@ class Isochrone(object):
             self.data = self.data[order]
             
     def plot_isochrone(self, col1, col2, ax=None, fig=None, plt_kw={},
-                       mag_convert_kw={}, photsys=None, clean=True, inds=None, 
+                       mag_convert_kw={}, photsys=None, clean=False, inds=None, 
                        reverse_x=False, reverse_y=False, pms=False, xlim=None,
                        ylim=None, xdata=None, ydata=None):
 
         if ax is None:
-            fig = plt.figure()
-            ax = plt.axes()
+            fig, ax = plt.subplots()
         
         if ydata is not None:
             y = ydata
@@ -159,7 +159,8 @@ class Isochrones(object):
 
 
 def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
-              cmd_input_kw={}, overwrite=False):
+              cmd_input_kw={}, overwrite=False, dry_run=False):
+    
     if not os.path.isfile(cmd_input_file) or overwrite is True:
         write_cmd_input_for_isoch(cmd_input_file, photsys,
                                   cmd_input_kw=cmd_input_kw)
@@ -172,7 +173,7 @@ def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
     here = os.getcwd()
 
     # copy the cmd_input_file to where we run cmd
-    cmd_root = os.environ['CMD_ROOT']
+    cmd_root = os.environ['CMDROOT']
     cmd_input_file_cp = os.path.join(cmd_root, os.path.split(cmd_input_file)[1])
 
     # if we're using a file in cmd_root, don't want to delete it...
@@ -180,11 +181,17 @@ def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
         os.system('cp %s %s' % (cmd_input_file, cmd_input_file_cp))
 
     os.chdir(cmd_root)
-    print cmd
-    os.system(cmd)
-    #import subprocess
-    #p = subprocess.Popen(cmd, shell=True,stdout=subprocess.PIPE)
-    #sts = os.waitpid(p.pid, 0)[1]
+    if dry_run is True:
+        print cmd
+    else:
+        try:
+           retcode = subprocess.call(cmd, shell=True)
+           if retcode < 0:
+               print >> sys.stderr, 'CMD was terminated by signal', -retcode
+           else:
+               print >> sys.stderr, 'CMD was terminated successfully'
+        except OSError, err:
+            print >> sys.stderr, 'CMD failed:', err
 
     if cmd_input_file_cp != cmd_input_file:
         os.remove(cmd_input_file_cp)

@@ -103,9 +103,7 @@ def make_match_param(gal, more_gal_kw=None):
 
     # write out
     inp.write_params('param.sfh', match_param_fmt())
-
-    phot_kw = {}
-    return
+    return inp
 
 
 def match_param_default_dict():
@@ -192,6 +190,10 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
 
     also has a hardcoded edge for hs117.
     '''
+    def round_it(numb):
+        return np.round(numb * 20) / 20
+
+    
     if make_plot is True:
         fig, (axs) = graphics.GraphicsUtils.setup_multiplot(len(fits_files),
                                                                 figsize=(30,30))
@@ -204,7 +206,10 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
         gal = Galaxies.galaxy(fits_file, **gal_kw)
         if trgb is True:
             cmin = -0.5
-            cmax = 3
+            if gal.filter1 == 'F475W':
+                cmax = 4
+            if gal.filter1 == 'F606W':
+                cmax = 3
             Vmax = gal.mag1.min()
             Vmin = gal.trgb
         else:
@@ -213,20 +218,21 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
         if 'hs117' in fits_file:
             cmax = 2
             Vmax = 23
-        exclude_dict = {'c0': cmin, 'm0': cmin + Vmin,
-                        'c1': cmax, 'm1': cmax + Vmin,
-                        'c2': cmax, 'm2': Vmax,
-                        'c3': cmin, 'm3': Vmax}
+        delta = 0.1
+        exclude_dict = {'c0': round_it(cmin) + delta, 'm0': round_it(cmin + Vmin) - delta,
+                        'c1': round_it(cmax) - delta, 'm1': round_it(cmax + Vmin) - delta,
+                        'c2': round_it(cmax) - delta, 'm2': round_it(Vmax) + delta,
+                        'c3': round_it(cmin) + delta, 'm3': round_it(Vmax) + delta}
         exclude_gates[fits_file] = exclude_gate % exclude_dict
         if make_plot is True:
-            test_arr = np.column_stack(([cmin, cmin + Vmin],
-                                        [cmax, cmax + Vmin],
-                                        [cmax, Vmax],
-                                        [cmin, Vmax],
-                                        [cmin, cmin + Vmin]))
+            test_arr = np.column_stack(([exclude_dict['c0'], exclude_dict['m0']],
+                                        [exclude_dict['c1'], exclude_dict['m1']],
+                                        [exclude_dict['c1'], exclude_dict['m2']],
+                                        [exclude_dict['c0'], exclude_dict['m2']],
+                                        [exclude_dict['c0'], exclude_dict['m0']]))
 
             gal.plot_cmd(gal.color, gal.mag1, levels=3, threshold=100, ax=axs[i],
-                            filter1=gal.filter1)
+                            filter1=gal.filter1, yfilter=gal.filter1)
             gal.photsys = 'wfc3snap'
             gal.decorate_cmd(ax=axs[i], trgb=True, filter1=gal.filter1)
             axs[i].plot(test_arr[0, :], test_arr[1,:], lw=3, ls='--', color='green')
@@ -234,8 +240,8 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
     if make_plot is True:
         plt.savefig('exclude_gates_%i.png' % len(fits_files), dpi=300)
         print 'wrote exclude_gates_%i.png' % len(fits_files)
+        return exclude_gates, axs
     return exclude_gates
-
 
 
 ## All the code below is old, and could use rsp.fileIO or soemthing else.
