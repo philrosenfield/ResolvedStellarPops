@@ -782,13 +782,15 @@ class star_pop(object):
             imag = mag[s_inds]
             if len(imag) < 2:
                 print 'no stars found with stage %s' % stages[i]
-                continue
+                hist = np.zeros(len(bins)-1)
             if original_bins is None:
                 bins = (np.max(imag) - np.min(imag)) / bin_width
             if hist_it_up is True:
                 hist, bins = math_utils.hist_it_up(imag, threash=5)
             else:
-                hist, bins = np.histogram(imag, bins=bins)
+                if type(bins) == np.float64 and bins < 1:
+                    continue
+                hist, _ = np.histogram(imag, bins=bins)
             self.__setattr__('%slfhist' % extra[i], hist)
             self.__setattr__('%slfbins' % extra[i], bins)
         return hist, bins
