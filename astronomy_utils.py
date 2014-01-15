@@ -163,7 +163,7 @@ def Av2Alambda(Av, photsys, filter):
     Alam = Alam_Av * Av
     return Alam
 
-def Mag2mag(Mag, filter, photsys, **kwargs):
+def Mag2mag(Mag, filterx, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
     with Rv = 3.1
@@ -176,7 +176,7 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
     target = kwargs.get('target', None)
     A = 0.
     if target is not None:
-        filter2 = kwargs.get('filter2', filter)
+        filter2 = kwargs.get('filter2', filterx)
         filter1 = kwargs.get('filter1', None)
         trgb, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target, 
                                                           ','.join((filter1, 
@@ -186,14 +186,14 @@ def Mag2mag(Mag, filter, photsys, **kwargs):
         dmod = kwargs.get('dmod', 0.)
         
     if Av != 0.0:
-        Alam_Av = parse_mag_tab(photsys, filter)
+        Alam_Av = parse_mag_tab(photsys, filterx)
         A = Alam_Av * Av
     if dmod == 0. and A == 0.:
         logger.warning('Mag2mag did nothing.')
     return Mag+dmod+A
 
 
-def mag2Mag(mag, filter, photsys, **kwargs):
+def mag2Mag(mag, filterx, photsys, **kwargs):
     '''
     This uses Leo calculations using Cardelli et al 1998 extinction curve
     with Rv = 3.1
@@ -207,9 +207,9 @@ def mag2Mag(mag, filter, photsys, **kwargs):
     target = kwargs.get('target', None)
     A = 0.
     if target != None:
-        filter2 = kwargs.get('filter2', filter)
+        filter2 = kwargs.get('filter2', filterx)
         filter1 = kwargs.get('filter1', None)
-        trgb, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target,
+        _, Av, dmod = angst_data.get_tab5_trgb_av_dmod(target,
                                                           ','.join((filter1, 
                                                                     filter2)))
     else:
@@ -217,7 +217,7 @@ def mag2Mag(mag, filter, photsys, **kwargs):
         dmod = kwargs.get('dmod', 0.)
         
     if Av != 0.0:
-        Alam_Av = parse_mag_tab(photsys, filter)
+        Alam_Av = parse_mag_tab(photsys, filterx)
         A = Alam_Av * Av
     
     return mag-dmod-A

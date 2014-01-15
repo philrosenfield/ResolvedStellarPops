@@ -315,19 +315,19 @@ class star_pop(object):
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
     def text_on_cmd(self, extra=None, ax=None):
-        #an_kw = rspgraph.load_ann_kwargs()
+        an_kw = rspgraph.load_ann_kwargs()
         if ax is None:
             ax = self.ax
-        strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target, self.dmod,
+        strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target.upper(), self.dmod,
                                                   self.Av)
-        offset = .15
+        offset = .17
         if extra is not None:
             strings += ' %s' % extra
             offset = 0.2
         for string in strings.split():
             offset -= 0.04
             ax.text(0.95, offset, string, transform=ax.transAxes,
-                         ha='right', fontsize=16, color='black')
+                         ha='right', fontsize=16, color='black', **an_kw)
 
     def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
         text_kw = dict({'fontsize': 20}.items() + text_kw.items() + 
@@ -814,6 +814,7 @@ class star_pop(object):
         self.fmag1err = interp1d(mag_bins, mag1e_hist, bounds_error=False)
         self.fmag2err = interp1d(mag_bins, mag2e_hist, bounds_error=False)
         return
+
 
 class galaxies(star_pop):
     '''
@@ -2396,6 +2397,22 @@ class artificial_star_tests(object):
         comp1 = search_arr[ifin1][icomp1]
         comp2 = search_arr[ifin2][icomp2]
 
+        # sanity check... sometimes with few asts at bright mags the curve
+        # starts near zero, not 1, get a bright mag limit. This makes sure
+        # the completeness limit is past the half way point ... a bit of a
+        # hack.
+        if icomp1 < len(search_arr)/2.:
+            print 'filter1 AST completeness is too bright, sanity checking.'
+            cut_ind1 = np.argmax(cfrac1[ifin1])
+            icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1][cut_ind1:]))
+            comp1 = search_arr[ifin1][cut_ind1:][icomp1]
+
+        if icomp2 < len(search_arr)/2.:
+            print 'filter2 AST completeness is too bright, sanity checking.'
+            cut_ind2 = np.argmax(cfrac2[ifin2])
+            icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2][cut_ind2:]))
+            comp2 = search_arr[ifin2][cut_ind2:][icomp2]
+        
         return comp1, comp2
 
 def stellar_prob(obs, model, normalize=False):
