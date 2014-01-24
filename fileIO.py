@@ -147,7 +147,7 @@ def load_input(filename):
     return d
 
 
-def readfile(filename, col_key_line=0, comment_char='#'):
+def readfile(filename, col_key_line=0, comment_char='#', string_column=None):
     '''
     reads a file as a np array, uses the comment char and col_key_line
     to get the name of the columns.
@@ -155,13 +155,16 @@ def readfile(filename, col_key_line=0, comment_char='#'):
     if col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
-        col_keys = line.replace(comment_char, '').strip().split()    
+        col_keys = line.replace(comment_char, '').strip().split()
     else:
         with open(filename, 'r') as f:
             lines = f.readlines()
         col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
-    
-    data = np.genfromtxt(filename, names=col_keys, invalid_raise=False,
+
+    dtype = [(c, '<f8') for c in col_keys]
+    if string_column is not None:
+        dtype[string_column] = (col_keys[string_column], '|S16')
+    data = np.genfromtxt(filename, dtype=dtype, invalid_raise=False,
                          skip_header=col_key_line+1)
     return data
 
@@ -204,7 +207,7 @@ def item_from_row(arr, index_key, index, column_name):
 
 def replace_ext(filename, ext):
     '''
-    input 
+    input
     filename string with .ext
     new_ext replace ext with new ext
     eg:
@@ -232,7 +235,7 @@ def read_tagged_phot(tagged_file):
 
 def ensure_file(f, mad=True):
     '''
-    input 
+    input
     f (string): if f is not a file will print "no file"
     optional
     mad (bool)[True]: if mad is True, will exit program.
