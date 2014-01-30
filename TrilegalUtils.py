@@ -460,7 +460,7 @@ class trilegal_sfh(object):
                                        new_dict['sfr'],
                                        new_dict['z'])).T,
                    fmt='%.3f %g %.4f')
-        
+
         print 'wrote %s' % filename
 
 
@@ -475,7 +475,7 @@ def find_photsys_number(photsys, filter1):
     return magline.index(filter1), mag_file
 
 
-def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
+def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
                  dry_run=False):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
@@ -490,9 +490,10 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
     here = os.getcwd()
     os.chdir(os.environ['TRILEGAL_ROOT'])
     if here != os.getcwd():
-        os.system('cp %s .' % cmd_input)
+        if not os.path.isfile(os.path.split(cmd_input)[1]):
+            os.system('cp %s .' % cmd_input)
     cmd_input = os.path.split(cmd_input)[1]
-    
+
     logger.info('running trilegal...')
 
     # trilegal 2.3 not working on my mac...
@@ -502,8 +503,6 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
         ver = 2.2
     cmd = 'code_%.1f/main -f %s -a -l %s %s' % (ver, cmd_input, galaxy_input,
                                                 output)
-
-    print cmd
 
     logger.debug(cmd)
 
@@ -521,7 +520,7 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=True,
         #p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
         #                     stdout=subprocess.PIPE)
         #p.wait()
-        
+
         #if loud is True:
         #    print '\n'.join([l.strip() for l in p.communicate()])
 
@@ -612,7 +611,7 @@ class isotrack2(object):
         # file made to be read by C, going line by line for header info.
         eep_sets = int(lines[0])
         set_inds = np.array([map(int, lines[i + 1].split()) for i in range(eep_sets)])
-        set_inds[:, 0] -= 1 
+        set_inds[:, 0] -= 1
         nsets = int(lines[eep_sets + 1])
         len_tracks = np.array(lines[eep_sets + 2].split(), dtype=int)
         masses = np.array(lines[eep_sets + 3].split(), dtype=float)
