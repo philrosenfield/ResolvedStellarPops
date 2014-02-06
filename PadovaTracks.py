@@ -1507,11 +1507,17 @@ class eep(object):
         self.nticks_hb = eep_lengths_hb
 
 
-class TrackSet(object):
+class TrackSet(TrackDiag):
     '''
 
     '''
     def __init__(self, inputs):
+        TrackDiag.__init__(self)
+        defaults = ['ptcrifile_loc', 'ptcri_file', 'track_search_term',
+                    'tracks_dir', 'prefix', 'masses', 'hb', 'hb_only',
+                    'hb_track_search_term']
+
+        [inputs.__setattr__(d, None) for d in defaults if not hasattr(inputs, d)]
 
         if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
             self.load_ptcri_eep(inputs)
@@ -1687,7 +1693,8 @@ class TrackSet(object):
         xlims = np.array([])
         ylims = np.array([])
         for j in range(len(plots)):
-            fig, ax = plt.subplots()
+            if ax is None:
+                fig, ax = plt.subplots()
             if annotate is True:
                 point_pltkw = {'marker': '.', 'ls': '', 'alpha': 0.5}
                 cols = rspg.discrete_colors(len(plots[j]), colormap='spectral')
@@ -1698,17 +1705,18 @@ class TrackSet(object):
             ylimi = np.array([])
             for t in tracks:
                 all_inds, = np.nonzero(t.data.AGE > 0.2)
+                if t.ptcri is not None:
+                    ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
+                             for cp in plots[j]]
 
-                ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
-                         for cp in plots[j]]
+                    inds = t.ptcri.iptcri[ainds][np.nonzero(t.ptcri.iptcri[ainds])[0]]
 
-                inds = t.ptcri.iptcri[ainds][np.nonzero(t.ptcri.iptcri[ainds])[0]]
+                    if np.sum(inds) == 0:
+                        continue
 
-                if np.sum(inds) == 0:
-                    continue
-
-                some_inds = np.arange(inds[0], inds[-1])
-
+                    some_inds = np.arange(inds[0], inds[-1])
+                else:
+                    some_inds = np.arange(len(t.data[xcol]))
                 ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
                                      plt_kw=line_pltkw, cmd=cmd,
                                      convert_mag_kw=convert_mag_kw)
@@ -1757,8 +1765,7 @@ class TrackSet(object):
 
             ylab = ycol.replace('_', '\ ')
             xlab = xcol.replace('_', '\ ')
-            figname = '%s_%s_%s_%s.png' % (self.prefix, xcol, ycol,
-                                           fig_extra[j])
+
 
             if cmd is True:
                 xlab = '%s-%s' % (xlab, ylab)
@@ -1767,11 +1774,13 @@ class TrackSet(object):
             ax.set_ylabel('$%s$' % ylab)
 
             if plot_dir is not None:
+                figname = '%s_%s_%s_%s.png' % (self.prefix, xcol, ycol,
+                                               fig_extra[j])
                 figname = os.path.join(plot_dir, figname)
-            plt.savefig(figname)
-            logger.info('wrote %s' % figname)
-            plt.close()
-        return
+                plt.savefig(figname)
+                logger.info('wrote %s' % figname)
+                plt.close()
+        return ax
 
     def squish(self, *attrs, **kwargs):
         '''

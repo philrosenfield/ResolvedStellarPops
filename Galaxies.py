@@ -82,7 +82,7 @@ class star_pop(object):
                 hist_bin_res_c, hist_bin_res_m = hist_bin_res
             else:
                 hist_bin_res_c = hist_bin_res
-                hist_bin_res_m = hist_bin_res               
+                hist_bin_res_m = hist_bin_res
             ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res_c)
             nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res_m)
             plt_pts, cs = scatter_contour(color, mag,
@@ -330,7 +330,7 @@ class star_pop(object):
                          ha='right', fontsize=16, color='black', **an_kw)
 
     def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
-        text_kw = dict({'fontsize': 20}.items() + text_kw.items() + 
+        text_kw = dict({'fontsize': 20}.items() + text_kw.items() +
                          rspgraph.load_ann_kwargs().items())
         ax.text(ax.get_xlim()[0] + offset, yval - offset, string, **text_kw)
 
@@ -568,13 +568,13 @@ class star_pop(object):
             mpfit
         except NameError:
             from mpfit import mpfit
-        
+
         try:
             integrate
         except NameError:
             from scipy import integrate
         # the indices of the stars within the MS/BHeB regions
-    
+
         # poisson noise to compare with contamination
         if Color is None:
             if absmag is True:
@@ -596,13 +596,13 @@ class star_pop(object):
         col_bins = np.arange(color.min(), color.max() + dcol, dcol)
         #nbins = np.max([len(col_bins), int(poission_noise)])
         hist = np.histogram(color, bins=col_bins)[0]
-    
+
         # uniform errors
         err = np.zeros(len(col_bins[:1])) + 1.
 
         # set up inputs
         hist_in = {'x': col_bins[1:], 'y': hist, 'err': err}
-    
+
         # set up initial parameters:
         # norm = max(hist),
         # mean set to be half mean, and 3/2 mean,
@@ -652,7 +652,7 @@ class star_pop(object):
         g12_Integral = integrate.quad(math_utils.double_gaussian, -np.inf, np.inf,
                                       mp_dg.params)
         try:
-            norm =  float(len(all_inds)) / g12_Integral[0] 
+            norm =  float(len(all_inds)) / g12_Integral[0]
         except ZeroDivisionError:
             norm = 0.
         g1_Integral = integrate.quad(math_utils.gaussian, -np.inf, np.inf, g_p1)
@@ -664,10 +664,10 @@ class star_pop(object):
         left_in_right = (g1_Integral[0] - g1_Int_colsep[0]) * norm
         right_in_left = (g2_Integral[0] - g2_Int_colsep[0]) * norm
         '''
-    
+
         try:
             left_in_right = g1_Int_colsep[0] / g1_Integral[0]
-    
+
             left_in_right = 0.
 
         try:
@@ -935,7 +935,7 @@ class galaxy(star_pop):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
     '''
-    def __init__(self, fname, filetype=None, hla=True, angst=True,
+    def __init__(self, fname, filetype=None, hla=True, angst=True, ext=None,
                  band=None, photsys=None, trgb=np.nan, z=-99, Av=None, dmod=None,
                  filter1=None, filter2=None):
         '''
@@ -953,7 +953,7 @@ class galaxy(star_pop):
         self.dmod = dmod
         self.load_data(fname, filetype=filetype, hla=hla, angst=angst,
                        band=band, photsys=photsys, filter1=filter1,
-                       filter2=filter2)
+                       filter2=filter2, ext=ext)
 
         # angst table loads
         if angst is True:
@@ -972,7 +972,7 @@ class galaxy(star_pop):
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
             #self.z = galaxy_metallicity(self, self.target)
 
-    def load_data(self, fname, filetype=None, hla=True, angst=True,
+    def load_data(self, fname, filetype=None, hla=True, angst=True, ext=None,
                   band=None, photsys=None, filter1=None, filter2=None):
 
         if hla is True:
@@ -1011,7 +1011,8 @@ class galaxy(star_pop):
             else:
                 cam = hdu[0].header['CAMERA']
                 if cam == 'ACS':
-                    self.photsys = 'acs_wfc'
+                    if photsys is None:
+                        self.photsys = 'acs_wfc'
                 elif cam == 'WFPC2':
                     self.photsys = 'wfpc2'
                 else:
@@ -1022,7 +1023,8 @@ class galaxy(star_pop):
 
             if filetype == 'fitstable':
                 self.header = hdu[0].header
-                ext = self.header['CAMERA']
+                if ext is None:
+                    ext = self.header['CAMERA']
                 if '-' in ext:
                     if 'ACS' in ext:
                         ext = 'ACS'
@@ -1033,6 +1035,7 @@ class galaxy(star_pop):
                 self.mag1 = self.data['mag1_%s' % ext]
                 self.mag2 = self.data['mag2_%s' % ext]
                 self.filters = [self.filter1, self.filter2]
+
             if filetype == 'fitsimage':
                 # made to read holtmann data...
                 # this wont work on ir filters.
@@ -1044,6 +1047,7 @@ class galaxy(star_pop):
                 self.filter2 = filts[order[1]].upper()
                 self.mag1 = self.data[self.filter1]
                 self.mag2 = self.data[self.filter2]
+
         elif filetype == 'tagged_phot':
             self.data = fileIO.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
@@ -1371,7 +1375,7 @@ class simgalaxy(star_pop):
                      set(sinds_cut))
 
         nsim_stars = float(len(sinds))
-        
+
         if len(sinds) == 0:
             logger.warning('no stars with %s < %.2f' % (new_attr, magcut))
             self.__setattr__('%s_inds' % new_attr, [-1])
@@ -1532,7 +1536,7 @@ class simgalaxy(star_pop):
 
     def hist_by_attr(self, attr, bins=10, stage=None, slice_inds=None):
         '''
-        builds a histogram of some attribute (mass, logl, etc) 
+        builds a histogram of some attribute (mass, logl, etc)
         slice_inds will cut the full array, and stage will limit to only that stage.
         '''
         data = self.data.get_col(attr)
@@ -1543,32 +1547,32 @@ class simgalaxy(star_pop):
             istage = self.__dict__[istage_s]
         else:
             istage = np.arange(data.size)
-        
+
         if slice_inds is None:
             slice_inds = np.arange(data.size)
-        
+
         inds = list(set(istage) & set(slice_inds))
-        
+
         hist, bins = np.histogram(data[inds], bins)
-        
+
         return hist, bins
 
-  
+
 class sim_and_gal(object):
     def __init__(self, galaxy, simgalaxy):
         self.gal = galaxy
         self.sgal = simgalaxy
-        if hasattr(self.gal, 'maglims'): 
+        if hasattr(self.gal, 'maglims'):
             self.maglims = self.gal.maglims
         else:
             self.maglims = [90., 90.]
-        
+
         if not hasattr(self.sgal, 'norm_inds'):
             self.sgal.norm_inds = np.arange(len(self.sgal.data.data_array))
 
 
     def make_mini_hess(self, color, mag, scolor, smag, ax=None, hess_kw={}):
-        
+
         hess_kw = dict({'binsize': 0.1, 'cbinsize': 0.05}.items() + hess_kw.items())
         self.gal_hess = astronomy_utils.hess(color, mag, **hess_kw)
         hess_kw['cbin'] = self.gal_hess[0]
@@ -1609,7 +1613,7 @@ class sim_and_gal(object):
 
         # the number of rgb stars used for normalization
         # this is not set in this file! WTH PHIL? W T H?
-        try:               
+        try:
             self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
         except TypeError:
             self.gal.nbrighter.append(self.gal.rgb_norm_inds)
@@ -1650,7 +1654,7 @@ class sim_and_gal(object):
         self.nbins = np.int(np.sqrt(len(self.gal.rec)))
         self.gal_hist, self.bins = np.histogram(mag[self.gal.rec], self.nbins)
 
-        # using all ast recovered stars for the histogram and normalizing 
+        # using all ast recovered stars for the histogram and normalizing
         # by a multiplicative factor.
         #self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_rec],
         #                                 bins=self.bins)
@@ -1671,7 +1675,7 @@ class sim_and_gal(object):
                 smag = smag[inds]
 
         scolor = smag1 - smag
- 
+
         if plot_tpagb is True:
             self.sgal.all_stages('TPAGB')
             itpagb = np.intersect1d(self.sgal.itpagb, self.sgal.norm_inds)
@@ -1681,13 +1685,13 @@ class sim_and_gal(object):
             self.sgal_hist, _ = np.histogram(smag[self.sgal.rec], bins=self.bins)
             self.sgal_hist *= self.sgal.rgb_norm
         else:
-            # lmc, eg, doesn't need normalization. 
+            # lmc, eg, doesn't need normalization.
             self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
             if plot_tpagb is True:
                 self.sgal_tpagb_hist, _ = np.histogram(smag[self.sgal.itpagb], bins=self.bins)
 
         if color_hist is True:
-            # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec) 
+            # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec)
             maglim = self.maglims[1]
             iabove, = np.nonzero(mag < maglim)
             siabove, = np.nonzero(smag < maglim)
@@ -1705,7 +1709,7 @@ class sim_and_gal(object):
             # add the tpagb star color hist if option chosen
             if itpagb is not None:
                 self.sgal_tpagb_color_hist, _ = np.histogram(scolor[itpagb], bins=self.color_bins)
-            
+
             self.make_mini_hess(color[iabove], mag[iabove], scolor_above,
                                 smag_above)
 
@@ -1725,7 +1729,7 @@ class sim_and_gal(object):
                            'data_plt_color': 'black',
                            'color_hist': color_hist}.items() +
                            plot_LF_kw.items())
-        
+
         #itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
         fig, axs, top_axs = self._plot_LF(color, mag,
                                              scolor[self.sgal.norm_inds],
@@ -2412,7 +2416,7 @@ class artificial_star_tests(object):
             cut_ind2 = np.argmax(cfrac2[ifin2])
             icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2][cut_ind2:]))
             comp2 = search_arr[ifin2][cut_ind2:][icomp2]
-        
+
         return comp1, comp2
 
 def stellar_prob(obs, model, normalize=False):
