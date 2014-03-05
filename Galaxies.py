@@ -206,13 +206,13 @@ class star_pop(object):
         return ax
 
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
-                     reddening=True, dmag=0.5, text_extra=None, errors=True,
-                     cmd_errors_kw={}, filter1=None):
+                     reddening=True, dmag=0.5, text_kw={}, errors=True,
+                     cmd_errors_kw={}, filter1=None, text=True):
         self.redding_vector(dmag=dmag, ax=ax)
         if errors is True:
             cmd_errors_kw['ax'] = ax
             self.cmd_errors(**cmd_errors_kw)
-        self.text_on_cmd(extra=text_extra, ax=ax)
+        self.text_on_cmd(ax=ax, **text_kw)
         if trgb is True:
             if filter1 is None:
                 self.put_a_line_on_it(ax, self.trgb)
@@ -314,13 +314,18 @@ class star_pop(object):
         ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
-    def text_on_cmd(self, extra=None, ax=None):
+    def text_on_cmd(self, extra=None, ax=None, distance_av=True):
         an_kw = rspgraph.load_ann_kwargs()
         if ax is None:
             ax = self.ax
-        strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target.upper(), self.dmod,
-                                                  self.Av)
-        offset = .17
+        if distance_av is True:
+            strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target.upper(),
+                                                      self.dmod,
+                                                      self.Av)
+            offset = .17
+        else:
+            strings = '$%s$' % self.target.upper().replace('-DEEP', '').replace('-', '\!-\!')
+            offset = .09
         if extra is not None:
             strings += ' %s' % extra
             offset = 0.2
@@ -1553,7 +1558,7 @@ class simgalaxy(star_pop):
 
         inds = list(set(istage) & set(slice_inds))
 
-        hist, bins = np.histogram(data[inds], bins)
+        hist, bins = np.histogram(data[inds], bins=bins)
 
         return hist, bins
 
@@ -2418,6 +2423,22 @@ class artificial_star_tests(object):
             comp2 = search_arr[ifin2][cut_ind2:][icomp2]
 
         return comp1, comp2
+
+    def completeness_fraction(self, mag_bins):
+        '''
+        get the completeness fraction for a given list of magnitudes.
+        mag_bins can be either mag1 or mag2, will return both completeness
+        fractions.
+        '''
+        if not hasattr(self, 'fcomp1'):
+            print 'Warning: completeness has not been calculated with interpolation. Assuming you want combined filters...'
+            self.completeness(combined_filters=True, interpolate=True)
+
+        cfrac1 = self.fcomp1(mag_bins)
+
+        cfrac2 = self.fcomp2(mag_bins)
+
+        return cfrac1, cfrac2
 
 def stellar_prob(obs, model, normalize=False):
     '''

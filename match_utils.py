@@ -9,6 +9,38 @@ import os
 import logging
 logger = logging.getLogger()
 
+def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
+                outfile='cmd_stats.dat'):
+    '''
+    NFP = # of non-zero time bins
+          + dmod + av + 1 for metallicity (zinc) + 2 for background.
+
+    run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins
+    in sfh_file.
+    '''
+    stats_exe = '~/research/match2.5/bin/stats'
+    sfr_data = read_binned_sfh(sfh_file)
+    inds, = np.nonzero(sfr_data.sfr)
+
+    perr_frac = sfr_data.sfr_errp[inds]/sfr_data.sfr[inds]
+    merr_frac = sfr_data.sfr_errm[inds]/sfr_data.sfr[inds]
+
+    nonzero_bins =  len(inds)
+    nfp = nonzero_bins + nfp_nonsfr
+    cmd = '%s %s %i %i >> %s \n' % (stats_exe, match_cmd_file, nmc_runs, nfp,
+                                 outfile)
+    print 'writing to', outfile
+    with open(outfile, 'a') as out:
+        out.write('min + sfr err: %.3f\n' % np.min(perr_frac))
+        out.write('min - sfr err: %.3f\n' % np.min(merr_frac))
+        out.write('median + sfr err: %.3f\n' % np.median(perr_frac))
+        out.write('median - sfr err: %.3f\n' % np.median(merr_frac))
+        out.write('max + sfr err: %.3f\n' % np.max(perr_frac))
+        out.write('max - sfr err: %.3f\n' % np.max(merr_frac))
+        out.write('# %s' % cmd)
+    os.system(cmd)
+    return
+
 def read_match_old(filename):
     '''read older than v2.5 match output'''
     dtype = [('lagei', '<f8'),
@@ -193,7 +225,7 @@ def make_exclude_gates(fits_files, trgb=True, make_plot=False):
     def round_it(numb):
         return np.round(numb * 20) / 20
 
-    
+
     if make_plot is True:
         fig, (axs) = graphics.GraphicsUtils.setup_multiplot(len(fits_files),
                                                                 figsize=(30,30))
@@ -254,7 +286,7 @@ def read_zctmp(filename):
 
     with open(filename,'r') as f:
         lines = f.readlines()
-    
+
     nrow, ncol = map(int, lines[0].split())
 
     data['logz'] = np.array(lines[1].split(), dtype=float)
@@ -297,7 +329,7 @@ def read_match_sfh(filename, bgfile=False):
                         names=col_head)
     sfh = sfh.view(np.recarray)
     return sfh
-        
+
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
                       sarah_sim=False, footer=2):
@@ -624,13 +656,13 @@ class calcsfh_params(object):
             default_dict = calcsfh_dict()
         assert len(default_dict) != 0, 'need values in default dictionary.'
 
-        
+
         self.calcsfh_possible_params(default_dict)
-        
+
     def calcsfh_possible_params(self, default_dict={}):
         for k, v in default_dict.items():
             self.__setattr__(k, v)
-    
+
     def update_params(self, new_dict):
         '''
         only overwrite attributes that already exist from dictionary
@@ -638,7 +670,7 @@ class calcsfh_params(object):
         for k, v in new_dict.items():
             if hasattr(self, k):
                 self.__setattr__(k, v)
-    
+
     def add_params(self, new_dict):
         '''
         add or overwrite attributes from dictionary
@@ -648,7 +680,7 @@ class calcsfh_params(object):
 
 def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
                             kwargs={}):
-    '''    
+    '''
     to search over range of av: set Av Av2 dAv as kwargs.
     to search over range of dmod: set dmod dmod2 ddmod in kwargs
 
@@ -658,7 +690,7 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
 
     input:
     optional: galaxy object to grab attributes from
-    
+
     kwargs:
     all parameters can be kwargs, technically, they aren't really kwargs since
     they aren't optional. Sorry python gods.
@@ -678,7 +710,7 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
 
     # assign kwargs (to overwrite galaxy attributes):
     calcsfh_pars.add_params(kwargs)
-    
+
     # if dmod and av range is not set, used fixed.
     if calcsfh_pars.dmod2 is None:
         calcsfh_pars.dmod2 = calcsfh_pars.dmod
@@ -710,7 +742,7 @@ def calcsfh_pars_fmt(calcsfh_pars):
     Ntbins
       To Tf (for each time bin) <--- NOT IMPLEMENTED!
     optional background bins
-    
+
     exclude/include gates only works for one of each at most.
     '''
 
@@ -736,7 +768,7 @@ def calcsfh_pars_fmt(calcsfh_pars):
                                 poly2str(calcsfh_pars.ncombine_poly))
     else:
         line += '%(nexclude_gates)i %(ncombine_gates)i\n'
-    line += '%(ntbins)i\n' 
+    line += '%(ntbins)i\n'
     # if ntbins != 0: something...[to tf\n for to, tf in zip(TO, TF)]
     line += '%(dobg)i %(bg_hess).3f %(smooth)i%(match_bg)s\n'
     line += '-1 1 -1\n'
@@ -773,13 +805,13 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
 
     if loud is True:
         print [l.strip() for l in open(msg).readlines()]
-    
+
     if match_out == -1:
         return -1., -1
     # read the fit
     chi2, fit = get_fit(match_out)
     logger.info('%s Chi^2: %f Fit: %f' % (match_out, chi2, fit))
-    
+
     if make_plot is True:
         # make plot
         if model_name is None:
@@ -799,4 +831,3 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
         logger.info('%s wrote %s' % (match_light.__name__, figname))
 
     return chi2, fit
-
