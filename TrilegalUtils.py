@@ -482,6 +482,11 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
     changes directory to trilegal root, if that's not in a .cshrc need to
     somehow tell it where to go.
 
+    rmfiles: set to false if running with multiprocessing, destroying files,
+    even if not necessary, seem to break .get()
+
+    loud: after the trilegal run, prints trilegal messages
+
     to do:
     add -a or any other flag options
     possibly add the stream output to the end of the output file.
