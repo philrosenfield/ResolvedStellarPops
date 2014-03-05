@@ -64,8 +64,9 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
             z = float(name.split('Z')[1].split('_Y')[0])
             os.system(cmd % (name, z))
             print cmd % (name, z)
+
     if fromHR2mags is None:
-        fromHR2mags = '/home/rosenfield/research/padova_apps/fromHR2mags/fromHR2mags'
+        fromHR2mags = '~/research/padova_apps/fromHR2mags'
     cmd = '%s %s ' % (fromHR2mags, photsys)
     # this is set for .PMS and .PMS.HB tracks
     cmd += '%s 5 6 2 %.4f'
@@ -76,7 +77,7 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
 
 class Track(object):
     '''
-    Padova stellar evolutoni track object.
+    Padova stellar evolutoin track object.
     '''
     def __init__(self, filename, ptcri=None, min_lage=0.1, cut_long=False):
         (self.base, self.name) = os.path.split(filename)
@@ -85,7 +86,7 @@ class Track(object):
         self.mass = self.data.MASS[0]
         if self.mass >= 12:
             # for high mass tracks, the mass starts much larger than it is
-            # for (age<0.2). The mass only currect at the beginning of the MS.
+            # for (age<0.2). The mass only correct at the beginning of the MS.
             # Rather than forcing a ptcri load, we read the mass from the title.
             self.mass = float(self.name.split('_M')[1].split('.PMS')[0])
         self.ptcri = ptcri
@@ -93,24 +94,22 @@ class Track(object):
         if False in test:
             print 'Track has age decreasing!!', self.mass
             bads, = np.nonzero(np.diff(self.data.AGE) < 0)
-            print self.data.MODE[bads]
+            print 'offensive MODEs:', self.data.MODE[bads]
 
     def calc_Mbol(self, z_sun=4.77):
         '''
-        Uses Z_sun = 4.77
+        Uses Z_sun = 4.77 adds self.Mbol and returns Mbol
         '''
-        Mbol = z_sun - 2.5 * self.data.LOG_L
-        self.Mbol = Mbol
-        return Mbol
+        self.Mbol = z_sun - 2.5 * self.data.LOG_L
+        return self.Mbol
 
     def calc_logg(self):
         '''
-        cgs constant is -10.616
+        cgs constant is -10.616 adds self.logg and returns logg
         '''
-        logg = -10.616 + np.log10(self.mass) + 4.0 * self.data.LOG_TE - \
+        self.logg = -10.616 + np.log10(self.mass) + 4.0 * self.data.LOG_TE - \
             self.data.LOG_L
-        self.logg = logg
-        return logg
+        return self.logg
 
     def calc_core_mu(self):
         '''
@@ -120,8 +119,9 @@ class Track(object):
         ai = np.array([1., 4., 12., 16.])
         # fully ionized
         qi = ai/2.
-        self.MUc = 1. / (np.sum((self.data[xi[i]] / ai[i]) *
-                         (1 + qi[i]) for i in range(len(xi))))
+        self.MUc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
+                                 for i in range(len(xi))))
+        return self.Muc
 
     def filename_info(self):
         '''
@@ -142,39 +142,7 @@ class Track(object):
         self.Y = float(Ymore[:i])
         return
 
-    def cut_long_track(self):
-        '''
-        cuts tracks at the first thermal pulse or c burning. Taken from
-        Bressan's save_isoc_set This is not used.
-        '''
-        icburn = []
-        ycen = self.data.YCEN
-        if ycen[-1] == 0:
-            lc = self.data.LC
-            lneutr = self.data.LNEUTR
-            icburn, = np.nonzero((ycen == 0) & ((lc > 2) | (lc > lneutr)))
-        if len(icburn) > 0:
-            # actually C-burning
-            logger.info('Cutting at C-burning')
-            itpagb = min(icburn)
-        else:
-            # beginning thin shell
-            logger.info('Cutting at thin shell burning')
-            ishell, = np.nonzero((ycen == 0) &
-                                 (self.data.QCAROX > self.data.QHEL * 3. / 4.))
-            if len(ishell) > 0:
-                itpagb = np.min(ishell)
-            else:
-                itpagb = len(self.data) - 1
-                ishell, = np.nonzero((self.data.LY > 1) &
-                                     (self.data.QCAROX > 0.1))
-                if len(ishell) > 0:
-                    itpagb = np.min(ishell)
-
-        itpagb = itpagb + 1
-        self.data = self.data[np.arange(itpagb)]
-
-    def load_track(self, filename, min_lage=0.1, cut_long=True):
+    def load_track(self, filename, min_lage=0.1, cut_long=False):
         '''
         reads PMS file into a record array. Stores header as string self.header
         '''
@@ -198,8 +166,7 @@ class Track(object):
 
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
-        if cut_long:
-            self.cut_long_track()
+
         return
 
     def add_to_col_keys(self, col_keys, additional_col_line):
@@ -313,14 +280,10 @@ class DefineEeps(object):
         self.add_ms_eeps(track)
 
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
-        # ahem, recall...
-        # low mass will at least go up to point_b.
-        # 'PMS_BEG': 0, 'PMS_MIN': 1, 'PMS_END': 2, 'NEAR_ZAM': 3, 'MS_BEG': 4,
-        # 'POINT_B': 5, 'POINT_C': 6, 'RG_BASE': 7, 'RG_BMP1': 8, 'RG_BMP2': 9,
-        # 'RG_TIP': 10, 'Loop_A': 11, 'Loop_B': 12, 'Loop_C': 13, 'TPAGB': 14,
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
 
         if ims_to == 0 or nsandro_pts <= 5:
+            # no MSTO or no post MS
             # should now make sure all other eeps are 0.
             [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[2:]]
         else:
@@ -338,7 +301,7 @@ class DefineEeps(object):
                              (track.mass, (imax_l - ims_to)))
                 imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
                 self.add_min_l_eep(track, eep1='SG_MAXL')
-            # RG_TIP is from Sandro
+
             ihe_beg = 0
             self.add_eep(track, 'HE_BEG', ihe_beg)  # initilizing
             self.add_cen_eeps(track)
@@ -349,6 +312,7 @@ class DefineEeps(object):
                 ihe_beg = track.iptcri[self.ptcri.get_ptcri_name('HE_BEG',
                                                                  sandro=False)]
             if ihe_beg == 0 or nsandro_pts <= 10:
+                # No He EEPs
                 # should now make sure all other eeps are 0.
                 [self.add_eep(track, cp, 0)
                  for cp in self.ptcri.please_define[5:]]
@@ -357,9 +321,6 @@ class DefineEeps(object):
             logger.error('EEPs are not monotonically increasing. M=%.3f' %
                          track.mass)
             logger.error(pprint.pprint(track.iptcri))
-        if debug is True:
-            pass
-
     def remove_dupes(self, x, y, z, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
@@ -415,19 +376,19 @@ class DefineEeps(object):
         self.add_eep(track, eep_name, he_beg)
         return he_beg
 
-    def add_cen_eeps(self, track, hb=False):
+    def add_cen_eeps(self, track, hb=False, tol=0.01):
         '''
-        Add YCEN_[fraction] eeps, if YCEN=fraction found to 0.01, will add 0 as
-        the iptrcri. (0.01 is hard coded)
-        list of YCEN_[fraction] can be supplied by cens= otherwise taken from
-        self.ptcri.please_define
+        Add YCEN_%.3f eeps, if YCEN=fraction not found to tol, will add 0 as
+        the iptrcri, equivalent to not found.
         '''
 
         if hb is False:
+            # not Horizontal branch, start before rgb tip
             irgbmp2 = self.ptcri.get_ptcri_name('RG_BMP2', sandro=False)
             istart = track.iptcri[irgbmp2]
             please_define = self.ptcri.please_define
         else:
+            # Horizontal branch tracks, start at 0.
             istart = 0
             please_define = self.ptcri.please_define_hb
 
@@ -435,14 +396,14 @@ class DefineEeps(object):
 
         # use undefined central values instead of given list.
         cens = [i for i in please_define if i.startswith('YCEN')]
-        # e.g., YCEN_0.50
+        # e.g., YCEN_0.500
         cens = [float(cen.split('_')[-1]) for cen in cens]
         icens = []
         for cen in cens:
             ind, dif = math_utils.closest_match(cen, track.data.YCEN[inds])
             icen = inds[ind]
             # some tolerance for a good match.
-            if dif > 0.01:
+            if dif > tol:
                 icen = 0
             self.add_eep(track, 'YCEN_%.3f' % cen, icen, hb=hb)
             # for monotonic increase, even if there is another flare up in
@@ -454,8 +415,8 @@ class DefineEeps(object):
 
     def add_hb_beg(self, track):
         # this is just the first line of the track with age > 0.2 yr.
-        # it could be snipped in the load_track method because it's
-        # unphysical but to be clear, I'm keeping it here too.
+        # it could be placed in the load_track method. However, because
+        # it's unphysical, I'm keeping it here to be clear.
         ainds, = np.nonzero(track.data['AGE'] > 0.2)
         hb_beg = ainds[0]
         eep_name = 'HB_BEG'
@@ -641,10 +602,12 @@ class DefineEeps(object):
                                         track.data.LOG_L[ms_tmin])))
                 if ms_to == -1 or delta_te_ms_to < 0.01:
                     pf_kw['less_linear_fit'] = True
-                    pf_kw['mess_err'] = 'still a problem with ms_to %.3f' % track.mass
+                    #pf_kw['mess_err'] = \
+                    #    'still a problem with ms_to %.3f' % track.mass
                     ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN',
                                              'RG_BMP1', **pf_kw)
             if ms_to == -1:
+                # do the same as for tmin... take second deriviative
                 mode = inds
                 xdata = track.data.LOG_L[inds]
                 tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
@@ -660,6 +623,7 @@ class DefineEeps(object):
                 ms_to = inds[tmin_ind]
 
             if ms_to == -1:
+                # tried four ways!?!!
                 logger.error('no ms to? M=%.4f Z=%.4f' % (track.mass, track.Z))
                 ms_to = 0
         self.add_eep(track, 'MS_TO', ms_to)
@@ -1866,7 +1830,18 @@ class MatchTracks(object):
         self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
         self.track_names = [t for t in all_track_names
                             if t not in self.hbtrack_names]
+
+        self.eep_list = inputs.eep_list
+        self.eep_lengths = inputs.eep_lengths
+        self.eep_list_hb = inputs.eep_list_hb
+
+        self.load_tracks()
+
+    def load_tracks(self):
         self.tracks = [self._load_track(t) for t in self.track_names]
+        self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
+
+    def check_tracks(self):
         for i, t in enumerate(self.tracks):
             test = np.diff(t['logAge']) > 0
             if False in test:
@@ -1886,12 +1861,10 @@ class MatchTracks(object):
                     bad_inds = np.unique([np.nonzero(j - np.cumsum(inputs.eep_lengths) < 0)[0][0]
                                           for j in bads1])
                     print 'check out %s and the one before.' % inputs.eep_list[bad_inds]
-        self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
+            else:
+                print 'no issues found.'
 
-        self.eep_list = inputs.eep_list
-        self.eep_lengths = inputs.eep_lengths
-        self.eep_list_hb = inputs.eep_list_hb
-
+    def diag_plots(self):
         pat_kw = {'eep_list': self.eep_list,
                   'eep_lengths': self.eep_lengths,
                   'plot_dir': inputs.outfile_dir}
