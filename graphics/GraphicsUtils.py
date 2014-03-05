@@ -59,15 +59,21 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
     return new_cmap
 
 
-def arrow_on_line(ax, xarr, yarr, index, color, width=.06):
+def arrow_on_line(ax, xarr, yarr, index, plt_kw={}):
+    arrs = []
+    plt_kw = dict({'head_width': 0.6, 'linewidth': 1,
+                   'length_includes_head': True,
+                   'ec': "none"}.items() + plt_kw.items())
+    index = np.atleast_1d(index)
     x = xarr[index]
     dx = xarr[index + 1] - x
     y = yarr[index]
     dy = yarr[index + 1] - y
-    arr = FancyArrow(x, y, dx, dy, fc=color, ec="none", linewidth=1,
-                     length_includes_head=True, head_width=width)
-    ax.add_patch(arr)
-    return arr
+    for i in range(len(x)):
+        arr = FancyArrow(x[i], y[i], dx[i], dy[i], **plt_kw)
+        ax.add_patch(arr)
+        arrs.append(arr)
+    return arrs
 
 
 def plot_lines(axs, xrange, yval, color='black'):
@@ -134,11 +140,12 @@ def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
 
 
 def discrete_colors(Ncolors, colormap='gist_rainbow'):
-    colors = []
+    '''
+    returns list of RGBA tuples length Ncolors
+    '''
     cmap = cm.get_cmap(colormap)
-    for i in range(Ncolors):
-        colors.append( cmap(1.*i/Ncolors) ) # color will now be an RGBA tuple
-    return colors
+    return [cmap(1. * i / Ncolors) for i in range(Ncolors)] 
+
 
 
 def load_scatter_kwargs(color_array, cmap=cm.jet):

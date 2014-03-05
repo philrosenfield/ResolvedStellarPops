@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger()
 import fileIO
 import graphics
-
+import sys
 
 class HRD(object):
     def __init__(self, age, logl, logte, mass, eep_list, ieep):
@@ -166,15 +166,19 @@ def find_mag_num(file_mag, filter1):
         print '%s not found in %s.' (filter1, file_mag)
 
 
-def galaxy_input_dict(photsys=None, filter1=None, object_mass=None, object_sfr_file=None):
-    file_mag = 'tab_mag_odfnew/tab_mag_%s.dat' % photsys
+def galaxy_input_dict(photsys=None, filter1=None, object_mass=None,
+                      object_sfr_file=None, aringer=False):
+    photom_dir = 'odfnew'
+    if aringer is True:
+        photom_dir += 'bern'
+    file_mag = 'tab_mag_%s/tab_mag_%s.dat' % (photom_dir, photsys)
     return {'coord_kind': 1,
             'coord1': 0.0,
             'coord2': 0.0,
             'field_area': 1.0,
             'kind_mag': 3,
             'file_mag': file_mag,
-            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys, 
+            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys,
             'kind_dustM': 1,
             'file_dustM': 'tab_dust/tab_dust_dpmod60alox40_%s.dat' % photsys,
             'kind_dustC': 1,
@@ -258,7 +262,7 @@ def galaxy_input_fmt():
 
 %(file_imf)s # file_imf
 %(binary_kind)i # binary_kind: 0=none, 1=yes
-%(binary_frac).1f # binary_frac: binary fraction
+%(binary_frac).2f # binary_frac: binary fraction
 %(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1
 
 %(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty
@@ -424,64 +428,111 @@ class trilegal_sfh(object):
         self.current_sfh_file = new_file
         return self.current_galaxy_input
 
+    def adjust_value(self, val_str, str_operation, filename='default'):
+        '''
+        do some operation to a value.
+        '''
+        val = self.__getattribute__(val_str)
+        if filename == 'default':
+            base_dir = os.path.split(self.sfh_file)[0]
+            new_dir = '_'.join([base_dir, 'adj/'])
+            fileIO.ensure_dir(new_dir)
+            with open(os.path.join(new_dir, 'readme'), 'a') as out:
+                out.write('SFH file %s adjusted from %s.' %
+                          (os.path.split(self.sfh_file)[1], self.sfh_file))
+                out.write('\n     operation: %s %s.\n' % (val_str,
+                                                          str_operation))
+            filename = os.path.join(new_dir, os.path.split(self.sfh_file)[1])
 
-def find_photsys_number(photsys, filter):
+        newval = np.array([eval('%.4f %s' % (v, str_operation)) for v in val])
+        self.write_sfh(filename, val_dict={val_str: newval})
+
+    def write_sfh(self, filename, val_dict=None):
+        '''
+        write the sfh file either give age, sfr, or z or will use
+        self.age self.sfr or self.z
+        '''
+        val_dict = val_dict or {}
+        default_dict = {'age': self.age, 'sfr': self.sfr, 'z': self.z}
+        new_dict = dict(default_dict.items() + val_dict.items())
+
+        np.savetxt(filename, np.array((new_dict['age'],
+                                       new_dict['sfr'],
+                                       new_dict['z'])).T,
+                   fmt='%.3f %g %.4f')
+
+        print 'wrote %s' % filename
+
+
+def find_photsys_number(photsys, filter1):
+    '''
+    grabs the index of the filter in the tab mag file for this photsys.
+    returns the index, and the file name
+    '''
     mag_file = os.path.join(os.environ['BCDIR'],
                             'tab_mag_odfnew/tab_mag_%s.dat' % photsys)
-    mf = open(mag_file, 'r')
-    mf.readline()
-    magline = mf.readline().strip().split()
-    return magline.index(filter), mag_file
+    magline = open(mag_file, 'r').readline().strip().split()
+    return magline.index(filter1), mag_file
 
 
-def run_trilegal(cmd_input, galaxy_input, output, loud=False,
-                 rmfiles=True):
+def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
+                 dry_run=False):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
     changes directory to trilegal root, if that's not in a .cshrc need to
     somehow tell it where to go.
-    
+
     rmfiles: set to false if running with multiprocessing, destroying files,
     even if not necessary, seem to break .get()
-    
+
     loud: after the trilegal run, prints trilegal messages
-    
+
     to do:
     add -a or any other flag options
     possibly add the stream output to the end of the output file.
     '''
+    import subprocess
     here = os.getcwd()
     os.chdir(os.environ['TRILEGAL_ROOT'])
-    remove = False
-    
-    # trilegal 1.4 doesn't do well with top level files outside tri dr.
-    if '..' in cmd_input:
-        remove = True
-        os.system('cp %s .' % cmd_input)
-        cmd_input = os.path.split(cmd_input)[1]
-    
+    if here != os.getcwd():
+        if not os.path.isfile(os.path.split(cmd_input)[1]):
+            os.system('cp %s .' % cmd_input)
+    cmd_input = os.path.split(cmd_input)[1]
+
     logger.info('running trilegal...')
-    # this way can run many at a time.
-    lixo = str(np.random.rand()).replace('.','')
-    msg = 'trilegal%s.msg' % lixo
-    cmd = 'code/main -f %s -a -l %s %s > %s \n' % (cmd_input, galaxy_input,
-                                                   output, msg)
+
+    # trilegal 2.3 not working on my mac...
+    if 'Linux' in os.uname():
+        ver = 2.3
+    else:
+        ver = 2.2
+    cmd = 'code_%.1f/main -f %s -a -l %s %s' % (ver, cmd_input, galaxy_input,
+                                                output)
+
     logger.debug(cmd)
-    t = os.system(cmd)
+
+    if dry_run is True:
+        print cmd
+    else:
+        try:
+           retcode = subprocess.call(cmd, shell=True)
+           if retcode < 0:
+               print >> sys.stderr, 'TRILEGAL was terminated by signal', -retcode
+           else:
+               print >> sys.stderr, 'TRILEGAL was terminated successfully'
+        except OSError, err:
+            print >> sys.stderr, 'TRILEGAL failed:', err
+        #p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
+        #                     stdout=subprocess.PIPE)
+        #p.wait()
+
+        #if loud is True:
+        #    print '\n'.join([l.strip() for l in p.communicate()])
+
     logger.info('done.')
 
-    if loud is True:
-        print '\n'.join([l.strip() for l in open(msg).readlines()])
-    
-    if rmfiles is True and remove is True:
-        # cmd file was copied into cwd
-        os.remove(cmd_input)
-    
-    if t != 0:
-        logger.debug('\n'.join([l.strip() for l in open(msg).readlines()]))
     if rmfiles is True:
-        os.remove(msg)
-
+        os.remove(cmd_input)
     os.chdir(here)
     return
 
@@ -515,7 +566,6 @@ def get_stage_label(region):
     stage_lab = regions.index(region.upper())
     return stage_lab
 
-
 def get_label_stage(stage_lab):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
@@ -546,6 +596,51 @@ def string_in_lines(lines):
             if ' M=' in line:
                 print line, strs
 
+
+class isotrack2(object):
+    def __init__(self, filename):
+        self.read_ptcri2(filename)
+        self.base, self.name = os.path.split(filename)
+
+    def read_ptcri2(self, filename):
+        '''
+        header fmt:
+        2 # number of isochrones sets with same eeps. in this case 2 (could be has 1st TP vs only C_BUR)
+        1 18 # which isochrones have first eep set
+        19 26 # which isochrones have the second eep set
+        26 # number of isochrones
+        384 398 395 397 392 ... number of age steps in each isochrone
+        1.750000 1.800000 1.850000 ... masses of each isochrone
+        '''
+        lines = [l.strip() for l in open(filename, 'r').readlines()]
+        # file made to be read by C, going line by line for header info.
+        eep_sets = int(lines[0])
+        set_inds = np.array([map(int, lines[i + 1].split()) for i in range(eep_sets)])
+        set_inds[:, 0] -= 1
+        nsets = int(lines[eep_sets + 1])
+        len_tracks = np.array(lines[eep_sets + 2].split(), dtype=int)
+        masses = np.array(lines[eep_sets + 3].split(), dtype=float)
+        start_ind = eep_sets + 4
+
+        start_inds = np.cumsum(len_tracks) + start_ind
+        start_inds = np.insert(start_inds, 0, start_ind)
+        end_inds = start_inds - 1
+
+        # each one is too long
+        end_inds = end_inds[1:]
+        start_inds = start_inds[:-1]
+
+        self.eep_sets = eep_sets
+        self.nsets = nsets
+        self.masses = masses
+        for i in range(eep_sets):
+            set_start, set_end = set_inds[i]
+            isoc_strs = [lines[start_inds[j]: end_inds[j]] for j in arange(*set_inds[i])]
+            isoc_data = np.array([np.array([isoc_strs[j][k].split()[:3] for k in range(len(isoc_strs[j]))], dtype=float) for j in range(len(isoc_strs))])
+            isoc_masses = ['%.4f' % m for m in masses[np.arange(*set_inds[i])]]
+            self.__setattr__('iso_str%i' % (i + 1), {isoc_masses[j]: isoc_strs[j] for j in range(len(isoc_masses))})
+            self.__setattr__('iso_data%i' % (i + 1), {isoc_masses[j]: isoc_data[j] for j in range(len(isoc_masses))})
+# get the EEPS too?? I donno what you need the data for besides plotting...
 
 def read_ptcri(ptcri_file):
     d = {}

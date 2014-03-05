@@ -11,6 +11,7 @@ from matplotlib.ticker import NullFormatter, MaxNLocator, MultipleLocator
 import pyfits
 import itertools
 import copy
+from scipy.interpolate import interp1d
 import logging
 logger = logging.getLogger()
 
@@ -35,10 +36,13 @@ class star_pop(object):
 
     def plot_cmd(self, color, mag, fig=None, ax=None, xlim=None, ylim=None,
                  yfilter=None, contour_args={}, scatter_args={}, plot_args={},
-                 scatter_off=False, levels=20, threshold=10, contour_lw={},
+                 scatter_off=False, levels=5, threshold=75, contour_lw={},
                  color_by_arg_kw={}, filter1=None, filter2=None, slice_inds=None,
-                 hist_bin_res=0.05):
+                 hist_bin_res=0.05, make_labels=True, log_counts=False):
+        '''
+        plot the galaxy cmd
 
+        '''
         set_fig, set_ax = 0, 0
         if fig is None and ax is None:
             fig = plt.figure(figsize=(8, 8))
@@ -74,16 +78,20 @@ class star_pop(object):
 
             contour_lw = dict({'linewidths': 2, 'colors': 'white',
                                'zorder': 200}.items() + contour_lw.items())
-
-            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res)
-            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res)
+            if type(hist_bin_res) is list:
+                hist_bin_res_c, hist_bin_res_m = hist_bin_res
+            else:
+                hist_bin_res_c = hist_bin_res
+                hist_bin_res_m = hist_bin_res
+            ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res_c)
+            nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res_m)
             plt_pts, cs = scatter_contour(color, mag,
                                           threshold=threshold, levels=levels,
                                           hist_bins=[ncolbin, nmagbin],
                                           contour_args=contour_args,
                                           scatter_args=scatter_args,
                                           contour_lw=contour_lw,
-                                          ax=ax)
+                                          ax=ax, log_counts=log_counts)
             self.plt_pts = plt_pts
             self.cs = cs
         else:
@@ -97,8 +105,9 @@ class star_pop(object):
             ylim = (mag.max(), mag.min())
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-        ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
-        ax.set_ylabel('$%s$' % yfilter, fontsize=20)
+        if make_labels is True:
+            ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
+            ax.set_ylabel('$%s$' % yfilter, fontsize=20)
         ax.tick_params(labelsize=16)
         if set_ax == 1:
             self.ax = ax
@@ -196,15 +205,23 @@ class star_pop(object):
             ax.legend(loc=0, numpoints=1, frameon=False)
         return ax
 
-    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None):
-        self.redding_vector()
-        self.cmd_errors()
-        self.text_on_cmd()
+    def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
+                     reddening=True, dmag=0.5, text_kw={}, errors=True,
+                     cmd_errors_kw={}, filter1=None, text=True):
+        self.redding_vector(dmag=dmag, ax=ax)
+        if errors is True:
+            cmd_errors_kw['ax'] = ax
+            self.cmd_errors(**cmd_errors_kw)
+        self.text_on_cmd(ax=ax, **text_kw)
         if trgb is True:
-            self.put_a_line_on_it(ax, self.trgb)
+            if filter1 is None:
+                self.put_a_line_on_it(ax, self.trgb)
+            else:
+                self.put_a_line_on_it(ax, self.trgb, filter1=filter1,
+                                      consty=False)
 
     def put_a_line_on_it(self, ax, val, consty=True, color='black',
-                         ls='--', lw=2, annotate=True,
+                         ls='--', lw=2, annotate=True, filter1=None,
                          annotate_fmt='$TRGB=%.2f$'):
         """
         if consty is True: plots a constant y value across ax.xlims().
@@ -214,88 +231,111 @@ class star_pop(object):
         (ymin, ymax) = ax.get_ylim()
         xarr = np.linspace(xmin, xmax, 20)
         # y axis is magnitude...
-        yarr = np.linspace(ymax, ymin, 20)
+        yarr = np.linspace(ymin, ymax, 20)
         if consty is True:
             # just a contsant y value over the plot range of x.
-            new_yarr = np.repeat(val, len(xarr))
+            ax.hlines(val, xmin, xmax, color=color, lw=lw)
             new_xarr = xarr
         if consty is False:
             # a plot of y vs x-y and we want to mark
             # where a constant value of x is
-            new_yarr = yarr
-            # if you make the ability to make the yaxis filter1...
-            #if filter1 == None:
-            #    new_xarr = val - yarr
+            # e.g, f814w vs f555-f814; val is f555
             new_xarr = val - yarr
-        ax.plot(new_xarr, new_yarr, ls, color=color, lw=lw)
+            # e.g, f555w vs f555-f814; val is f814
+            if filter1 is not None:
+                yarr = xarr + val
+                new_xarr = xarr
+            ax.plot(new_xarr, yarr, ls, color=color, lw=lw)
         if annotate is True:
             ax.annotate(annotate_fmt % val, xy=(new_xarr[-1]-0.1,
-                        new_yarr[-1]-0.2), ha='right', fontsize=16,
+                        yarr[-1]-0.2), ha='right', fontsize=16,
                         **rspgraph.load_ann_kwargs())
 
-    def redding_vector(self):
+    def redding_vector(self, dmag=1., ax=None):
+        if ax == None:
+            ax = self.ax
         Afilt1 = astronomy_utils.parse_mag_tab(self.photsys, self.filter1)
         Afilt2 = astronomy_utils.parse_mag_tab(self.photsys, self.filter2)
         Rslope = Afilt2 / (Afilt1 - Afilt2)
-        dmag = 1.
         dcol = dmag / Rslope
         pstart = np.array([0., 0.])
         pend = pstart + np.array([dcol, dmag])
         points = np.array([pstart, pend])
-        data_to_display = self.ax.transData.transform
-        display_to_axes = self.ax.transAxes.inverted().transform
+        data_to_display = ax.transData.transform
+        display_to_axes = ax.transAxes.inverted().transform
         ax_coords = display_to_axes(data_to_display(points))
         dy_ax_coords = ax_coords[1, 1] - ax_coords[0, 1]
         dx_ax_coords = ax_coords[1, 0] - ax_coords[0, 0]
         arr = FancyArrow(0.05, 0.95, dx_ax_coords, (1.)*dy_ax_coords,
-                         transform=self.ax.transAxes, color='black', ec="none",
+                         transform=ax.transAxes, color='black', ec="none",
                          width=.005, length_includes_head=1, head_width=0.02)
-        self.ax.add_patch(arr)
+        ax.add_patch(arr)
 
-    def cmd_errors(self, binsize=0.1, errclr=-1.5):
+    def cmd_errors(self, binsize=0.1, errclr=-1.5, absmag=False, ax=None):
+        if ax == None:
+            ax = self.ax
         if type(self.data) == pyfits.fitsrec.FITS_rec:
-            self.mag1err = self.data.MAG1_ERR
-            self.mag2err = self.data.MAG2_ERR
-        nbins = (np.max(self.mag2) - np.min(self.mag2)) / binsize
-        errmag = np.arange(int(nbins / 5) - 1) * 1.
-        errcol = np.arange(int(nbins / 5) - 1) * 1.
-        errmagerr = np.arange(int(nbins / 5) - 1) * 1.
-        errcolerr = np.arange(int(nbins / 5) - 1) * 1.
+            mag1err = self.data.MAG1_ERR
+            mag2err = self.data.MAG2_ERR
+        if absmag is False:
+            mag1 = self.mag1
+            mag2 = self.mag2
+        else:
+            mag1 = self.Mag1
+            mag2 = self.Mag2
+        color = mag1 - mag2
+
+        nbins = (np.max(mag2) - np.min(mag2)) / binsize
+        nbars = int(nbins / 5) - 1
+        errmag = np.zeros(nbars)
+        errcol = np.zeros(nbars)
+        errmagerr = np.zeros(nbars)
+        errcolerr = np.zeros(nbars)
         for q in range(len(errmag) - 1):
-            test = self.mag2.min() + 5. * (q + 2) * binsize + 2.5 * binsize
-            test2, = np.nonzero((self.mag2 > test - 2.5 * binsize) &
-                               (self.mag2 <= test + 2.5 * binsize) &
-                               (self.mag1 - self.mag2 > -0.5) &
-                               (self.mag1 - self.mag2 < 2.5))
+            test = mag2.min() + 5. * (q + 2) * binsize + 2.5 * binsize
+            test2, = np.nonzero((mag2 > test - 2.5 * binsize) &
+                               (mag2 <= test + 2.5 * binsize) &
+                               (mag1 - mag2 > -0.5) &
+                               (mag1 - mag2 < 2.5))
             if len(test2) < 5:
                 continue
-            errmag[q] = self.mag2.min() + 5. * (q + 2) * binsize \
+            errmag[q] = mag2.min() + 5. * (q + 2) * binsize \
                 + 2.5 * binsize
             errcol[q] = errclr
-            m2inds, = np.nonzero((self.mag2 > errmag[q] - 2.5 * binsize) &
-                                (self.mag2 < errmag[q] + 2.5 * binsize))
-            cinds, = np.nonzero((self.color > -0.5) & (self.color < 2.5))
+            m2inds, = np.nonzero((mag2 > errmag[q] - 2.5 * binsize) &
+                                (mag2 < errmag[q] + 2.5 * binsize))
+            cinds, = np.nonzero((color > -0.5) & (color < 2.5))
             cinds = list(set(m2inds) & set(cinds))
-            errmagerr[q] = np.mean(self.mag2err[m2inds])
-            errcolerr[q] = np.sqrt(np.mean(self.mag1err[cinds] ** 2 +
-                                           self.mag2err[cinds] ** 2))
-        self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
+            errmagerr[q] = np.mean(mag2err[m2inds])
+            errcolerr[q] = np.sqrt(np.mean(mag1err[cinds] ** 2 +
+                                           mag2err[cinds] ** 2))
+        ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='white', lw=3, capsize=0, fmt=None)
-        self.ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
+        ax.errorbar(errcol, errmag, xerr=errcolerr, yerr=errmagerr,
                          ecolor='black', lw=2, capsize=0, fmt=None)
 
-    def text_on_cmd(self):
-        #an_kw = rspgraph.load_ann_kwargs()
-        strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target, self.dmod,
-                                                  self.Av)
-        offset = 0.15
+    def text_on_cmd(self, extra=None, ax=None, distance_av=True):
+        an_kw = rspgraph.load_ann_kwargs()
+        if ax is None:
+            ax = self.ax
+        if distance_av is True:
+            strings = '$%s$ $\mu=%.3f$ $A_v=%.2f$' % (self.target.upper(),
+                                                      self.dmod,
+                                                      self.Av)
+            offset = .17
+        else:
+            strings = '$%s$' % self.target.upper().replace('-DEEP', '').replace('-', '\!-\!')
+            offset = .09
+        if extra is not None:
+            strings += ' %s' % extra
+            offset = 0.2
         for string in strings.split():
             offset -= 0.04
-            self.ax.text(0.95, offset, string, transform=self.ax.transAxes,
-                         ha='right', fontsize=16, color='black')
+            ax.text(0.95, offset, string, transform=ax.transAxes,
+                         ha='right', fontsize=16, color='black', **an_kw)
 
     def annotate_cmd(self, ax, yval, string, offset=0.1, text_kw={}):
-        text_kw = dict({'fontsize': 20}.items() + text_kw.items() + 
+        text_kw = dict({'fontsize': 20}.items() + text_kw.items() +
                          rspgraph.load_ann_kwargs().items())
         ax.text(ax.get_xlim()[0] + offset, yval - offset, string, **text_kw)
 
@@ -303,6 +343,9 @@ class star_pop(object):
         '''
         adds the indices of some stage as an attribute.
         '''
+        if stages is ():
+            stages = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB',
+                      'EAGB', 'TPAGB', 'POSTAGB', 'WD']
         for stage in stages:
             i = self.stage_inds(stage)
             self.__setattr__('i%s' % stage.lower(), i)
@@ -515,6 +558,268 @@ class star_pop(object):
                 d = d.title()
                 self.__setattr__(d, self.__dict__[d][slice_inds])
 
+    def double_gaussian_contamination(self, all_verts, dcol=0.05, Color=None,
+                                      Mag2=None, color_sep=None, diag_plot=False,
+                                      absmag=False, thresh=5):
+        '''
+        This function fits a double gaussian to a color histogram of stars
+        within the <maglimits> and <colorlimits> (tuples).
+
+        It then finds the intersection of the two gaussians, and the fraction
+        of each integrated gaussian that crosses over the intersection color
+        line.
+        '''
+        try:
+            mpfit
+        except NameError:
+            from mpfit import mpfit
+
+        try:
+            integrate
+        except NameError:
+            from scipy import integrate
+        # the indices of the stars within the MS/BHeB regions
+
+        # poisson noise to compare with contamination
+        if Color is None:
+            if absmag is True:
+                Color = self.Color
+                Mag2 = self.Mag2
+            else:
+                Color = self.color
+                Mag2 = self.mag2
+        points = np.column_stack((Color, Mag2))
+        all_inds, = np.nonzero(nxutils.points_inside_poly(points, all_verts))
+        if len(all_inds) <= thresh:
+            print 'not enough points found within verts'
+            return np.nan, np.nan, np.nan, np.nan, np.nan
+        poission_noise = np.sqrt(float(len(all_inds)))
+
+        # make a color histogram
+        #dcol = 0.05
+        color = Color[all_inds]
+        col_bins = np.arange(color.min(), color.max() + dcol, dcol)
+        #nbins = np.max([len(col_bins), int(poission_noise)])
+        hist = np.histogram(color, bins=col_bins)[0]
+
+        # uniform errors
+        err = np.zeros(len(col_bins[:1])) + 1.
+
+        # set up inputs
+        hist_in = {'x': col_bins[1:], 'y': hist, 'err': err}
+
+        # set up initial parameters:
+        # norm = max(hist),
+        # mean set to be half mean, and 3/2 mean,
+        # sigma set to be same as dcol spacing...
+        p0 = [np.nanmax(hist)/2., np.mean(col_bins[1:]) - np.mean(col_bins[1:])/2, dcol,
+              np.nanmax(hist)/2., np.mean(col_bins[1:]) + np.mean(col_bins[1:])/2, dcol]
+
+        mp_dg = mpfit(math_utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
+        if mp_dg.covar is None:
+            print 'not double guassian'
+            return 0., 0., poission_noise, float(len(all_inds)), color_sep
+        else:
+            perc_err = (np.array(mp_dg.perror) - np.array(mp_dg.params)) / \
+                        np.array(mp_dg.params)
+            if np.sum([p**2 for p in perc_err]) > 10.:
+                print 'not double guassian, errors too large'
+                return 0., 0., poission_noise, float(len(all_inds)), color_sep
+        # take fit params and apply to guassians on an arb color scale
+        color_array = np.linspace(col_bins[0], col_bins[-1], 1000)
+        g_p1 = mp_dg.params[0: 3]
+        g_p2 = mp_dg.params[3:]
+        gauss1 = math_utils.gaussian(color_array, g_p1)
+        gauss2 = math_utils.gaussian(color_array, g_p2)
+        print g_p1[1], g_p2[1]
+        # color separatrion is the intersection of the two gaussians..
+        double_gauss = gauss1 + gauss2
+        #between_peaks = np.arange(
+        min_locs = math_utils.find_peaks(gauss1 + gauss2)['minima_locations']
+        g1, g2 = np.sort([g_p1[1], g_p2[2]])
+        ginds, = np.nonzero( (color_array > g1) & (color_array < g2))
+        #ginds2, = np.nonzero(gauss2)
+        #ginds = list(set(ginds1) & set(ginds2))
+        min_locs = np.argmin(np.abs(gauss1[ginds]-gauss2[ginds]))
+        print min_locs
+        auto_color_sep = color_array[ginds][min_locs]
+        print auto_color_sep
+        if auto_color_sep == 0:
+            auto_color_sep = np.mean(col_bins[1:])
+            print 'using mean as color_sep'
+        if color_sep is None:
+            color_sep = auto_color_sep
+        else:
+            print 'you want color_sep to be %.4f, I found it at %.4f' % (color_sep,
+                                                                         auto_color_sep)
+
+        # find contamination past the color sep...
+        g12_Integral = integrate.quad(math_utils.double_gaussian, -np.inf, np.inf,
+                                      mp_dg.params)
+        try:
+            norm =  float(len(all_inds)) / g12_Integral[0]
+        except ZeroDivisionError:
+            norm = 0.
+        g1_Integral = integrate.quad(math_utils.gaussian, -np.inf, np.inf, g_p1)
+        g2_Integral = integrate.quad(math_utils.gaussian, -np.inf, np.inf, g_p2)
+
+        g1_Int_colsep = integrate.quad(math_utils.gaussian, -np.inf, color_sep, g_p1)
+        g2_Int_colsep = integrate.quad(math_utils.gaussian, color_sep, np.inf, g_p2)
+
+        left_in_right = (g1_Integral[0] - g1_Int_colsep[0]) * norm
+        right_in_left = (g2_Integral[0] - g2_Int_colsep[0]) * norm
+        '''
+
+        try:
+            left_in_right = g1_Int_colsep[0] / g1_Integral[0]
+
+            left_in_right = 0.
+
+        try:
+            right_in_left = g2_Int_colsep[0] / g2_Integral[0]
+        except ZeroDivisionError:
+            right_in_left = 0.
+        '''
+        # diagnostic
+        #print color_sep
+        if diag_plot is True:
+            fig1, ax1 = plt.subplots()
+            ax1.plot(col_bins[1:], hist, ls='steps', lw=2)
+            ax1.plot(col_bins[1:], hist, 'o')
+            ax1.plot(color_array,
+                    math_utils.double_gaussian(color_array, mp_dg.params))
+            ax1.plot(color_array, gauss1)
+            ax1.plot(color_array, gauss2)
+            #ax1.set_ylim((0, 100))
+            ax1.set_xlim(color.min(), color.max())
+            ax1.set_xlabel('$%s-%s$' % (self.filter1, self.filter2), fontsize=20)
+            ax1.set_ylabel('$\#$', fontsize=20)
+            ax1.set_title('%s Mean Mag2: %.2f, Nbins: %i' % (self.target,
+                                                             np.mean(np.array(all_verts)[:, 1]),
+                                                             len(col_bins)))
+            ax1.vlines(color_sep, *ax1.get_ylim())
+            ax1.text(0.1, 0.95, 'left in right: %i' % left_in_right,
+                     transform=ax1.transAxes)
+            ax1.text(0.1, 0.90, 'right in left: %i' % right_in_left,
+                     transform = ax1.transAxes)
+            fig1.savefig('heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1,
+                                                                       self.filter2,
+                                                                       self.target,
+                                                                       np.mean(np.array(all_verts)[:, 1])))
+            print 'wrote heb_contamination_%s_%s_%s_mag2_%.2f.png' % (self.filter1,
+                                                                      self.filter2,
+                                                                      self.target,
+                                                                      np.mean(np.array(all_verts)[:, 1]))
+            #plt.close()
+        return left_in_right, right_in_left, poission_noise, float(len(all_inds)), color_sep
+
+    def stars_in_region(self, mag2, mag_dim, mag_bright, mag1=None,
+                        verts=None, col_min=None, col_max=None):
+        '''
+        counts stars in a region. Give mag2 and the mag2 limits.
+        If col_min, col_max, and verts are none, will just give all stars
+        between those mag limits (if no color info is used mag2 can actually
+        be mag1.)
+        If verts are given (Nx2) array, will use those, otherwise will build
+        a polygon from col_* and mag_* limits.
+
+        Returns indices inside.
+        '''
+        if verts is None:
+            if col_min is None:
+                inds = math_utils.between(mag2, mag_dim, mag_bright)
+            else:
+                verts = np.array([[col_min, mag_dim],
+                                  [col_min, mag_bright],
+                                  [col_max, mag_bright],
+                                  [col_max, mag_dim],
+                                  [col_min, mag_dim]])
+
+                points = np.column_stack((mag1 - mag2, mag2))
+                inds, = np.nonzero(nxutils.points_inside_poly(points, verts))
+        return inds
+
+    def make_lf(self, mag, bins=None, stages=None, inds=None, bin_width=0.1,
+                hist_it_up=False, stage_inds=None):
+        '''
+        make a lf out of mag
+
+        ARGS:
+        mag: array to hist
+        bins: bins for the histogram (or give bin_width)
+        stages: evolutionary stages (will add individually)
+        inds: indices of array include
+        bin_width: width of mag bin for histogram
+        stage_inds: indices to slice the stages
+        RETURNS
+        if stages, will name the attributes
+        self.i[stage]_lfhist
+        self.i[stage]_lfbins
+        otherwise,
+        self.lfhist
+        self.lfbins
+        '''
+        # will use the variable again... silly.
+        original_bins = bins
+        if inds is None:
+            inds = np.arange(len(mag))
+        # will cycle through stages, so if none are passed, will just make
+        # one LF.
+        if stages == 'all':
+            stages = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB',
+                      'EAGB', 'TPAGB', 'POSTAGB', 'WD']
+        if stages is None:
+            sindss = [np.arange(len(mag))]
+            extra = ['']
+        elif type(stages) is str:
+            stages = [stages]
+
+        if type(stages) is list:
+            self.all_stages(*stages)
+            stage_names = ['i%s' % s.lower() for s in stages]
+            sindss = [self.__getattribute__(s) for s in stage_names]
+            extra = [s + '_' for s in stage_names]
+
+        for i, sinds in enumerate(sindss):
+            if stage_inds is not None:
+                s_inds = stage_inds
+            s_inds = np.intersect1d(inds, sinds)
+            imag = mag[s_inds]
+            if len(imag) < 2:
+                print 'no stars found with stage %s' % stages[i]
+                hist = np.zeros(len(bins)-1)
+            if original_bins is None:
+                bins = (np.max(imag) - np.min(imag)) / bin_width
+            if hist_it_up is True:
+                hist, bins = math_utils.hist_it_up(imag, threash=5)
+            else:
+                if type(bins) == np.float64 and bins < 1:
+                    continue
+                hist, _ = np.histogram(imag, bins=bins)
+            self.__setattr__('%slfhist' % extra[i], hist)
+            self.__setattr__('%slfbins' % extra[i], bins)
+        return hist, bins
+
+    def interp_errs(self, mag1err=None, mag2err=None, binsize=0.1):
+        if type(self.data) == pyfits.fitsrec.FITS_rec:
+            mag1err = self.data.MAG1_ERR
+            mag2err = self.data.MAG2_ERR
+        if absmag is True:
+            mag1 = self.Mag1
+            mag2 = self.Mag2
+        else:
+            mag1 = self.mag1
+            mag2 = self.mag2
+
+        interp_arr = np.linspace(0, 1, len(mag1))
+        mag1e_hist = np.array(np.histogram(mag1err, bins=mag_bins)[0], dtype=float)
+
+        mag2e_hist = np.array(np.histogram(mag2err, bins=mag_bins)[0], dtype=float)
+
+        self.fmag1err = interp1d(mag_bins, mag1e_hist, bounds_error=False)
+        self.fmag2err = interp1d(mag_bins, mag2e_hist, bounds_error=False)
+        return
+
 
 class galaxies(star_pop):
     '''
@@ -523,10 +828,8 @@ class galaxies(star_pop):
     '''
     def __init__(self, galaxy_objects):
         self.galaxies = np.asarray(galaxy_objects)
-        # this will break if more than one filter1 or filter2... is that
-        # how I want it?
-        self.filter1, = np.unique([g.filter1 for g in galaxy_objects])
-        self.filter2, = np.unique([g.filter2 for g in galaxy_objects])
+        self.filter1s = np.unique([g.filter1 for g in galaxy_objects])
+        self.filter2s = np.unique([g.filter2 for g in galaxy_objects])
 
     def sum_attr(self, *attrs):
         for attr, g in itertools.product(attrs, self.galaxies):
@@ -637,7 +940,7 @@ class galaxy(star_pop):
     '''
     angst and angrrr galaxy object. data is a ascii tagged file with stages.
     '''
-    def __init__(self, fname, filetype=None, hla=True, angst=True,
+    def __init__(self, fname, filetype=None, hla=True, angst=True, ext=None,
                  band=None, photsys=None, trgb=np.nan, z=-99, Av=None, dmod=None,
                  filter1=None, filter2=None):
         '''
@@ -655,7 +958,7 @@ class galaxy(star_pop):
         self.dmod = dmod
         self.load_data(fname, filetype=filetype, hla=hla, angst=angst,
                        band=band, photsys=photsys, filter1=filter1,
-                       filter2=filter2)
+                       filter2=filter2, ext=ext)
 
         # angst table loads
         if angst is True:
@@ -674,7 +977,7 @@ class galaxy(star_pop):
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
             #self.z = galaxy_metallicity(self, self.target)
 
-    def load_data(self, fname, filetype=None, hla=True, angst=True,
+    def load_data(self, fname, filetype=None, hla=True, angst=True, ext=None,
                   band=None, photsys=None, filter1=None, filter2=None):
 
         if hla is True:
@@ -708,14 +1011,25 @@ class galaxy(star_pop):
         elif 'fits' in filetype:
             hdu = pyfits.open(fname)
             #self.data =  fileIO.read_fits(fname)
-            ext = self.photsys.upper().split('_')[0]
+            if photsys is not None:
+                ext = self.photsys.upper().split('_')[0]
+            else:
+                cam = hdu[0].header['CAMERA']
+                if cam == 'ACS':
+                    if photsys is None:
+                        self.photsys = 'acs_wfc'
+                elif cam == 'WFPC2':
+                    self.photsys = 'wfpc2'
+                else:
+                    logger.error('I do not know the photsys.')
             self.data = hdu[1].data
             self.ra = self.data['ra']
             self.dec = self.data['dec']
 
             if filetype == 'fitstable':
                 self.header = hdu[0].header
-                ext = self.header['CAMERA']
+                if ext is None:
+                    ext = self.header['CAMERA']
                 if '-' in ext:
                     if 'ACS' in ext:
                         ext = 'ACS'
@@ -726,6 +1040,7 @@ class galaxy(star_pop):
                 self.mag1 = self.data['mag1_%s' % ext]
                 self.mag2 = self.data['mag2_%s' % ext]
                 self.filters = [self.filter1, self.filter2]
+
             if filetype == 'fitsimage':
                 # made to read holtmann data...
                 # this wont work on ir filters.
@@ -737,6 +1052,7 @@ class galaxy(star_pop):
                 self.filter2 = filts[order[1]].upper()
                 self.mag1 = self.data[self.filter1]
                 self.mag2 = self.data[self.filter2]
+
         elif filetype == 'tagged_phot':
             self.data = fileIO.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
@@ -899,6 +1215,7 @@ class simgalaxy(star_pop):
         try:
             diff1 = self.data.get_col('%s_cor' % self.filter1)
             diff2 = self.data.get_col('%s_cor' % self.filter2)
+
             if self.get_header().count('cor') > 3:
                 self.filter3, self.filter4 = self.get_header().replace('_cor', '').split()[-2:]
                 diff3 = self.data.get_col('%s_cor' % self.filter3)
@@ -985,7 +1302,7 @@ class simgalaxy(star_pop):
         INPUT
         stage_lab: the label of the stage, probably 'ms' or 'rgb' it will be
         used to set attribute names
-        by_stage:
+        by_stage: DO NOT USE THIS
            mag2, stage: data arrays of filter2 and the tagged stage inds
            if using galaxy object, mag2 = gal.mag2, stage = gal.stage.
         else, by verts: requires verts and ndata_stars
@@ -1037,7 +1354,8 @@ class simgalaxy(star_pop):
             scolor = smag1 - smag
             rec = np.arange(smag.size)
 
-        # initialize slices
+        # initialize slices, they will just be the enitre array if not
+        # changed below
         ibright = np.arange(smag.size)
         st_inds = np.arange(smag.size)
         reg_inds = np.arange(smag.size)
@@ -1064,6 +1382,7 @@ class simgalaxy(star_pop):
                      set(sinds_cut))
 
         nsim_stars = float(len(sinds))
+
         if len(sinds) == 0:
             logger.warning('no stars with %s < %.2f' % (new_attr, magcut))
             self.__setattr__('%s_inds' % new_attr, [-1])
@@ -1084,9 +1403,20 @@ class simgalaxy(star_pop):
         # random sample the data distribution
         rands = np.random.random(len(smag))
         ind, = np.nonzero(rands < normalization)
-        self.nsim_stars = nsim_stars
-        self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
-        self.__setattr__('%s' % new_attr, normalization)
+        if hasattr(self, 'filter3'):
+            # insert the band in the attribute names so they are not
+            # overwritten.
+            if '814' in [filt1, filt2]:
+                extra = 'opt'
+            if '160' in [filt1, filt2]:
+                extra = 'nir'
+            self.__setattr__('%s_nsim_stars' % extra, nsim_stars)
+            self.__setattr__('%s_%s_inds' % (extra, new_attr), np.array(rec)[ind])
+            self.__setattr__('%s_%s' % (extra, new_attr), normalization)
+        else:
+            self.nsim_stars = nsim_stars
+            self.__setattr__('%s_inds' % new_attr, np.array(rec)[ind])
+            self.__setattr__('%s' % new_attr, normalization)
         return ind, normalization
 
     def diagnostic_cmd(self, trgb=None, figname=None, inds=None, **kwargs):
@@ -1154,7 +1484,7 @@ class simgalaxy(star_pop):
         nplots = ustage.size + 1.
         bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
         cols = bcols.mpl_colors
-        subplots_kwargs = {'sharex': 1, 'sharey': 1, 'figsize': (12, 8)}
+        subplots_kwargs = {'sharex': True, 'sharey': True, 'figsize': (12, 8)}
         fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
         return fig, (axs), cols
 
@@ -1213,7 +1543,7 @@ class simgalaxy(star_pop):
 
     def hist_by_attr(self, attr, bins=10, stage=None, slice_inds=None):
         '''
-        builds a histogram of some attribute (mass, logl, etc) 
+        builds a histogram of some attribute (mass, logl, etc)
         slice_inds will cut the full array, and stage will limit to only that stage.
         '''
         data = self.data.get_col(attr)
@@ -1224,30 +1554,32 @@ class simgalaxy(star_pop):
             istage = self.__dict__[istage_s]
         else:
             istage = np.arange(data.size)
-        
+
         if slice_inds is None:
             slice_inds = np.arange(data.size)
-        
+
         inds = list(set(istage) & set(slice_inds))
-        
-        hist, bins = np.histogram(data[inds], bins)
-        
+
+        hist, bins = np.histogram(data[inds], bins=bins)
+
         return hist, bins
-        
+
+
 class sim_and_gal(object):
     def __init__(self, galaxy, simgalaxy):
         self.gal = galaxy
         self.sgal = simgalaxy
-        if hasattr(self.gal, 'maglims'): 
+        if hasattr(self.gal, 'maglims'):
             self.maglims = self.gal.maglims
         else:
             self.maglims = [90., 90.]
-        
+
         if not hasattr(self.sgal, 'norm_inds'):
             self.sgal.norm_inds = np.arange(len(self.sgal.data.data_array))
 
+
     def make_mini_hess(self, color, mag, scolor, smag, ax=None, hess_kw={}):
-        
+
         hess_kw = dict({'binsize': 0.1, 'cbinsize': 0.05}.items() + hess_kw.items())
         self.gal_hess = astronomy_utils.hess(color, mag, **hess_kw)
         hess_kw['cbin'] = self.gal_hess[0]
@@ -1266,12 +1598,15 @@ class sim_and_gal(object):
         self.gal.nbrighter = []
 
         if band is None and hasattr(self.gal, 'mag4'):
+            '''
+            four filter catalogs.
+            '''
             mag = self.gal.mag4
             smag = self.sgal.ast_mag4
         else:
-            mag = self.gal.mag2
             smag = self.sgal.ast_mag2[self.sgal.norm_inds]
             scolor = self.sgal.ast_color[self.sgal.norm_inds]
+            mag = self.gal.mag2
             color = self.gal.color
 
         spoints = np.column_stack((scolor, smag))
@@ -1284,7 +1619,12 @@ class sim_and_gal(object):
             ginds = None
 
         # the number of rgb stars used for normalization
-        self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
+        # this is not set in this file! WTH PHIL? W T H?
+        try:
+            self.gal.nbrighter.append(len(self.gal.rgb_norm_inds))
+        except TypeError:
+            self.gal.nbrighter.append(self.gal.rgb_norm_inds)
+
         # the number of data stars in the agb_verts polygon
         self.gal.nbrighter.append(len(ginds))
 
@@ -1302,10 +1642,10 @@ class sim_and_gal(object):
         self.agb_verts = agb_verts
         return nrgb_nagb_data, nrgb_nagb_sim
 
-    def make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
+    def _make_LF(self, filt1, filt2, res=0.1, plt_dir=None, plot_LF_kw={},
                 comp50=False, add_boxes=True, color_hist=False, plot_tpagb=False,
                 figname=None):
-
+        itpagb = None
         f1 = self.gal.filters.index(filt1) + 1
         f2 = self.gal.filters.index(filt2) + 1
         mag1 = self.gal.__getattribute__('mag%i' % f1)
@@ -1321,7 +1661,7 @@ class sim_and_gal(object):
         self.nbins = np.int(np.sqrt(len(self.gal.rec)))
         self.gal_hist, self.bins = np.histogram(mag[self.gal.rec], self.nbins)
 
-        # using all ast recovered stars for the histogram and normalizing 
+        # using all ast recovered stars for the histogram and normalizing
         # by a multiplicative factor.
         #self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_rec],
         #                                 bins=self.bins)
@@ -1342,23 +1682,23 @@ class sim_and_gal(object):
                 smag = smag[inds]
 
         scolor = smag1 - smag
- 
+
         if plot_tpagb is True:
             self.sgal.all_stages('TPAGB')
-            itpagb = [list(self.sgal.norm_inds).index(i) for i in self.sgal.itpagb if i in self.sgal.norm_inds]
-            itpagb = list(set(self.sgal.itpagb) & set(self.sgal.norm_inds))
+            itpagb = np.intersect1d(self.sgal.itpagb, self.sgal.norm_inds)
             assert np.unique(self.sgal.stage[itpagb]).size == 1, 'Indexing Error'
-        else:
-            itpagb = None
 
         if len(self.sgal.norm_inds) < len(smag):
-            self.sgal_hist, _ = np.histogram(smag[self.sgal.norm_inds], bins=self.bins)
+            self.sgal_hist, _ = np.histogram(smag[self.sgal.rec], bins=self.bins)
+            self.sgal_hist *= self.sgal.rgb_norm
         else:
-            # lmc, eg, doesn't need normalization. 
+            # lmc, eg, doesn't need normalization.
             self.sgal_hist, _ = np.histogram(smag, bins=self.bins)
+            if plot_tpagb is True:
+                self.sgal_tpagb_hist, _ = np.histogram(smag[self.sgal.itpagb], bins=self.bins)
 
         if color_hist is True:
-            # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec) 
+            # this is a colored histogram of cmd plotted. (otherwise use self.sgal.norm_rec)
             maglim = self.maglims[1]
             iabove, = np.nonzero(mag < maglim)
             siabove, = np.nonzero(smag < maglim)
@@ -1376,7 +1716,7 @@ class sim_and_gal(object):
             # add the tpagb star color hist if option chosen
             if itpagb is not None:
                 self.sgal_tpagb_color_hist, _ = np.histogram(scolor[itpagb], bins=self.color_bins)
-            
+
             self.make_mini_hess(color[iabove], mag[iabove], scolor_above,
                                 smag_above)
 
@@ -1395,16 +1735,19 @@ class sim_and_gal(object):
         plot_LF_kw = dict({'model_plt_color': 'red',
                            'data_plt_color': 'black',
                            'color_hist': color_hist}.items() +
-                          plot_LF_kw.items())
+                           plot_LF_kw.items())
 
-        itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
-        fig, axs, top_axs = self.plot_LF(color, mag,
-                                         scolor[self.sgal.norm_inds],
-                                         smag[self.sgal.norm_inds],
-                                         filt1, filt2, itpagb=itpagb, 
-                                         **plot_LF_kw)            
-        if self.maglims < 99.:
-            fig, axs = self.add_lines_LF(fig, axs)
+        #itpagb, = np.nonzero(self.sgal.stage[self.sgal.norm_inds] == 8)
+        fig, axs, top_axs = self._plot_LF(color, mag,
+                                             scolor[self.sgal.norm_inds],
+                                             smag[self.sgal.norm_inds],
+                                             filt1, filt2, itpagb=itpagb,
+                                             gal_hist=self.gal_hist, bins=self.bins,
+                                             sgal_hist=self.sgal_hist,
+                                             **plot_LF_kw)
+        # not working not sure why, just hacking...
+        #if self.maglims < 99.:
+        fig, axs = self.add_lines_LF(fig, axs)
 
         if add_boxes is True:
             if hasattr(self, 'agb_verts'):
@@ -1428,23 +1771,44 @@ class sim_and_gal(object):
         print 'wrote %s' % figname
         return fig, axs, top_axs
 
-    def plot_LF(self, color, mag, scolor, smag, filt1, filt2,
+    def add_lines_LF(self, fig, axs):
+        '''
+        must have attributes sgal, gal nbrighter
+        '''
+        if not 'nbrighter' in self.gal.__dict__.keys():
+            self.gal.nbrighter = self.nbrighter
+
+        for i, maglim in enumerate(self.maglims):
+            # lines and numbers on plots
+
+            line_on_it_kw = {'annotate': 0, 'ls': '-'}
+            for ax, col, g in zip(axs[:2],
+                                  (self.gal.data_plt_color, self.gal.model_plt_color),
+                                  (self.gal, self.sgal)):
+                    self.gal.put_a_line_on_it(ax, maglim, color=col,
+                                              **line_on_it_kw)
+                    self.gal.annotate_cmd(ax, maglim, '$%i$' % g.nbrighter[i],
+                                          text_kw={'color': col})
+        return fig, axs
+
+    def _plot_LF(self, color, mag, scolor, smag, filt1, filt2,
                 model_plt_color='red', data_plt_color='black', ylim=None,
                 xlim=None, xlim2=None, model_title='Model', title=False,
-                band='opt', color_hist=False, itpagb=None):
+                band='opt', color_hist=False, itpagb=None, gal_hist=None,
+                bins=None, sgal_hist=None, sbins=None):
 
         def make_title(self, fig, band='opt'):
 
             if band == 'opt':
-                trgb = self.gal.trgb
+                trgb = self.trgb
             elif band == 'ir':
-                trgb = self.gal.ir_trgb
+                trgb = self.ir_trgb
 
             text_kwargs = {'ha': 'center', 'va': 'top', 'size': 20}
-            title = '$%s\ m_{TRGB}=%.3f$' % (self.gal.target, trgb)
+            title = '$m_{TRGB}=%.3f$' % trgb
 
-            if np.isfinite(self.gal.z):
-                title += ' $Z=%.4f$' % (self.gal.z)
+            if np.isfinite(self.z):
+                title += ' $Z=%.4f$' % (self.z)
 
             fig.text(0.5, 0.96, title, **text_kwargs)
 
@@ -1463,7 +1827,7 @@ class sim_and_gal(object):
 
             axs = [plt.axes([lefts[i], bottom, widths[i], height])
                    for i in range(3)]
-            
+
             if color_hist is False:
                 top_axs = []
             else:
@@ -1474,7 +1838,7 @@ class sim_and_gal(object):
             lab_kw = dict({'fontsize': 20}.items() + lab_kw.items())
 
             # titles
-            axs[0].set_title('$%s$' % self.gal.target,
+            axs[0].set_title('$%s$' % self.target,
                              color=self.data_plt_color, **lab_kw)
 
             axs[1].set_title('$%s$' % model_title, color=self.model_plt_color,
@@ -1529,10 +1893,18 @@ class sim_and_gal(object):
                 top_axs[-1].xaxis.set_minor_locator(MultipleLocator(0.2))
                 top_axs[-1].set_ylim(axs[0].get_ylim())
                 top_axs[-1].yaxis.set_major_locator(MultipleLocator(2))
-                top_axs[-1].yaxis.set_minor_locator(MultipleLocator(0.5))                
+                top_axs[-1].yaxis.set_minor_locator(MultipleLocator(0.5))
                 top_axs[-1].set_ylim(self.comp_hess[1].max(), self.comp_hess[1].min())
                 top_axs[-1].set_xlim(self.comp_hess[0].min(), self.comp_hess[0].max())
 
+        if gal_hist is None:
+            gal_hist = self.gal_hist
+        if bins is None:
+            bins = self.bins
+        if sgal_hist is None:
+            sgal_hist = self.sgal_hist
+        if sbins is None:
+            sbins = bins
         self.data_plt_color = data_plt_color
         self.model_plt_color = model_plt_color
 
@@ -1545,40 +1917,54 @@ class sim_and_gal(object):
 
         plt_kw = {'threshold': 25, 'levels': 3, 'scatter_off': True,
                   'filter1': filt1, 'filter2': filt2,
-                  'plot_args': {'alpha': 0.5, 'color': self.data_plt_color}}
+                  'plot_args': {'alpha': 1, 'color': self.data_plt_color,
+                                'mew': 0, 'mec': self.data_plt_color}}
 
         # plot data
-        self.gal.plot_cmd(color, mag, ax=axs[0], **plt_kw)
+        self.plot_cmd(color, mag, ax=axs[0], **plt_kw)
 
         # plot simulation
         plt_kw['plot_args']['color'] = self.model_plt_color
-        self.sgal.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
+        plt_kw['plot_args']['mec'] = self.model_plt_color
+
+        self.plot_cmd(scolor, smag, ax=axs[1], **plt_kw)
+
         if itpagb is not None:
+            print 'doing itpagb'
             plt_kw['plot_args']['color'] = 'royalblue'
-            self.sgal.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
+            plt_kw['plot_args']['mec'] = 'royalblue'
+            self.plot_cmd(scolor[itpagb], smag[itpagb], ax=axs[1], **plt_kw)
         axs[1].set_ylabel('')
 
         # plot histogram
         hist_kw = {'drawstyle': 'steps', 'color': self.data_plt_color, 'lw': 2}
-        axs[2].semilogx(self.gal_hist, self.bins[1:], **hist_kw)
+
+        axs[2].semilogx(gal_hist, bins[1:], **hist_kw)
+
         if color_hist is True:
             top_axs[0].plot(self.color_bins[1:], self.gal_color_hist, **hist_kw)
 
         hist_kw['color'] = self.model_plt_color
-        axs[2].semilogx(self.sgal_hist, self.bins[1:], **hist_kw)
+        axs[2].semilogx(sgal_hist, sbins[1:], **hist_kw)
+
+        if itpagb is not None:
+            hist_kw['color'] = 'royalblue'
+            if hasattr(self, 'sgal_tpagb_hist'):
+                axs[2].semilogx(self.sgal_tpagb_hist, self.bins[1:], **hist_kw)
+
 
         if color_hist is True:
-            #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist, 
+            #top_axs[0].plot(self.color_bins[1:], self.sgal_color_hist,
             #               **hist_kw)
             #top_axs[1].semilogy(self.mass_bins[1:], self.mass_hist, **hist_kw)
-            
+
             hist_kw['color'] = 'royalblue'
-            top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist, 
+            top_axs[0].plot(self.color_bins[1:], self.sgal_tpagb_color_hist,
                             **hist_kw)
             top_axs[0].set_ylabel('$\#$', fontsize=16)
             top_axs[1].semilogy(self.mass_bins[1:], self.tp_mass_hist, **hist_kw)
             top_axs[1].set_xlabel('$M_\odot$', fontsize=16)
-            black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys, 
+            black2red = rspgraph.stitch_cmap(plt.cm.Reds_r, plt.cm.Greys,
                                              stitch_frac=0.555, dfrac=0.05)
 
             astronomy_utils.hess_plot(self.comp_hess, ax=top_axs[2],
@@ -1593,23 +1979,6 @@ class sim_and_gal(object):
         fix_plot(axs, xlim=xlim, xlim2=xlim2, ylim=ylim, top_axs=top_axs)
 
         return fig, axs, top_axs
-
-    def add_lines_LF(self, fig, axs):
-        '''
-        must have attributes sgal, gal nbrighter
-        '''
-        for i, maglim in enumerate(self.maglims):
-            # lines and numbers on plots
-
-            line_on_it_kw = {'annotate': 0, 'ls': '-'}
-            for ax, col, g in zip(axs[:2],
-                                  (self.data_plt_color, self.model_plt_color),
-                                  (self.gal, self.sgal)):
-                    self.gal.put_a_line_on_it(ax, maglim, color=col,
-                                              **line_on_it_kw)
-                    self.gal.annotate_cmd(ax, maglim, '$%i$' % g.nbrighter[i],
-                                          text_kw={'color': col})
-        return fig, axs
 
 
 def get_mix_modelname(model):
@@ -1662,24 +2031,26 @@ def get_fake(target, fake_loc='.'):
 
 def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
                              overwrite=False, spread_outfile=None,
-                             leo_method=False, spread_outfile2=None):
+                             leo_method=False, spread_outfile2=None,
+                             asts_obj=None):
     '''
     correct trilegal simulation with artificial star tests.
     options to write the a copy of the trilegal simulation with the corrected
     mag columns, and also just the color, mag into a file (spread_too).
 
-    input:
+    ARGS:
     sgal: simgalaxy instance with convert_mag method already called.
-    fake_file: string - matchfake file, or an artifical_star_tests instance.
+    fake_file: string - matchfake file(s), or an artifical_star_tests instance(s).
     outfile: string - ast_file to write
     overwrite: overwrite output files, is also passed to write_spread
     spread_too: call write_spread flag
     spread_outfile: outfile for write_spread
-    returns
+
+    RETURNS:
     adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
 
-    if fake file is a list of opt, and ir fake files, will run this twice
-    leo's method is the only one that works so far.
+    if fake_file is an a list of opt and ir, will do the corrections twice.
+    fake_file as artificial_star_instance won't work if leo_method=True.
     '''
     ir_too = False
 
@@ -1692,7 +2063,6 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 
         logger.debug("%s + %s -> %s" % (sim_file, fake_file, spread_outfile))
         logger.debug('Running %s...' % os.path.split(leo_code)[1])
-
         p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE,
                   close_fds=True)
 
@@ -1700,10 +2070,24 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         p.wait()
         return
 
-    assert fake_file is not None, \
-        'ast_correct_trilegal_sim: fake_file now needs to be passed'
+    def add_cols_leo_method(sgal, spread_outfile):
+        spout = fileIO.readfile(spread_outfile)
+        ast_filts = [s for s in spout.dtype.names if '_cor' in s]
+        new_cols = {}
+        for ast_filt in ast_filts:
+            new_cols[ast_filt] = spout[ast_filt]
+            print len(spout[ast_filt])
+        print len(sgal.mag2)
+        print sgal.add_data(**new_cols)
+
+    #assert fake_file is not None and asts_obj is not None, \
+    #    'ast_correct_trilegal_sim: fake_file now needs to be passed'
 
     if leo_method is True:
+        print 'ARE YOU SURE YOU WANT TO USE THIS METHOD!?'
+        # this method tosses model stars where there are no ast corrections
+        # which is fine for completeness < .50 but not for completeness > .50!
+        # so don't use it!! It's also super fucking slow.
         assert spread_outfile is not None, \
             'need spread_outfile set for Leo AST method'
 
@@ -1712,7 +2096,8 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         sim_file = os.path.join(sgal.base, sgal.name)
 
         # special version of spread_angst made for wfc3snap photsys!
-        leo_code = '/Users/phil/research/TP-AGBcalib/SNAP/models/spread_angst'
+        # THIS IS BAD CODING HARD LINK?!
+        leo_code = '/home/rosenfield/research/TP-AGBcalib/SNAP/models/spread_angst'
 
         if type(fake_file) == list:
             assert spread_outfile2 is not None, \
@@ -1722,33 +2107,47 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
             ir_too = True
 
         leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile)
+        add_cols_leo_method(sgal, spread_outfile)
         if ir_too is True:
             # run the out ast corrections through a version of spread_angst to
             # correct the ir.
             leo_code += '_ir'
             leo_ast_correction(leo_code, fake_file_ir, spread_outfile, spread_outfile2)
+            add_cols_leo_method(sgal, spread_outfile2)
             # no need to keep the spread_outfile now that we have a new one.
             os.remove(spread_outfile)
     else:
         if type(fake_file) is str:
-            asts = artificial_star_tests(fake_file)
-            sgal.fake_file = fake_file
+            fake_files = [fake_file]
         else:
-            asts = fake_file
-        if sgal.filter1 != asts.filter1 or sgal.filter2 != asts.filter2:
-            logger.error('bad filter match between sim gal and ast.')
-            return -1
-        mag1 = sgal.mag1
-        mag2 = sgal.mag2
-        cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2, **{'binsize': 0.2})
-        new_cols = {'%s_cor' % asts.filter1: cor_mag1,
-                    '%s_cor' % asts.filter2: cor_mag2}
-        sgal.add_data(**new_cols)
+            fake_files = fake_file
+
+        sgal.fake_files = fake_files
+
+        if asts_obj is None:
+            asts_obj = [artificial_star_tests(fake_file)
+                        for fake_file in fake_files]
+        elif type(asts_obj) is str:
+            asts_obj = [asts_obj]
+
+        for asts in asts_obj:
+            # sgal.filter1 or sgal.mag1 doesn't have to match the asts.filter1
+            # in fact, it won't if this is done on both opt and nir data.
+            mag1 = sgal.data.get_col(asts.filter1)
+            mag2 = sgal.data.get_col(asts.filter2)
+
+            cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2,
+                                                     **{'binsize': 0.2})
+            new_cols = {'%s_cor' % asts.filter1: cor_mag1,
+                        '%s_cor' % asts.filter2: cor_mag2}
+            sgal.add_data(**new_cols)
+
         if outfile is not None:
-            if overwrite or not os.path.isfile(outfile):
+            if overwrite is True or not os.path.isfile(outfile):
                 TrilegalUtils.write_trilegal_sim(sgal, outfile)
             else:
                 logger.warning('%s exists, not overwriting' % outfile)
+
         if spread_outfile is not None:
             TrilegalUtils.write_spread(sgal, outfile=spread_outfile,
                                        overwrite=overwrite)
@@ -1780,25 +2179,31 @@ class artificial_star_tests(object):
                 self.target, self.filter1, filter2 = self.name.split('_')
                 self.filter2 = filter2.split('.')[0]
             except:
-                __, self.target, __, self.filter1, self.filter2, _ = \
-                    self.name.split('_')
+                try:
+                    __, self.target, __, self.filter1, self.filter2, _ = \
+                        self.name.split('_')
+                except:
+                    pass
         artificial_star_tests.load_fake(self, filename)
 
     def recovered(self, threshold=9.99):
         '''
-        indicies of recovered stars in both filters.
-        threshold of recovery [9.99]
+        find indicies of stars with magdiff < threshold
+
+        ARGS:
+        threshold: [9.99] magin - magout threshold for recovery
+
+        RETURNS:
+        self.rec: recovered stars in both filters
+        rec1, rec2: recovered stars in filter1, filter2
         '''
-        rec1, = np.nonzero(self.mag1diff > threshold)
-        rec2, = np.nonzero(self.mag2diff > threshold)
+        rec1, = np.nonzero(self.mag1diff < threshold)
+        rec2, = np.nonzero(self.mag2diff < threshold)
         self.rec = list(set(rec1) & set(rec2))
-        return self.rec
+        return rec1, rec2
 
     def load_fake(self, filename):
-        '''
-        reads matchfake file and assigns each column to its own attribute
-        see artificial_star_tests.__doc__
-        '''
+        '''read MATCH fake file into attributes'''
         names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
         self.data = np.genfromtxt(filename, names=names)
         # unpack into attribues
@@ -1807,9 +2212,16 @@ class artificial_star_tests(object):
 
     def bin_asts(self, binsize=0.2, bins=None):
         '''
-        bins the artificial star tests in bins of *binsize* or with *bins*
-        assigns attributes am1_inds and am2_inds, the indices of the bins to
-        which each value in mag1 and mag2 belong (see np.digitize).
+        bin the artificial star tests
+
+        ARGS:
+        bins: bins for the asts
+        binsize: width of bins for the asts
+
+        RETURNS:
+        self.am1_inds, self.am2_inds: the indices of the bins to
+            which each value in mag1 and mag2 belong (see np.digitize).
+        self.ast_bins: bins used for the asts.
         '''
         if bins is None:
             ast_max = np.max(np.concatenate((self.mag1, self.mag2)))
@@ -1823,12 +2235,13 @@ class artificial_star_tests(object):
 
     def _random_select(self, arr, nselections):
         '''
-        randomly sample *arr* *nselections* times, used in ast_correction
+        randomly sample *arr* *nselections* times
 
-        input
+        ARGS:
         arr: array or list to sample
         nselections: int times to sample
-        returns
+
+        RETURNS:
         rands: list of selections, length nselections
         '''
         import random
@@ -1839,23 +2252,39 @@ class artificial_star_tests(object):
                        not_rec_val=np.nan):
         '''
         apply ast correction to input mags.
-        This is done by going through obs_mag1 in bins of *bin_asts* (which
-        will be called if not already) and randomly selecting magdiff values
-        in that ast_bin. obs_mag2 simply follows along since it is tied to
-        obs_mag1.
-        Random selection was chosen because of the spatial nature of artificial
-        star tests. If there are 400 asts in one mag bin, and 30 are not
-        recovered, random selection should match that distribution (if there
-        are many obs stars).
-        input:
+
+        ARGS:
         obs_mag1, obs_mag2: N, 1 arrays
-        kwargs:
+
+        KWARGS:
         binsize, bins: for bin_asts if not already run.
+
+        RETURNS:
+        cor_mag1, cor_mag2: ast corrected magnitudes
+
+        RAISES:
+        returns -1 if obs_mag1 and obs_mag2 are different sizes
+
+        Corrections are made by going through obs_mag1 in bins of
+        bin_asts and randomly selecting magdiff values in that ast_bin.
+        obs_mag2 simply follows along since it is tied to obs_mag1.
+
+        Random selection was chosen because of the spatial nature of
+        artificial star tests. If there are 400 asts in one mag bin,
+        and 30 are not recovered, random selection should match the
+        distribution (if there are many obs stars).
+
+        If there are obs stars in a mag bin where there are no asts,
+        will throw the star out unless the completeness in that mag bin
+        is more than 50%.
+
         TODO:
         possibly return magXdiff rather than magX + magXdiff?
         reason not to: using AST results from one filter to another isn't
         kosher. At least not glatt kosher.
         '''
+        self.completeness(combined_filters=True, interpolate=True)
+
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
             logger.error('mag arrays of different lengths')
@@ -1873,6 +2302,7 @@ class artificial_star_tests(object):
         om1_inds = np.digitize(obs_mag1, self.ast_bins)
 
         for i in range(len(self.ast_bins)):
+            # the obs and artificial stars in each bin
             obsbin, = np.nonzero(om1_inds == i)
             astbin, = np.nonzero(self.am1_inds == i)
             nobs = len(obsbin)
@@ -1883,11 +2313,18 @@ class artificial_star_tests(object):
             if nast == 0:
                 # no asts in this bin, probably means the simulation
                 # is too deep
-                continue
-            # randomly select the appropriate ast correction for obs stars
-            # in this bin
-            cor1 = self._random_select(self.mag1diff[astbin], nobs)
-            cor2 = self._random_select(self.mag2diff[astbin], nobs)
+                if self.fcomp2(self.ast_bins[i]) < 0.5:
+                    continue
+                else:
+                    # model is producing stars where there was no data.
+                    # assign no corrections.
+                    cor1 = 0.
+                    cor2 = 0.
+            else:
+                # randomly select the appropriate ast correction for obs stars
+                # in this bin
+                cor1 = self._random_select(self.mag1diff[astbin], nobs)
+                cor2 = self._random_select(self.mag2diff[astbin], nobs)
 
             # apply corrections
             cor_mag1[obsbin] = obs_mag1[obsbin] + cor1
@@ -1898,3 +2335,130 @@ class artificial_star_tests(object):
             #fin2, = np.nonzero(np.isfinite(cor_mag2))
             #fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
+
+    def completeness(self, combined_filters=False, interpolate=False):
+        '''
+        calculate the completeness of the data in each filter
+        ARGS:
+        combined_filters: Use individual or combined ast recovery
+        interpolate: add a 1d spline the completeness function to self
+        RETURNS:
+        self.comp1 the completeness in filter1 binned with self.ast_bins
+        self.comp2 same as above but filter2
+        '''
+        # calculate stars recovered, could pass theshold here.
+        rec1, rec2 = self.recovered()
+
+        # make sure ast_bins are good to go
+        if not hasattr(self, 'ast_bins'):
+            self.bin_asts()
+
+        # gst uses both filters for recovery.
+        if combined_filters is True:
+            rec1 = rec2 = self.rec
+
+        # historgram of all artificial stars
+        qhist1 = np.array(np.histogram(self.mag1, bins=self.ast_bins)[0],
+                          dtype=float)
+
+        # histogram of recovered artificial stars
+        rhist1 = np.array(np.histogram(self.mag1[rec1], bins=self.ast_bins)[0],
+                          dtype=float)
+
+        # completeness histogram
+        self.comp1 = rhist1 / qhist1
+
+        qhist2 = np.array(np.histogram(self.mag2, bins=self.ast_bins)[0],
+                          dtype=float)
+        rhist2 = np.array(np.histogram(self.mag2[rec2], bins=self.ast_bins)[0],
+                          dtype=float)
+        self.comp2 = rhist2 / qhist2
+
+        if interpolate is True:
+            # sometimes the histogram isn't as useful as the a spline
+            # function... add the interp1d function to self.
+            self.fcomp1 = interp1d(self.ast_bins[1:], self.comp1,
+                                   bounds_error=False)
+            self.fcomp2 = interp1d(self.ast_bins[1:], self.comp2,
+                                   bounds_error=False)
+        return
+
+    def get_completeness_fraction(self, frac, dmag=0.01):
+        assert hasattr(self, 'fcomp1'), \
+            'need to run completeness with interpolate=True'
+
+        # set up array to evaluate interpolation
+        arr_min = 16
+        arr_max = 31
+        search_arr = np.arange(arr_min, arr_max, dmag)
+
+        # completeness in each filter, and the finite vals
+        # (frac - nan = frac)
+        cfrac1 = self.fcomp1(search_arr)
+        ifin1 = np.isfinite(cfrac1)
+
+        cfrac2 = self.fcomp2(search_arr)
+        ifin2 = np.isfinite(cfrac2)
+
+        # closest completeness fraction to passed fraction
+        icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1]))
+        icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2]))
+
+        # mag associated with completeness
+        comp1 = search_arr[ifin1][icomp1]
+        comp2 = search_arr[ifin2][icomp2]
+
+        # sanity check... sometimes with few asts at bright mags the curve
+        # starts near zero, not 1, get a bright mag limit. This makes sure
+        # the completeness limit is past the half way point ... a bit of a
+        # hack.
+        if icomp1 < len(search_arr)/2.:
+            print 'filter1 AST completeness is too bright, sanity checking.'
+            cut_ind1 = np.argmax(cfrac1[ifin1])
+            icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1][cut_ind1:]))
+            comp1 = search_arr[ifin1][cut_ind1:][icomp1]
+
+        if icomp2 < len(search_arr)/2.:
+            print 'filter2 AST completeness is too bright, sanity checking.'
+            cut_ind2 = np.argmax(cfrac2[ifin2])
+            icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2][cut_ind2:]))
+            comp2 = search_arr[ifin2][cut_ind2:][icomp2]
+
+        return comp1, comp2
+
+def stellar_prob(obs, model, normalize=False):
+    '''
+    FROM MATCH README
+    The quality of the fit is calculated using a Poisson maximum likelihood
+    statistic, based on the Poisson equivalent of chi^2.
+      2 m                                if (n=0)
+      2 [ 0.001 + n * ln(n/0.001) - n ]  if (m<0.001)
+      2 [ m + n * ln(n/m) - n ]          otherwise
+    m=number of model points; n=number of observed points
+
+    This statistic is based on the Poisson probability function:
+       P =  (e ** -m) (m ** n) / (n!),
+    Recalling that chi^2 is defined as -2lnP for a Gaussian distribution and
+    equals zero where m=n, we treat the Poisson probability in the same
+    manner to get the above formula.
+
+    '''
+    n = obs
+    m = model
+
+    if normalize is True:
+        n /= np.sum(n)
+        m /= np.sum(m)
+
+    d = 2. * (m + n * np.log(n / m) - n)
+
+    smalln = np.abs(n) < 1e-10
+    d[smalln] = 2. * m[smalln]
+
+    smallm = (m < 0.001) & (n != 0)
+    d[smallm] = 2. * (0.001 + n[smallm] * np.log(n[smallm]/0.001) - n[smallm])
+
+    sig = np.sqrt(d) * np.sign(n - m)
+    pct_dif = (m - n) / n
+    prob = np.sum(d)/float(len(n)-1)
+    return prob, pct_dif, sig

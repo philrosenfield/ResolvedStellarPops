@@ -5,6 +5,7 @@ import pyfits
 import math_utils
 import sys
 from pprint import pprint
+import difflib
 
 
 class input_parameters(object):
@@ -77,7 +78,8 @@ class input_file(object):
     a class to replace too many kwargs from the input file.
     does two things:
     1. sets a default dictionary (see input_defaults) as attributes
-    2. unpacks the dictionary from load_input as attributes.
+    2. unpacks the dictionary from load_input as attributes
+        (overwrites defaults).
     '''
     def __init__(self, filename, default_dict=None):
         if default_dict is not None:
@@ -145,22 +147,67 @@ def load_input(filename):
     return d
 
 
-def readfile(filename, col_key_line=0, comment_char='#'):
+def readfile(filename, col_key_line=0, comment_char='#', string_column=None):
+    '''
+    reads a file as a np array, uses the comment char and col_key_line
+    to get the name of the columns.
+    '''
     if col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
-        col_keys = line.replace(comment_char, '').strip().split()    
+        col_keys = line.replace(comment_char, '').strip().split()
     else:
         with open(filename, 'r') as f:
             lines = f.readlines()
         col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
-    
-    data = np.genfromtxt(filename, names=col_keys, invalid_raise=False)
+
+    dtype = [(c, '<f8') for c in col_keys]
+    if string_column is not None:
+        dtype[string_column] = (col_keys[string_column], '|S16')
+    data = np.genfromtxt(filename, dtype=dtype, invalid_raise=False,
+                         skip_header=col_key_line+1)
     return data
+
+def get_row(arr, index_key, index):
+    '''
+    send a np.array with dtype.names and choose a column item.
+    For example:
+    $ data.dtype.names
+    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
+    'nir_agb')
+    # for an array like:
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
+    get_row(data, 'target', 'kkh37')
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0)
+    '''
+    fixed_index = difflib.get_close_matches(index.lower(), arr[index_key])
+    if len(fixed_index) == 0:
+        fixed_index = difflib.get_close_matches(index.upper(), arr[index_key])
+    fixed_index = fixed_index[0]
+    if index.lower() != fixed_index:
+        if index.upper() != fixed_index:
+            print 'using %s instead of %s' % (fixed_index, index)
+    item_key, = np.nonzero(arr[index_key]==fixed_index)
+    return arr[item_key]
+
+def item_from_row(arr, index_key, index, column_name):
+    '''
+    send a np.array with dtype.names and choose a column item.
+    For example:
+    $ data.dtype.names
+    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
+    'nir_agb')
+    # for an array like:
+    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
+    $ item_from_row(data, 'target', 'kkh37', 'opt_trgb')
+    23.54
+    '''
+    row = get_row(arr, index_key, index)
+    return row[column_name][0]
 
 def replace_ext(filename, ext):
     '''
-    input 
+    input
     filename string with .ext
     new_ext replace ext with new ext
     eg:
@@ -188,22 +235,27 @@ def read_tagged_phot(tagged_file):
 
 def ensure_file(f, mad=True):
     '''
-    input 
+    input
     f (string): if f is not a file will print "no file"
     optional
     mad (bool)[True]: if mad is True, will exit program.
     '''
-    if not os.path.isfile(f):
+    test = os.path.isfile(f)
+    if test is False:
         print 'there is no file', f
         if mad:
             sys.exit()
+    return test
 
 
 def ensure_dir(f):
     '''
     will make all dirs necessary for input to be an existing directory.
-    if input does not end with '/' it will not make it a directory.
+    if input does not end with '/' it will add it, and then make a directory.
     '''
+    if not f.endswith('/'):
+        f += '/'
+
     d = os.path.dirname(f)
     if not os.path.isdir(d):
         os.makedirs(d)
@@ -218,9 +270,8 @@ def read_table(filename, comment_char='#', loud=False):
         def elapsed():
             return time.time() - start
 
-    f = open(filename, 'r')
-    lines = f.readlines()
-    f.close()
+    with open(filename) as f:
+        lines = [line for line in f]
 
     if loud:
         print '%.3fs: lines read' % (elapsed())
@@ -266,7 +317,7 @@ class Table(object):
     def get_col(self, key):
         return self.data_array[:, self.key_dict[key]]
 
-            
+
 def get_files(src, search_string):
     '''
     returns a list of files, similar to ls src/search_string
@@ -278,6 +329,6 @@ def get_files(src, search_string):
     except IndexError:
         print 'Can''t find %s in %s' % (search_string, src)
         sys.exit(2)
-    files = [os.path.join(src, f) for f in files]
-    [ensure_file(f) for f in files] 
+    files = [os.path.join(src, f)
+             for f in files if ensure_file(os.path.join(src, f), mad=False)]
     return files

@@ -5,7 +5,6 @@ import difflib
 
 TABLE_DIR = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'tables')
 
-
 class AngstTables(object):
     def __init__(self):
         self.table5 = read_angst_tab5()
@@ -15,6 +14,31 @@ class AngstTables(object):
         self.targets = np.unique(np.concatenate((self.table4['target'],
                                                  self.table5['target'])))
         self.load_data()
+
+    def get_item(self, target, item, extra_key=None):
+        '''
+        The problem with writing basic necessity code before I got the hang
+        of python is that I need to write shitty wrappers now...
+        '''
+        target = self.correct_target(target)
+        table_row = self.__getattribute__(target)
+        if not item in table_row.keys():
+            keys, vals = zip(*[(k, [v for l, v in tvals.items() if item == l])
+                for k, tvals in table_row.items() if type(tvals) is dict])
+            not_empty, = np.nonzero(vals)
+            keys = np.array(keys)[not_empty]
+            vals = np.concatenate(vals)
+            if len(vals) > 1 and extra_key is None:
+                print '%s is ambiguous, please provide extra_key.' % item
+                print keys
+                return vals
+            elif len(vals) > 1 and extra_key is not None:
+                val = vals[keys==extra_key][0]
+            else:
+                val = vals[0]
+        else:
+            val = table_row[item]
+        return val
 
     def load_data(self):
         '''
@@ -56,11 +80,14 @@ class AngstTables(object):
             else:
                 self.__dict__[target].update(target_dict)
 
-    def correct_target(target):
+    def correct_target(self, target):
         '''
         NOT FINISHED
         '''
-        pass
+        target = target.upper().replace('-', '_')
+        if '404' in target:
+            target = 'NGC404_DEEP'
+        return target
 
     def get_tab5_trgb_av_dmod(self, target, filters):
         '''
@@ -80,12 +107,13 @@ class AngstTables(object):
         try:
             datum = self.__dict__[target][filters]
         except KeyError:
-            print traceback.print_exc()
-            print '%s not found' % target
-            target = target.replace('_', '-')
+            #print traceback.print_exc()
+            #print '%s not found' % target
+            otarget = target
+            target = target.replace('_', '-').split('WIDE')[0]
             target = difflib.get_close_matches(target,
                                                self.table5['target'])[0]
-            print 'using %s' % target
+            print '%s using %s' % (otarget, target)
             filters = [k for k in
                        self.__dict__[target.replace('-', '_')].keys()
                        if ',' in k][0]
@@ -103,15 +131,19 @@ class AngstTables(object):
         backward compatibility to my old codes.
         input target,filter: get 50% comp.
         '''
-        target = target.upper().replace('-', '_')
+        target = target.upper().replace('-', '_').replace('C_', 'C')
+
         if 'F160W' in filter or 'F110W' in filter:
             return self.get_snap_50compmag(target, filter)
         try:
             datum = self.__dict__[target][filter]
         except KeyError:
             print traceback.print_exc()
-            print 'keys available: {}'.format(self.__dict__[target].keys())
-            return -1, -1, -1
+            print '%s not found' % target
+            #target = target.replace('_', '-')
+            target = difflib.get_close_matches(target,
+                                               self.table5['target'])[0]
+            datum = self.__dict__[target][filter]
         return datum['50_completeness']
 
     def get_snap_trgb_av_dmod(self, target):

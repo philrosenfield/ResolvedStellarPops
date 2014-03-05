@@ -2,22 +2,25 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
-
+from matplotlib.offsetbox import AnchoredText
+from matplotlib.patheffects import withStroke
 
 def add_inner_title(ax, title, loc, size=None, **kwargs):
-    from matplotlib.offsetbox import AnchoredText
-    from matplotlib.patheffects import withStroke
+    '''
+    adds a title to an ax inside to a location loc, which follows plt.legends loc ints.
+    '''
     if size is None:
         size = dict(size=plt.rcParams['legend.fontsize'])
-    at = AnchoredText(title, loc=loc, prop=size,
+    anct = AnchoredText(title, loc=loc, prop=size,
                       pad=0., borderpad=0.5,
                       frameon=False, **kwargs)
-    ax.add_artist(at)
-    at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
-    return at
+    ax.add_artist(anct)
+    anct.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
+    return anct
 
 
-def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
+def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
+               **kwargs):
     '''
     ex ZS = [h[2],sh[2],diff_cmd,resid]
     '''
@@ -25,9 +28,9 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
     grid = ImageGrid(fig, 111,
                      nrows_ncols=(2, 2),
                      direction="row",
-                     axes_pad=0.23,
+                     axes_pad=.7,
                      add_all=True,
-                     label_mode="1",
+                     label_mode="all",
                      share_all=True,
                      cbar_location="top",
                      cbar_mode="each",
@@ -35,31 +38,37 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff","Sig"], **kwargs):
                      cbar_pad="2%",
                      aspect=0)
 
+    # scale color bar data and model the same
+    
     for i, (ax, z) in enumerate(zip(grid, ZS)):
         if i > 1:
             # second row: make 0 on the color bar white
-            vmin = -1. * np.max(np.abs(z))
-            vmax = np.max(np.abs(z))
+            zz = z[np.isfinite(z)]
+            vmin = -1. * np.max(np.abs(zz))
+            vmax = np.max(np.abs(zz))
             colors = cm.RdBu
         else:
             # first row: make white 0, but will be on the left of color bar
-            vmin = None
-            vmax = None
+            # scale color bar same for data and model.
+            vmin = 0
+            vmax = np.nanmax(ZS[0:2])
             if i == 0:
                 colors = cm.Blues
             if i == 1:
                 colors = cm.Reds
-        im = ax.imshow(z, extent=extent, interpolation="nearest",
+        im = ax.imshow(z, origin='upper', extent=extent, interpolation="nearest",
                        cmap=colors, vmin=vmin, vmax=vmax)
         ax.cax.colorbar(im)
         forceAspect(ax, aspect=1)
 
-    ylabel = kwargs.get('ylabel')
-    xlabel = kwargs.get('xlabel')
-    if ylabel:
-        [ax.set_ylabel(ylabel, fontsize=20) for ax in grid[0::2]]
-    if xlabel:
-        [ax.set_xlabel(xlabel, fontsize=20) for ax in grid[2:]]
+    # crop limits to possible data boundary
+    ylim = (extent[2], extent[3])
+    xlim = (extent[0], extent[1])
+    for ax in grid:
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        ax.xaxis.label.set_visible(True)
+        ax.yaxis.label.set_visible(True)
 
     for ax, im_title in zip(grid, labels):
         t = add_inner_title(ax, im_title, loc=1)
@@ -76,43 +85,59 @@ def forceAspect(ax, aspect=1):
 
 
 def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
-          axis_labels='default', **kwargs):
+          axis_labels='default', filter1=None, filter2=None):
     '''
     produces the image that pgcmd.pro makes
     '''
-    import match_utils
-    cmd = match_utils.read_match_cmd(filename)
+    cmd = read_match_cmd(filename)
     if axis_labels.lower() == 'default':
-        filter1 = kwargs.get('filter1')
-        filter2 = kwargs.get('filter2')
         if filter1 is None or filter2 is None:
-            import re
-            t = re.search('_(.*)/(.*)_(.*)_(.{5})_(.{5}).(.*)', filename)
-            (__, propidtarget, filter1, filter2, __, __) = t.groups()
+            filter1 = ''
+            filter2 = ''
         kwargs = {'xlabel': r'$%s-%s$' % (filter1, filter2),
                   'ylabel': r'$%s$' % filter2}
-        if labels is None:
-            labels = [r'$%s$' % propidtarget.replace('_', '\ '),
-                      'Model', 'Diff', 'Sig']
 
     nmagbin = len(np.unique(cmd['mag']))
     ncolbin = len(np.unique(cmd['color']))
-    h = cmd['Nobs'].reshape(nmagbin, ncolbin)
-    s = cmd['Nsim'].reshape(nmagbin, ncolbin)
+    data = cmd['Nobs'].reshape(nmagbin, ncolbin)
+    model = cmd['Nsim'].reshape(nmagbin, ncolbin)
     diff = cmd['diff'].reshape(nmagbin, ncolbin)
     sig = cmd['sig'].reshape(nmagbin, ncolbin)
 
-    ZS = [h, s, diff, sig]
+    hesses = [data, model, diff, sig]
     extent = [cmd['color'][0], cmd['color'][-1], cmd['mag'][-1], cmd['mag'][0]]
     if labels is None:
-        grid = match_plot(ZS, extent, **kwargs)
+        grid = match_plot(hesses, extent, **kwargs)
     else:
-        grid = match_plot(ZS, extent, labels=labels, **kwargs)
+        grid = match_plot(hesses, extent, labels=labels, **kwargs)
+
+    [ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20) for ax in grid.axes_all]
+    [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_all]
+    grid.axes_all[0].xaxis.label.set_visible(True)
 
     if saveplot:
-        figname = rsp.fileIO.replace_ext(filename, '.png')
+        figname = filename.split('.')[0] + '.png'
         if out_dir is not None:
             figname = os.path.join(out_dir, os.path.split(figname)[1])
-        plt.savefig(figname)
-        logger.info(' % s wrote %s' % (pgcmd.__name__, figname))
+        plt.savefig(figname, dpi=300)
+        print ' % s wrote %s' % (pgcmd.__name__, figname)
     return grid
+
+def read_match_cmd(filename):
+    '''
+    reads MATCH .cmd file
+    '''
+    mc = open(filename, 'r').readlines()
+    # I don't know what the 7th column is, so I call it lixo.
+    names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
+    cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
+    return cmd
+
+if __name__ == "__main__":
+    import sys
+    args = sys.argv
+    filename = args[1]
+    filter1 = args[2]
+    filter2 = args[3]
+    labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
+    pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels, saveplot=True)

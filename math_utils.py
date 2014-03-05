@@ -1,5 +1,42 @@
 import numpy as np
 import matplotlib.nxutils as nxutils
+from scipy.interpolate import interp1d
+
+def hist_it_up(mag2, res=0.1, threash=10):
+    # do fine binning and hist
+    bins = np.arange(np.nanmin(mag2), np.nanmax(mag2), res)
+    hist = np.histogram(mag2, bins=bins)[0]
+    # drop the too fine bins
+    binds = spread_bins(hist, threash=threash)
+    # return the hist, bins.
+    if len(binds) == 0:
+        binds = np.arange(len(bins))
+    return np.histogram(mag2, bins=bins[binds])
+
+
+def spread_bins(hist, threash=10):
+    '''
+    goes through in index order of hist and returns indices such that
+    each bin will add to at least threash.
+    Returns the indices of the new bins to use (should then re-hist)
+    ex:
+    bins is something set that works well for large densities
+    h = np.histogram(mag2, bins=bins)[0]
+    binds = spread_bins(h)
+    hist, bins = np.histogram(mag2, bins=bins[binds])
+    '''
+    b = []
+    i = 1
+    j = 0
+    while i < len(hist):
+        while np.sum(hist[j:i]) < threash:
+            i += 1
+            #print j, i, len(hist)
+            if i > len(hist):
+                break
+        j = i
+        b.append(j)
+    return np.array(b[:-1])
 
 
 def brighter(mag2, trgb, inds=None):
@@ -10,6 +47,33 @@ def brighter(mag2, trgb, inds=None):
         i = np.intersect1d(i, inds)
     return i
 
+
+def extrap1d(x, y, xout_arr):
+    '''
+    linear extapolation from interp1d class, a way around bounds_error.
+    Adapted from:
+    http://stackoverflow.com/questions/2745329/how-to-make-scipy-interpolate-give-an-extrapolated-result-beyond-the-input-range
+    Returns the interpolator class and yout_arr
+    '''
+    # Interpolator class
+    f = interp1d(x, y)
+    xo = xout_arr
+    # Boolean indexing approach
+    # Generate an empty output array for "y" values
+    yo = np.empty_like(xo)
+
+    # Values lower than the minimum "x" are extrapolated at the same time
+    low = xo < f.x[0]
+    yo[low] =  f.y[0] + (xo[low] - f.x[0]) * (f.y[1] - f.y[0]) / (f.x[1] - f.x[0])
+
+    # Values higher than the maximum "x" are extrapolated at same time
+    high = xo > f.x[-1]
+    yo[high] = f.y[-1] + (xo[high] - f.x[-1]) * (f.y[-1] - f.y[-2]) / (f.x[-1] - f.x[-2])
+
+    # Values inside the interpolation range are interpolated directly
+    inside = np.logical_and(xo >= f.x[0], xo <= f.x[-1])
+    yo[inside] = f(xo[inside])
+    return f, yo
 
 def find_peaks(arr):
     '''
@@ -44,10 +108,15 @@ def find_peaks(arr):
 
     return turning_points
 
+def min_dist2d(xpoint, ypoint, xarr, yarr):
+    '''index and distance of point in [xarr, yarr] nearest to [xpoint, ypoint]'''
+    dist = np.sqrt((xarr - xpoint) ** 2 + (yarr - ypoint) ** 2)
+    return np.argmin(dist), np.min(dist)
 
 def closest_match2d(ind, x1, y1, x2, y2, normed=False):
     '''
-    finds closest point between x2[ind], y2[ind] and x1, y1. Just minimizes
+    finds closest point between of arrays x2[ind], y2[ind] and x1, y1.
+    Just minimizes
     the radius of a circle.
     '''
     if normed is True:
@@ -66,78 +135,6 @@ def closest_match(num, somearray):
             difference = np.abs(num - somearray[i])
             index = i
     return index, difference
-
-
-def bayesian_blocks(t):
-    """Bayesian Blocks Implementation
-
-    By Jake Vanderplas.  License: BSD
-    Based on algorithm outlined in
-    http://adsabs.harvard.edu/abs/2012arXiv1207.5578S
-
-    Parameters
-    ----------
-    t : ndarray, length N
-        data to be histogrammed
-
-    Returns
-    -------
-    bins : ndarray
-        array containing the (N+1) bin edges
-
-    Notes
-    -----
-    This is an incomplete implementation: it may fail for some
-    datasets.  Alternate fitness functions and prior forms can
-    be found in the paper listed above.
-    """
-    # copy and sort the array
-    t = np.sort(t)
-    N = t.size
-
-    # create length-(N + 1) array of cell edges
-    edges = np.concatenate([t[:1], 0.5 * (t[1:] + t[:-1]), t[-1:]])
-    block_length = t[-1] - edges
-
-    # arrays needed for the iteration
-    nn_vec = np.ones(N)
-    best = np.zeros(N, dtype=float)
-    last = np.zeros(N, dtype=int)
-
-    #-----------------------------------------------------------------
-    # Start with first data cell; add one cell at each iteration
-    #-----------------------------------------------------------------
-    for K in range(N):
-        # Compute the width and count of the final bin for all possible
-        # locations of the K^th changepoint
-        width = block_length[:K + 1] - block_length[K + 1]
-        count_vec = np.cumsum(nn_vec[:K + 1][::-1])[::-1]
-
-        # evaluate fitness function for these possibilities
-        fit_vec = count_vec * (np.log(count_vec) - np.log(width))
-        fit_vec -= 4  # 4 comes from the prior on the number of changepoints
-        fit_vec[1:] += best[:K]
-
-        # find the max of the fitness: this is the K^th changepoint
-        i_max = np.argmax(fit_vec)
-        last[K] = i_max
-        best[K] = fit_vec[i_max]
-
-    #-----------------------------------------------------------------
-    # Recover changepoints by iteratively peeling off the last block
-    #-----------------------------------------------------------------
-    change_points = np.zeros(N, dtype=int)
-    i_cp = N
-    ind = N
-    while True:
-        i_cp -= 1
-        change_points[i_cp] = ind
-        if ind == 0:
-            break
-        ind = last[ind - 1]
-    change_points = change_points[i_cp:]
-
-    return edges[change_points]
 
 
 def between(arr, mdim, mbrt, inds=None):
@@ -355,17 +352,41 @@ def smooth(x, window_len=11, window='hanning'):
         raise ValueError, "Input vector needs to be bigger than window size."
     if window_len<3:
         return x
-    
+
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError, \
             "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
-    
+
     s=np.r_[x[window_len-1:0:-1], x, x[-1:-window_len:-1]]
     #print(len(s))
     if window == 'flat': #moving average
         w=np.ones(window_len, 'd')
     else:
         w=eval('np.'+window+'(window_len)')
-    
+
     y=np.convolve(w/w.sum(), s, mode='valid')
     return y
+
+
+def gaussian(x, p):
+    '''
+    gaussian(arr,p): p[0] = norm, p[1] = mean, p[2]=sigma
+    '''
+    return p[0] * np.exp( -1 * (x - p[1])**2 / (2 * p[2]**2))
+
+
+def double_gaussian(x, p):
+    '''
+    gaussian(arr,p): p[0] = norm1, p[1] = mean1, p[2]=sigma1
+                     p[3] = norm2, p[4] = mean2, p[5]=sigma2
+    '''
+    return gaussian(x, p[:3]) + gaussian(x, p[3:])
+
+
+def mp_double_gauss(p, fjac = None, x = None, y = None, err = None):
+    '''
+    double gaussian for mpfit
+    '''
+    model = double_gaussian(x, p)
+    status = 0
+    return [status, (y - model) / err]
