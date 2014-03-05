@@ -1,4 +1,4 @@
- from copy import deepcopy
+from copy import deepcopy
 import sys
 import numpy as np
 import os
@@ -1237,7 +1237,8 @@ class TrackDiag(object):
 
         line_pltkw = {'color': 'black'}
         point_pltkw = {'marker': 'o', 'ls': ''}
-        (fig, axs) = rspg.setup_multiplot(nplots, **{'figsize': (12, 8)})
+        (fig, axs) = rspg.setup_multiplot(nplots,
+                                          subplots_kwargs={'figsize': (12, 8)})
 
         for i, ax in enumerate(np.ravel(axs)):
             if i == len(plots):
