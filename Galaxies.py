@@ -2424,22 +2424,6 @@ class artificial_star_tests(object):
 
         return comp1, comp2
 
-    def completeness_fraction(self, mag_bins):
-        '''
-        get the completeness fraction for a given list of magnitudes.
-        mag_bins can be either mag1 or mag2, will return both completeness
-        fractions.
-        '''
-        if not hasattr(self, 'fcomp1'):
-            print 'Warning: completeness has not been calculated with interpolation. Assuming you want combined filters...'
-            self.completeness(combined_filters=True, interpolate=True)
-
-        cfrac1 = self.fcomp1(mag_bins)
-
-        cfrac2 = self.fcomp2(mag_bins)
-
-        return cfrac1, cfrac2
-
 def stellar_prob(obs, model, normalize=False):
     '''
     FROM MATCH README

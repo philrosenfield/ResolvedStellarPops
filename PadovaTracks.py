@@ -1,4 +1,4 @@
-from copy import deepcopy
+ from copy import deepcopy
 import sys
 import numpy as np
 import os
@@ -76,7 +76,7 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
 
 class Track(object):
     '''
-    Padova stellar evolutoni track object. 
+    Padova stellar evolutoni track object.
     '''
     def __init__(self, filename, ptcri=None, min_lage=0.1, cut_long=False):
         (self.base, self.name) = os.path.split(filename)
@@ -94,7 +94,7 @@ class Track(object):
             print 'Track has age decreasing!!', self.mass
             bads, = np.nonzero(np.diff(self.data.AGE) < 0)
             print self.data.MODE[bads]
-            
+
     def calc_Mbol(self, z_sun=4.77):
         '''
         Uses Z_sun = 4.77
@@ -265,7 +265,7 @@ class DefineEeps(object):
     AGB_LY2*     Hydrogen wins again (before TPAGB).
        **For low-mass HB (<0.485) the hydrogen fusion is VERY low (no atm!),
             and never surpasses helium, this is still a to be done!!
-    
+
     Not yet implemented, no TPAGB tracks decided:
     x When the energy produced by the CNO cycle is larger than that
     provided by the He burning during the AGB (Lcno > L3alpha)
@@ -359,7 +359,7 @@ class DefineEeps(object):
             logger.error(pprint.pprint(track.iptcri))
         if debug is True:
             pass
-  
+
     def remove_dupes(self, x, y, z, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
@@ -572,7 +572,7 @@ class DefineEeps(object):
 
         MS_TO is either:
         a) the max log te on the MS found either simply by the peak, or by
-            subtracting off a linear fit in log_te vs model number 
+            subtracting off a linear fit in log_te vs model number
             (see c. above)
         b) zero
 
@@ -658,7 +658,7 @@ class DefineEeps(object):
                 tmin_ind, dif = math_utils.closest_match2d(aind, mode,
                                                            xdata, xnew, ynew)
                 ms_to = inds[tmin_ind]
-            
+
             if ms_to == -1:
                 logger.error('no ms to? M=%.4f Z=%.4f' % (track.mass, track.Z))
                 ms_to = 0
@@ -934,7 +934,7 @@ class DefineEeps(object):
         calls define_eep_stages
         iptcri is the critical point index rel to track.data
         mptcri is the model number of the critical point
-        
+
         there is a major confusion here... ptcri is a super class or should be
         track specific? right now it's being copied everywhere. stupido.
         '''
@@ -978,10 +978,10 @@ class DefineEeps(object):
                 sinds = np.array([i for i, a in enumerate(self.ptcri.sandro_eeps)
                                   if a in self.ptcri.eep.eep_list])
                 track.iptcri[pinds] = mptcri[sinds] - 2
-                
+
                 # but if the track did not actually make it to that EEP, no -2!
                 track.iptcri[track.iptcri < 0] = 0
-                
+
                 # and if sandro cut the track before it reached this point,
                 # no index error!
                 track.iptcri[track.iptcri > len(track.data.MODE)] = 0
@@ -1041,7 +1041,7 @@ class DefineEeps(object):
         xdata = track.data.LOG_TE[inds][non_dupes]
         ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
         step_size = np.max([ave_data_step, min_step])
-        
+
         arb_arr = np.arange(0, 1, step_size)
         return tckp, step_size, non_dupes
 
@@ -1402,7 +1402,7 @@ class critical_point(object):
         self.load_ptcri(filename, eep_obj=eep_obj)
         self.base, self.name = os.path.split(filename)
         self.get_args_from_name(filename)
-    
+
     def get_args_from_name(self, filename):
         '''
         god i wish i knew regex
@@ -1474,14 +1474,14 @@ class critical_point(object):
                                      range(len(eep_obj.eep_list))))
             self.please_define = [c for c in eep_obj.eep_list
                                   if c not in col_keys]
-            
+
             if eep_obj.eep_list_hb is not None:
                 self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
                                         range(len(eep_obj.eep_list_hb))))
                 # there is no mixture between Sandro's HB eeps since there
                 # are no HB eeps in the ptcri files. Define them all here.
                 self.please_define_hb = eep_obj.eep_list_hb
-            
+
             self.eep = eep_obj
         else:
             self.please_define = []
@@ -1512,10 +1512,10 @@ class eep(object):
 
 class TrackSet(object):
     '''
-    
+
     '''
     def __init__(self, inputs):
-        
+
         if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
             self.load_ptcri_eep(inputs)
         else:
@@ -1714,9 +1714,9 @@ class TrackSet(object):
                 ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
                          for cp in plots[j]]
                 ainds = [i for i in ainds if i < len(ptcri)]
-                
+
                 inds = ptcri[ainds]
-                
+
 
                 if np.sum(inds) == 0:
                     continue
@@ -1832,7 +1832,7 @@ class TrackSet(object):
 
     def all_inds_of_eep(self, eep_name):
         '''
-        get all the ind for all tracks of some eep name, for example 
+        get all the ind for all tracks of some eep name, for example
         want ms_to of the track set? set eep_name = point_c if sandro==True.
         '''
         inds = []
@@ -1961,7 +1961,7 @@ class MatchTracks(object):
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname, dpi=300)
-    
+
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     '''
@@ -2076,13 +2076,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 #logger.error('skipping %s-%s\ncause the second eep is zippo.'
                 #               % (this_eep, next_eep))
                 continue
-            
+
             if ithis_eep == -1:
                 print mess
                 continue
 
             inds = np.arange(ithis_eep, inext_eep + 1)
-            
+
             if len(inds) == 0:
                 logger.error(mess)
                 logger.error(
@@ -2098,7 +2098,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                       % (this_eep, next_eep)
                 print track.base, track.name
                 continue
-            
+
             tckp, _, _ = self.interpolate_te_l_age(track, inds)
             agenew, tenew, lnew = splev(np.linspace(0, 1, nticks[i] + 1), tckp)
             test = np.diff(agenew) > 0
@@ -2182,7 +2182,6 @@ def do_entire_set(inputs):
         plt.close('all')
 
 
-
 def set_outdirs(inputs, prefix):
     if not hasattr(inputs, 'tracks_dir'):
         print 'No tracks_dir set, using current location'
@@ -2258,7 +2257,7 @@ class f4_file(object):
         For each block the columns are:
         1: the region (S,H,C)
 
-        2S:     MODELL  = the model number 
+        2S:     MODELL  = the model number
         2H:     allways = 0 not defined
         2C:     CNO burning still not defined
 
@@ -2299,7 +2298,7 @@ class f4_file(object):
         self.surface.dtype.names = tuple('Surface MODE ALTER Q_BOT QINTE TINTE B_SLX B_SLNU'.split()) + self.surface.dtype.names[8:]
         self.hburning.dtype.names = tuple('Hburning MODE SLX T_BOT QHEL THEL B_SLY B_SEG'.split()) + self.hburning.dtype.names[8:]
         self.center.dtype.names = tuple('Center CNO SLY RH_BOT LOG_L LOG_TE B_SLC HM_CHE'.split()) + self.center.dtype.names[8:]
-        
+
 
 def verify_ptcri_file(ptcri_file, track_files):
     ptcri =  critical_point.load_ptcri(ptcri_file)
