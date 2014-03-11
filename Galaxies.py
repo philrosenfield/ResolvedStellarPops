@@ -956,6 +956,7 @@ class galaxy(star_pop):
         self.z = z
         self.Av = Av
         self.dmod = dmod
+        self.photsys = photsys
         self.load_data(fname, filetype=filetype, hla=hla, angst=angst,
                        band=band, photsys=photsys, filter1=filter1,
                        filter2=filter2, ext=ext)
@@ -974,8 +975,8 @@ class galaxy(star_pop):
 
             self.trgb_av_dmod()
             # Abs mag
+        if self.dmod is not None and self.photsys is not None:
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
-            #self.z = galaxy_metallicity(self, self.target)
 
     def load_data(self, fname, filetype=None, hla=True, angst=True, ext=None,
                   band=None, photsys=None, filter1=None, filter2=None):
@@ -1485,7 +1486,7 @@ class simgalaxy(star_pop):
         bcols = brewer2mpl.get_map('Paired', 'qualitative', len(ustage))
         cols = bcols.mpl_colors
         subplots_kwargs = {'sharex': True, 'sharey': True, 'figsize': (12, 8)}
-        fig, (axs) = rspgraph.setup_multiplot(nplots, **subplots_kwargs)
+        fig, (axs) = rspgraph.setup_multiplot(nplots, subplots_kwargs=subplots_kwargs)
         return fig, (axs), cols
 
     def cmd_by_stage(self, color, mag2, inds=None, xlim=None, ylim=None,

@@ -80,7 +80,7 @@ class model_grid(object):
         string = os.path.split(cmd_input)[1].replace('.dat','').split('_')
         self.mix = string[2]
         self.model = '_'.join(string[3:])
-        return 
+        return
 
     def filename_fmt(self, pref, to, tf, z):
         '''
@@ -95,10 +95,12 @@ class model_grid(object):
         '''
         makes galaxy_input file forcing only sfr_file and object_mass
         to be changed from default. Any other changes passed as galaxy_input_kw
-        dictionary. 
+        dictionary.
         '''
-        gal_inppars = fileIO.input_parameters(TrilegalUtils.galaxy_input_dict())
-        (mag_num, mag_file) = TrilegalUtils.find_photsys_number(self.photsys, 
+        first_dict = {'filter1': self.filter,
+                      'photsys': self.photsys}
+        gal_inppars = fileIO.input_parameters(TrilegalUtils.galaxy_input_dict(**first_dict))
+        (mag_num, mag_file) = TrilegalUtils.find_photsys_number(self.photsys,
                                                                 self.filter)
         default_kw = {'object_sfr_file': sfr_file,
                       'object_mass': self.object_mass,
@@ -150,7 +152,7 @@ class model_grid(object):
                     else:
                         TrilegalUtils.run_trilegal(self.cmd_input,
                                                    galaxy_input, output)
-        
+
         if clean_up is True:
             print 'now cleaning up files'
             self.delete_columns_from_files()
@@ -174,7 +176,7 @@ class model_grid(object):
 
         self.grid = grid
         return
-    
+
     def delete_columns_from_files(self, keep_cols='default', del_cols=None,
                                   fmt='%.4f'):
         '''
@@ -186,10 +188,10 @@ class model_grid(object):
 
         another option is to make the files all binary too.
 
-        this will keep only columns on the keep_cols list, 
+        this will keep only columns on the keep_cols list,
         right now it only works if it's default.
-        
-        del_cols not implemented yet, I don't know how general this should be 
+
+        del_cols not implemented yet, I don't know how general this should be
         living here.
         '''
         if not hasattr(self, 'grid'):
@@ -197,12 +199,12 @@ class model_grid(object):
         if 'acs' in self.photsys:
             print 'delete_columns_from_files: must add F475W to cols list as default'
             return
-    
+
         if keep_cols == 'default':
-            cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0', 
+            cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0',
                     'Av', 'm2/m1', 'mbol', 'F555W', 'F606W', 'F814W', 'stage']
             fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %.3f %i'
-        
+
         for file in self.grid:
             tab = fileIO.read_table(file)
             if len(tab.key_dict.keys()) == len(cols):
@@ -211,18 +213,18 @@ class model_grid(object):
             vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
             new_tab = np.delete(tab.data_array, vals, axis=1)
             fileIO.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
-            
+
     def split_on_val(self, string, val):
-        return float(os.path.split(string)[1].split('_')[val])    
+        return float(os.path.split(string)[1].split('_')[val])
 
     def split_on_key(self, string, key):
         val = self.key_map(key)
         return self.split_on_val(string, val)
-        
+
     def key_map(self, key):
         possible_keys = ['pref', 'mix', 'model1', 'model2', 'to', 'tf', 'z', 'photsys']
         return possible_keys.index(key)
-        
+
     def grid_values(self, *keys):
         '''
         vals are strings like to, tf etc. This probably won't need to be used.
@@ -234,14 +236,14 @@ class model_grid(object):
         for k,v in zip(keys, vals):
             grid_dict[k] = [self.split_on_val(g, v) for g in self.grid]
             self.__setattr__('grid_%ss' % k, np.unique(grid_dict[k]))
-            
+
     def filter_grid(self, younger=None, older=None, metal_rich=None,
                     metal_poor=None, z=None):
         if not hasattr(self, 'grid'):
             self.load_grid()
         sub_grid = self.grid[:]
 
-        if older is not None and younger is not None: 
+        if older is not None and younger is not None:
             assert older < younger
 
         if z is not None:
@@ -258,7 +260,7 @@ class model_grid(object):
                     s_grid = filter((lambda c: self.split_on_val(c, 4) == maxage), sub_grid)
                     print s_grid
             sub_grid = s_grid
-        
+
         if younger is not None:
             if len(sub_grid) == 0:
                 print 'no combo'
@@ -276,7 +278,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
     '''
     inherits from trilegal sfh and model_grid.
     '''
-    def __init__(self, sfr_file, filter1, filter2, galaxy_input=False, 
+    def __init__(self, sfr_file, filter1, filter2, galaxy_input=False,
                  indict={}):
         model_grid.__init__(self, **indict)
         TrilegalUtils.trilegal_sfh.__init__(self, sfr_file,
@@ -346,12 +348,12 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             logging.debug('build cmd loop... %i of %i' % (i, len(these_gals) - 1))
             if not hasattr(sgal, 'grid_sfr'):
                 sgal.burst_duration()
-                mass = sgal.data.get_col('m_ini')[sgal.rec]        
+                mass = sgal.data.get_col('m_ini')[sgal.rec]
                 tot_mass = np.sum(mass)
                 # the mass of stars formed per year in the grid
                 grid_sfr = tot_mass / sgal.burst_length
-                sgal.grid_sfr = grid_sfr  
-                sgal.mass = mass  
+                sgal.grid_sfr = grid_sfr
+                sgal.mass = mass
             else:
                 grid_sfr = sgal.grid_sfr
 
@@ -387,7 +389,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                     break
 
                 if nstars_guess > nstars:
-                    # randomly select the guess number but trick 
+                    # randomly select the guess number but trick
                     # random sample into doing a shuffle and a sample to get
                     # all the stars. I.e.,
                     # nstars_guess = nstars * how_big + how_extra
@@ -413,7 +415,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
                 sgal.make_hess(mbinsize, useasts=True, slice_inds=rand_inds,
                                **hess_kw)
                 try:
-                    sup_hess += sgal.hess[2] 
+                    sup_hess += sgal.hess[2]
                 except NameError:
                     sup_hess = sgal.hess[2]
                 '''
@@ -430,7 +432,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
             else:
                 logger.debug('to: %.1f tf: %.1f sfr: %.4g' % (self.match_sfr[0][i], self.match_sfr[1][i], sfr_arr[i]))
-        
+
         mbg.close()
         try:
             obg.close()
@@ -444,14 +446,14 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         '''
         why is this here, not in model grid class? Because I want it to be
         limited to a sfr file, so I don't go crazy with sim galaxies sizes.
-        
+
         this will run trilegal at a higher mass to make sure there is at least
         as much sf in a time bin as there is estimated in the sfr file.
-        
+
         this should be tricked into using not only the processed sfr file
-        (emcee prior) but also the new sfr array that will be passed. Yeah, 
+        (emcee prior) but also the new sfr array that will be passed. Yeah,
         it will slow down the works.
-        
+
         if sfr_arr is None, will use initial sfr from sfr_file.
         '''
         if not hasattr(self, 'sgals'):
@@ -479,7 +481,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             print 'you\'re golden!'
             return
         if object_mass is None:
-            object_mass = self.object_mass    
+            object_mass = self.object_mass
         new_objmass = object_mass * 10
         assert new_objmass < 5e7, 'obj mass is getting out of hand'
         galaxy_inkw = {'object_mass': new_objmass}
@@ -495,7 +497,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
             output =  self.filename_fmt(self.out_pref, to, tf, z)
             print 'now doing %.2f-%.2f, %.4f %g' % (to, tf, z, new_objmass)
             self.write_sfh_file(sfh_file, to, tf, z)
-            self.make_galaxy_input(sfh_file, galaxy_input, 
+            self.make_galaxy_input(sfh_file, galaxy_input,
                                    galaxy_inkw=galaxy_inkw)
             # run trilegal
             if run_trilegal is True:
@@ -507,7 +509,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 
     def build_sfh(self):
         '''
-        
+
         '''
         if hasattr(self, 'sgals'):
             return
@@ -520,7 +522,7 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         assert np.diff(self.lage[0::2][:2]) > self.dlogt, \
             'time steps too small in sfr_file.'
 
-        # sfr is series of step functions get only values 
+        # sfr is series of step functions get only values
         sinds, = np.nonzero(np.round(self.sfr, 6))
         to = self.lage[sinds][0::4]
         tf = self.lage[sinds][1::4]
@@ -561,16 +563,16 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
         self.sfr_arr = self.match_sfr[2]
 
     def sort_on_key(self, key):
-        ''' 
+        '''
         sorts on some _ split key value, key to val map is defined in key_map.
-        there should be some way to combine that with fileformat but I'm 
+        there should be some way to combine that with fileformat but I'm
         trying to go quickly...
         ex:
         self.sort_on_key('to')
         '''
 
         assert hasattr(self, 'sgals'), 'need sgals initialized'
-    
+
         names = [self.sgals.galaxies[i].name for i in
                  range(len(self.sgals.galaxies))]
         val = self.key_map(key)
@@ -588,4 +590,5 @@ if __name__ == '__main__':
     import pdb
     pdb.set_trace()
     mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
-                 clean_up=indict.get('clean_up', True))
+                 clean_up=indict.get('clean_up', True), galaxy_inkw={'filter1': indict.get('filter')}
+                                                                     )

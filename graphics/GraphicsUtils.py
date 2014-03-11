@@ -6,7 +6,6 @@ from matplotlib import cm, rc, rcParams
 from matplotlib.patches import FancyArrow
 from matplotlib.ticker import NullFormatter, MultipleLocator
 
-
 nullfmt   = NullFormatter() # no labels
 rcParams['text.usetex']=True
 rcParams['text.latex.unicode']=False
@@ -22,7 +21,7 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
     Code adapted from Dr. Adrienne Stilp
     Stitch two color maps together:
         cmap1 from 0 and stitch_frac
-        and 
+        and
         cmap2 from stitch_frac to 1
         with dfrac spacing inbetween
 
@@ -91,7 +90,7 @@ def forceAspect(ax, aspect=1):
 
 
 def plot_numbs(ax, item, xpos, ypos, **kwargs):
-    x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20, 
+    x= ax.annotate(r'$%i$' % item, xy=(xpos, ypos), ha='left', size=20,
                    **kwargs)
     return
 
@@ -100,17 +99,17 @@ def setup_multiplot(nplots, xlabel=None, ylabel=None, title=None,
                     subplots_kwargs={}):
     '''
     fyi subplots args:
-        nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True, 
+        nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True,
         subplot_kw=None, **fig_kw
     '''
     nx = np.round(np.sqrt(nplots))
     nextra = nplots - nx ** 2
     ny = nx
-    if nextra > 0: 
+    if nextra > 0:
         ny += 1
     nx = int(nx)
     ny = int(ny)
-    
+
     (fig, axs) = plt.subplots(nrows=nx, ncols=ny, **subplots_kwargs)
     if ylabel is not None:
         axs[0][0].annotate(ylabel, fontsize=60, xy=(0.025, 0.5),
@@ -122,20 +121,21 @@ def setup_multiplot(nplots, xlabel=None, ylabel=None, title=None,
     if title is not None:
         axs[0][0].annotate(title, fontsize=60, xy=(0.5, 1. - 0.025),
                          xycoords='figure fraction', va='center')
-        
+
     return (fig, axs)
 
 
 def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
     # inds from calc_LFIR are based on only resolved stars.
-    
+    from ResolvedStellarPops.TrilegalUtils import get_label_stage
+
     if cols == None:
         cols = discrete_colors(len(np.unique(stages)))
     for i, s in enumerate(np.unique(stages)):
         ind, = np.nonzero(stages == s)
         if ind.size == 0:
             continue
-        ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0, label=str(s))
+        ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0, label=get_label_stage(int(s)))
     return ax, cols
 
 
@@ -144,20 +144,20 @@ def discrete_colors(Ncolors, colormap='gist_rainbow'):
     returns list of RGBA tuples length Ncolors
     '''
     cmap = cm.get_cmap(colormap)
-    return [cmap(1. * i / Ncolors) for i in range(Ncolors)] 
+    return [cmap(1. * i / Ncolors) for i in range(Ncolors)]
 
 
 
 def load_scatter_kwargs(color_array, cmap=cm.jet):
-    kw = {'zorder': 100, 
-          'alpha': 1, 
-          'edgecolor': 'k', 
-          'c': color_array, 
-          'cmap': cmap, 
-          'vmin': np.min(color_array), 
+    kw = {'zorder': 100,
+          'alpha': 1,
+          'edgecolor': 'k',
+          'c': color_array,
+          'cmap': cmap,
+          'vmin': np.min(color_array),
           'vmax': np.max(color_array)
           }
-    
+
     return kw
 
 
@@ -169,10 +169,10 @@ def scatter_colorbar(x, y, color_array, markersize = 20, ax = None):
     scatter_kwargs = load_scatter_kwargs(color_array)
     if ax == None: ax = plt.axes()
     sc = ax.scatter(x, y, markersize, **scatter_kwargs)
-    
+
     # lets you get the colors if you want them for something else
     # ie sc.get_facecolors()
-    # you might not need to do this     
+    # you might not need to do this
     #sc.update_scalarmappable()
 
     # then to get the colorbar
@@ -223,14 +223,14 @@ def plot_cmd(fitsfile=None, yaxis='I', upper_contour=False, **kwargs):
         except:
             mag1 = fits.get_col('MAG1_ACS')
             mag2 = fits.get_col('MAG2_ACS')
-    
+
     abs_mag = kwargs.get('abs_mag', True)
     if abs_mag == True:
         mag1 = Astronomy.HSTmag2Mag(mag1, title, filter1)
         mag2 = Astronomy.HSTmag2Mag(mag2, title, filter2)
-    
+
     color = mag1-mag2
-        
+
     if yaxis == 'I':
         mag = mag2
         Filter = filter2
@@ -250,7 +250,7 @@ def plot_cmd(fitsfile=None, yaxis='I', upper_contour=False, **kwargs):
     if new_plot == True:
         fig = plt.figure()
         ax = plt.axes()
-    
+
     ax.plot(color, mag, ', ', color='black')
     cs = plt.contour(Z, 10, extent=[xrange[0], xrange[-1], yrange[0], yrange[-1]], zorder=10)
     #ax.clabel(cs, cs.levels, inline=True, fmt='%r %%', fontsize=10)
@@ -273,7 +273,7 @@ def plot_cmd(fitsfile=None, yaxis='I', upper_contour=False, **kwargs):
 
 def set_up_three_panel_plot():
     fig = plt.figure(figsize=(8, 8))
-    
+
     left, width= 0.1, 0.4
     bottom, height = 0.1, 0.4
     d=0.01
@@ -283,7 +283,7 @@ def set_up_three_panel_plot():
     bottoms = [mid, mid, bottom]
     widths = [width, width, 2*width+d]
     heights = [height, height, height-0.1]
-    
+
     axs = [plt.axes([l, b, w, h]) for l, b, w, h in zip(lefts, bottoms, widths, heights)]
     return axs
 
@@ -291,19 +291,19 @@ def set_up_three_panel_plot():
 def two_panel_plot(sizex, sizey, xlab1, xlab2, ylab, ylab2=None, ftsize=20, mag2_cut=0, mag2_max=1):
     fig = plt.figure(2, figsize=(sizex, sizey))
     left, width = 0.1, 0.4
-    bottom, height = 0.12, 0.8  
-    
+    bottom, height = 0.12, 0.8
+
     left2 = left+width + 0.065
     if ylab2 != None: left2 = left+width + 0.08
     axis1 = [left, bottom, width, height]
     axis2 = [left2, bottom, width, height]
-    
+
     ax1 = plt.axes(axis1)
     ax1.set_xlim( (mag2_cut, mag2_max) ) # set all axes limits here
     #ax1.set_ylim( (0.0001, 10.) )
     ax1.set_xlabel(r'%s'%xlab1, fontsize=ftsize)
     ax1.set_ylabel(r'%s'%ylab, fontsize=ftsize)
-    
+
     ax2 = plt.axes(axis2)
     ax2.set_xlim( ax1.get_xlim() )
     #ax2.set_ylim( ax1.get_ylim() )
@@ -316,20 +316,20 @@ def two_panel_plot_vert(oney=True, ftsize=20, mag2_cut=0, mag2_max=1):
     left, width = 0.13, 0.83
     bottom, height = 0.1, 0.41
     dh = 0.03
-    
+
     axis1 = [left, bottom, width, height]
     axis2 = [left, (bottom+height+dh), width, height]
-    
+
     ax1 = plt.axes(axis1)
     ax1.set_xlim( (mag2_cut, mag2_max) ) # set all axes limits here
     #ax1.set_ylim( (0.0001, 10.) )
     if oney==True: ax1.annotate(r'$\#/ 3.6 \mu \rm{m\ Region\ Integrated\ Flux\ (Jy}^{-1}\rm{)}$', fontsize=ftsize, xy=(0.025, .5), xycoords='figure fraction', va='center', rotation='vertical')
-    ax1.set_xlabel(r'$\rm{mag}$', fontsize=ftsize)    
+    ax1.set_xlabel(r'$\rm{mag}$', fontsize=ftsize)
     ax2 = plt.axes(axis2)
     ax2.set_xlim( ax1.get_xlim() )
     #ax2.set_ylim( ax1.get_ylim() )
     ax2.xaxis.set_major_formatter(nullfmt)
-    
+
     return ax1, ax2
 
 def setup_four_panel(ftsize=20):
@@ -338,45 +338,45 @@ def setup_four_panel(ftsize=20):
     bottom, height = 0.1, 0.4
     lefter = left+width+0.01
     higher = bottom+height+0.01
-    
+
     # plot and fig sizes
     fig = plt.figure(1, figsize=(8, 8))
-    
+
     ll_axis = [left, bottom, width, height]
-    lr_axis = [lefter, bottom, width, height] 
+    lr_axis = [lefter, bottom, width, height]
     ul_axis = [left, higher, width, height]
     ur_axis = [lefter, higher, width, height]
-    
+
     ax_ll = plt.axes(ll_axis)
     ax_ll.set_xlim( (-0.75, 1)) # model and data x limits here
     ax_ll.set_ylim( (24.8, 18)) # set all y limits here
-    
+
     ax_lr = plt.axes(lr_axis)
     ax_lr.set_xlim( ax_ll.get_xlim() )
-    ax_lr.set_ylim( ax_ll.get_ylim() )    
-    
+    ax_lr.set_ylim( ax_ll.get_ylim() )
+
     ax_ul = plt.axes(ul_axis)
     ax_ul.set_xlim( ax_ll.get_xlim() )
-    ax_ul.set_ylim( ax_ll.get_ylim() )    
-    
+    ax_ul.set_ylim( ax_ll.get_ylim() )
+
     ax_ur = plt.axes(ur_axis)
     ax_ur.set_xlim( ax_ll.get_xlim() )
-    ax_ur.set_ylim( ax_ll.get_ylim() )    
-    
+    ax_ur.set_ylim( ax_ll.get_ylim() )
+
     ax_lr.yaxis.set_major_formatter(nullfmt)
     ax_ur.yaxis.set_major_formatter(nullfmt)
     ax_ur.xaxis.set_major_formatter(nullfmt)
     ax_ul.xaxis.set_major_formatter(nullfmt)
-    
+
     # titles
     #x = fig.text(0.5, 0.96, r'$\rm{%s}$' % ('Disk Field'), horizontalalignment='center', verticalalignment='top', size=20)
     ax_ur.set_title(r'$\rm{Disk\ Field}$', color='black', fontsize=ftsize)
     ax_ul.set_title(r'$\rm{Bulge\ Field}$', color='black', fontsize=ftsize)
     ax_ll.set_ylabel(r'$F336W$', fontsize=ftsize)
     ax_ll.set_xlabel(r'$F275W-F336W$', fontsize=ftsize)
-    ax_ul.set_ylabel(ax_ll.get_ylabel(), fontsize=ftsize)    
+    ax_ul.set_ylabel(ax_ll.get_ylabel(), fontsize=ftsize)
     ax_lr.set_xlabel(ax_ll.get_xlabel(), fontsize=ftsize)
-    
+
     return ax_ll, ax_lr, ax_ul, ax_ur
 
 def setup_five_panel_plot(ftsize=20):
@@ -402,7 +402,7 @@ def setup_five_panel_plot(ftsize=20):
         if axs.index(ax) > 0: ax.yaxis.set_major_formatter(nullfmt)
         ax.set_xlabel(r'$F275W-F336W$', fontsize=ftsize)
         if axs.index(ax) ==0: ax.set_ylabel(r'$F336W$', fontsize=ftsize)
-        
+
     return axs
 
 
@@ -442,7 +442,7 @@ def histOutline(dataIn, *args, **kwargs):
 Stuff from Adrienne:
 I started this email because I wanted to know if you had the answer, and I found it along the way. Now I think it's useful knowledge. Basically, it's an easy way to put a legend anywhere on a figure in figure coordinates, not axis coordinates or data coordinates. Helpful if you have one legend for multiple subplots.
 
-Basically, you can do a transform in legend to tell matplotlib that you're specifying the coordinates in data units or in axis units, ie, 
+Basically, you can do a transform in legend to tell matplotlib that you're specifying the coordinates in data units or in axis units, ie,
 
 bbox_transform = ax.transAxes (0 - 1 means left to right or bottom to top of current axis)
 
@@ -453,20 +453,20 @@ bbox_transform = fig.transFigure (specify location in figure coordinates, so 0 -
 Now I am trying to figure out how to get it to use points from different subplots in one legend.. fun.
 
 proxy artists:
-    p_corr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = 'k', 
+    p_corr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = 'k',
                                      linestyle = 'None')
-    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = '0.7', 
-                                       linestyle = 'None', 
+    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = 'o', color = '0.7',
+                                       linestyle = 'None',
                                        markeredgecolor = '0.7')
 
-    l = plt.legend([p_corr, p_uncorr], ["Correlated", "Uncorrelated"], 
-                   bbox_transform = fig.transFigure, loc = 'upper right', 
-                   bbox_to_anchor = (0.9, 0.9), 
-                   numpoints = 1, 
-                   title = "Log scaling", 
-                   borderpad = 1, 
-                   handletextpad = 0.3, 
-                   labelspacing = 0.5)#, 
+    l = plt.legend([p_corr, p_uncorr], ["Correlated", "Uncorrelated"],
+                   bbox_transform = fig.transFigure, loc = 'upper right',
+                   bbox_to_anchor = (0.9, 0.9),
+                   numpoints = 1,
+                   title = "Log scaling",
+                   borderpad = 1,
+                   handletextpad = 0.3,
+                   labelspacing = 0.5)#,
                    #prop = matplotlib.font_manager.FontProperties(size=20))
 
 I've been looking for this for a while. I don't know how you do colors in plotting but I think it's different than me. This is good for scatterplots with color.
@@ -476,7 +476,7 @@ Easy to way go from array of float values of any range -> floats between 0 and 1
 
 import matplotlib
 
-norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array), 
+norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array),
     vmax = np.max(float_array) )
 
 normed_floats = norm_instance( float_array )
@@ -495,7 +495,7 @@ There's also a matplotlib.colors.LogNorm if you want to normalize the colors on 
 import matplotlib.ticker as poop
 ax.yaxis.set_major_formatter( poop.FormatStrFormatter('%g'))
 '''
-    
+
 '''
 POWERLAWS
 

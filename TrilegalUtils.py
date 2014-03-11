@@ -471,7 +471,7 @@ def find_photsys_number(photsys, filter1):
     '''
     mag_file = os.path.join(os.environ['BCDIR'],
                             'tab_mag_odfnew/tab_mag_%s.dat' % photsys)
-    magline = open(mag_file, 'r').readline().strip().split()
+    magline = open(mag_file, 'r').readlines()[1].strip().split()
     return magline.index(filter1), mag_file
 
 
