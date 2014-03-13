@@ -585,10 +585,23 @@ class sf_stitcher(TrilegalUtils.trilegal_sfh, model_grid):
 if __name__ == '__main__':
     input_file = sys.argv[1]
     indict = fileIO.load_input(input_file)
-    fileIO.ensure_file(indict['cmd_input'])
-    mg = model_grid(**indict)
-    import pdb
-    pdb.set_trace()
-    mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
-                 clean_up=indict.get('clean_up', True), galaxy_inkw={'filter1': indict.get('filter')}
-                                                                     )
+    if not 'cmd_input' in indict.keys():
+        cmd_input_src = indict['cmd_input_src']
+        cmd_input_fmt = indict['cmd_input_fmt']
+        cmd_inputs = fileIO.get_files(cmd_input_src, cmd_input_fmt)
+    else:
+        cmd_inputs = [indict['cmd_input']]
+    #import pdb
+    #pdb.set_trace()
+    base = indict['location']
+    for cmd_input in cmd_inputs:
+        indict['cmd_input'] = cmd_input
+        fileIO.ensure_file(indict['cmd_input'])
+        # adding a directory in location for the sims.
+        location = os.path.split(cmd_input.replace('.dat', '').replace('cmd_input_', ''))[1]
+        indict['location'] = os.path.join(base, location)
+
+        mg = model_grid(**indict)
+        mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
+                     clean_up=indict.get('clean_up', True),
+                     galaxy_inkw={'filter1': indict.get('filter')})

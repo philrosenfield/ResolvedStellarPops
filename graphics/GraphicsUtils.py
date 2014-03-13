@@ -112,14 +112,14 @@ def setup_multiplot(nplots, xlabel=None, ylabel=None, title=None,
 
     (fig, axs) = plt.subplots(nrows=nx, ncols=ny, **subplots_kwargs)
     if ylabel is not None:
-        axs[0][0].annotate(ylabel, fontsize=60, xy=(0.025, 0.5),
+        axs[0][0].annotate(ylabel, fontsize=45, xy=(0.04, 0.5),
                          xycoords='figure fraction', va='center',
                          rotation='vertical')
     if xlabel is not None:
-        axs[0][0].annotate(xlabel, fontsize=60, xy=(0.5, 0.025),
+        axs[0][0].annotate(xlabel, fontsize=45, xy=(0.5, 0.04),
                          xycoords='figure fraction', va='center')
     if title is not None:
-        axs[0][0].annotate(title, fontsize=60, xy=(0.5, 1. - 0.025),
+        axs[0][0].annotate(title, fontsize=45, xy=(0.5, 1. - 0.04),
                          xycoords='figure fraction', va='center')
 
     return (fig, axs)
