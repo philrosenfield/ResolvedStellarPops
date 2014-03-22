@@ -1,9 +1,11 @@
+import fileIO
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import subprocess
-import fileIO
-import logging
+import sys
+
 logger = logging.getLogger()
 
 class Isochrone(object):
@@ -15,15 +17,15 @@ class Isochrone(object):
         if -1 in dif:
             order = np.argsort(self.data.M_ini)
             self.data = self.data[order]
-            
+
     def plot_isochrone(self, col1, col2, ax=None, fig=None, plt_kw={},
-                       mag_convert_kw={}, photsys=None, clean=False, inds=None, 
+                       mag_convert_kw={}, photsys=None, clean=False, inds=None,
                        reverse_x=False, reverse_y=False, pms=False, xlim=None,
                        ylim=None, xdata=None, ydata=None):
 
         if ax is None:
             fig, ax = plt.subplots()
-        
+
         if ydata is not None:
             y = ydata
         else:
@@ -47,20 +49,20 @@ class Isochrone(object):
                 x = self.data[col1]
 
             ax.set_xlabel('$%s$' % col1.replace('_','\ '), fontsize=20)
-        
+
         if pms is False and hasattr(self.data, 'stage'):
             nopms, = np.nonzero(self.data['stage'] != 0)
             if len(nopms) == 0:
                 return ax
         else:
             nopms = np.arange(len(y))
-        
+
         if inds is not None:
             inds = list(set(inds) & set(nopms))
-            
+
         else:
             inds = nopms
-        
+
         masses = self.data['M_ini']
         minds = np.argsort(masses[inds])
         x = x[inds]
@@ -116,7 +118,7 @@ class Isochrones(object):
 
         for iso in self.isos:
             plot_isochrone_kw['ax'] = iso.plot_isochrone(col1, col2, **plot_isochrone_kw)
-        
+
         return plot_isochrone_kw['ax']
 
     def get_all_isochrones(self, filename):
@@ -126,12 +128,12 @@ class Isochrones(object):
 
         header = [l for l in lines if l.startswith('#')]
         col_keys = header[-1].replace('#', '').replace('log', 'LOG_').replace('age/yr', 'AGE').replace('/', '_').replace('_Lo', '').replace('Te', 'TE').replace('(', '').replace(')', '').split()
-        
+
         isoch_inds = [i for i, h in enumerate(lines) if h.replace('#', '').lstrip().startswith('Iso')]
         isoch_lines = lines[isoch_inds]
         start_inds = np.array(isoch_inds) + 2
         start_inds = np.concatenate((start_inds, [-1]))
-        
+
         N_isochrones = len(isoch_inds)
         Nrows = len(lines) - len(header)
         Ncols = len(col_keys)
@@ -160,7 +162,7 @@ class Isochrones(object):
 
 def run_isoch(cmd_input_file, isoch_file, photsys, isoch_input_kw={},
               cmd_input_kw={}, overwrite=False, dry_run=False):
-    
+
     if not os.path.isfile(cmd_input_file) or overwrite is True:
         write_cmd_input_for_isoch(cmd_input_file, photsys,
                                   cmd_input_kw=cmd_input_kw)
@@ -206,6 +208,8 @@ def prepare_isoch_cmd(cmd_input_file, isoch_file, isoch_input_kw={}):
                      'isoch_file': isoch_file}.items() + isoch_input_kw.items())
     iso_inp.add_params(iso_dict)
     cmd = isoch_input_fmt() % iso_inp.__dict__
+    if iso_inp.kind_iso != 2:
+	cmd = cmd.replace('\n%s\n100' % iso_inp.kind_table, '\n100')
     return cmd
 
 
@@ -225,14 +229,14 @@ def cmd_input_for_isoch_fmt():
 %(kind_imf)i %(file_imf)s # file_imf
 %(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency
 ################################explanation######################
-kind_tracks: 1= normal file 
-file_isotrack: tracks for low+int mass 
-file_lowzams: tracks for low-ZAMS 
+kind_tracks: 1= normal file
+file_isotrack: tracks for low+int mass
+file_lowzams: tracks for low-ZAMS
 kind_tpagb: 0= none
-	    1= Girardi et al., synthetic on the flight, no dredge up 
+	    1= Girardi et al., synthetic on the flight, no dredge up
 	    2= Marigo & Girardi 2001, from file, includes mcore and C/O
-	    3= Marigo & Girardi 2007, from file, with period, mode and mloss  
-	    4= Marigo et al. 2012, from file, with period, mode and mloss  
+	    3= Marigo & Girardi 2007, from file, with period, mode and mloss
+	    4= Marigo et al. 2012, from file, with period, mode and mloss
 file_tpagb: tracks for TP-AGB
 kind_pulsecycle: 0= quiescent
 		 1= quiescent interpolated in mloss
@@ -257,7 +261,7 @@ kind_dustC: 0= no dust
             2= Bressan table
 file_dustC: list of files with tau-deltaBC relations
 
-kind_imf: 
+kind_imf:
 file_imf:
 """
     return fmt
@@ -265,7 +269,7 @@ file_imf:
 def cmd_input_for_isoch_dict(photsys):
     file_mag = 'tab_mag_odfnew/tab_mag_%s.dat' % photsys
     return {'kind_tracks': 2,
-            'file_isotrack': 'isotrack/parsec/CAF09_S12D_NS.dat',
+            'file_isotrack': 'isotrack/parsec/CAF09_S12D_NS_1TP.dat',
             'file_lowzams': 'isotrack/bassazams_fasulla.dat',
             'kind_tpagb': 4,
             'file_tpagb': 'isotrack/isotrack_agb/tracce_CAF09_S_JAN13.dat',
@@ -322,7 +326,7 @@ def isoch_input_dict():
     if kind_iso is 3, other qty will be one value of log age
     qty_min, etc will be Z.
     '''
-    return {'EOF': '<< /Users/phil/research/python/EOF',
+    return {'EOF': '<< $CMDROOT/EOF',
             'cmd_input_file': None,
             'kind_iso': 2,
             'isoch_file': '/dev/tty/',
@@ -333,12 +337,12 @@ def isoch_input_dict():
             'kind_table': 5}
 
 def isoch_input_fmt():
-    
+
     return """code/main %(cmd_input_file)s %(EOF)s
 %(kind_iso)i
 %(isoch_file)s
 %(other_qty)s
 %(qty_min)f %(qty_max)f %(dq)f
-%(kind_table)i 
+%(kind_table)i
 100
 """

@@ -16,6 +16,38 @@ rcParams['axes.edgecolor'] = 'grey'
 rc('text', usetex=True)
 
 
+def color_color(data, xcol, ycol, ax=None, xscale='linear', yscale='linear',
+                xlim=None, ylim=None, plt_kw=None):
+
+    if '-' in xcol:
+        xcol1, xcol2 = xcol.split('-')
+        xdata = data[xcol1] - data[xcol2]
+    else:
+        xdata = data[xcol]
+
+    if '-' in ycol:
+        ycol1, ycol2 = ycol.split('-')
+        ydata = data[ycol1] - data[ycol2]
+    else:
+        ydata = data[ycol]
+
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    plt_kw = plt_kw or {}
+    ax.plot(xdata, ydata, **plt_kw)
+
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    return ax
+
+
+
+
 def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
     '''
     Code adapted from Dr. Adrienne Stilp
@@ -125,7 +157,7 @@ def setup_multiplot(nplots, xlabel=None, ylabel=None, title=None,
     return (fig, axs)
 
 
-def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
+def colorplot_by_stage(ax, x, y, marker, stages, cols=None, inds=None):
     # inds from calc_LFIR are based on only resolved stars.
     from ResolvedStellarPops.TrilegalUtils import get_label_stage
 
@@ -135,6 +167,8 @@ def colorplot_by_stage(ax, x, y, marker, stages, cols=None):
         ind, = np.nonzero(stages == s)
         if ind.size == 0:
             continue
+        if inds is not None:
+            ind = np.intersect1d(ind, inds)
         ax.plot(x[ind], y[ind], marker, color=cols[i], mew=0, label=get_label_stage(int(s)))
     return ax, cols
 

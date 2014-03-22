@@ -566,6 +566,7 @@ def get_stage_label(region):
     stage_lab = regions.index(region.upper())
     return stage_lab
 
+
 def get_label_stage(stage_lab):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
@@ -635,12 +636,44 @@ class isotrack2(object):
         self.masses = masses
         for i in range(eep_sets):
             set_start, set_end = set_inds[i]
-            isoc_strs = [lines[start_inds[j]: end_inds[j]] for j in arange(*set_inds[i])]
+            isoc_strs = [lines[start_inds[j]: end_inds[j]] for j in np.arange(*set_inds[i])]
             isoc_data = np.array([np.array([isoc_strs[j][k].split()[:3] for k in range(len(isoc_strs[j]))], dtype=float) for j in range(len(isoc_strs))])
             isoc_masses = ['%.4f' % m for m in masses[np.arange(*set_inds[i])]]
-            self.__setattr__('iso_str%i' % (i + 1), {isoc_masses[j]: isoc_strs[j] for j in range(len(isoc_masses))})
-            self.__setattr__('iso_data%i' % (i + 1), {isoc_masses[j]: isoc_data[j] for j in range(len(isoc_masses))})
-# get the EEPS too?? I donno what you need the data for besides plotting...
+            self.__setattr__('iso_str%i' % (i + 1),
+                             {isoc_masses[j]: isoc_strs[j]
+                              for j in range(len(isoc_masses))})
+            self.__setattr__('iso_data%i' % (i + 1),
+                             {isoc_masses[j]: isoc_data[j]
+                              for j in range(len(isoc_masses))})
+    # get the EEPS too?? I donno what you need the data for besides plotting...
+
+    def plot_mass(self, mass, xcol='LOG_TE', ycol='LOG_L', ax=None):
+        data = {}
+        possible_axes = ['AGE', 'LOG_L', 'LOG_TE']
+
+        for col in [xcol, ycol]:
+            if not col in possible_axes:
+                print 'column not in', possible_axes
+                return
+        if not mass in self.masses:
+            print 'mass not found.'
+            return
+
+        if ax is None:
+            fig, ax = plt.subplots()
+        for i in range(self.eep_sets):
+            data['AGE'], data['LOG_L'], data['LOG_TE'] = \
+                self.__getattribute__('iso_data%i' % (i+1))['%.4f' % mass].T
+            ax.plot(data[xcol], data[ycol])
+        return ax
+
+    def plot_all_masses(self, xcol='LOG_TE', ycol='LOG_L', ax=None):
+        if ax is None:
+            fig, ax = plt.subplots()
+        [self.plot_mass(mass, xcol=xcol, ycol=ycol, ax=ax)
+         for mass in self.masses]
+        return ax
+
 
 def read_ptcri(ptcri_file):
     d = {}
