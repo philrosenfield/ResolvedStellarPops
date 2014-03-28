@@ -185,7 +185,7 @@ class ASTs(object):
         self.rec = list(set(rec1) & set(rec2))
         return rec1, rec2
 
-    def ast_hess(self, binsize=0.1, yattr='mag2diff', hess_kw={}):
+    def make_hess(self, binsize=0.1, yattr='mag2diff', hess_kw={}):
         '''
         make hess grid
         '''
