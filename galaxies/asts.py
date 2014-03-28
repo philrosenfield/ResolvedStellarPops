@@ -11,7 +11,7 @@ from subprocess import PIPE, Popen
 
 from .. import trilegal
 from .. import io
-
+from .. import astronomy_utils
 __all__ = ['ast_correct_trilegal_sim', 'ASTs']
 
 
@@ -184,6 +184,15 @@ class ASTs(object):
         rec2, = np.nonzero(self.mag2diff < threshold)
         self.rec = list(set(rec1) & set(rec2))
         return rec1, rec2
+
+    def ast_hess(self, binsize=0.1, yattr='mag2diff', hess_kw={}):
+        '''
+        make hess grid
+        '''
+        self.colordiff = self.mag1diff - self.mag2diff
+        mag = self.__getattribute__(yattr)
+        self.hess = astronomy_utils.hess(self.colordiff, mag, binsize,
+                                         **hess_kw)
 
     def load_fake(self, filename):
         '''read MATCH fake file into attributes'''
