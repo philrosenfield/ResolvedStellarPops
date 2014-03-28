@@ -1,0 +1,500 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.io.fileIO &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.io.fileIO</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.io.fileIO</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">pprint</span> <span class="kn">import</span> <span class="n">pprint</span>
+<span class="kn">import</span> <span class="nn">difflib</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">math</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;InputFile&#39;</span><span class="p">,</span> <span class="s">&#39;InputFile2&#39;</span><span class="p">,</span> <span class="s">&#39;InputParameters&#39;</span><span class="p">,</span> <span class="s">&#39;Table&#39;</span><span class="p">,</span> <span class="s">&#39;ensure_dir&#39;</span><span class="p">,</span>
+           <span class="s">&#39;ensure_file&#39;</span><span class="p">,</span> <span class="s">&#39;get_files&#39;</span><span class="p">,</span> <span class="s">&#39;get_row&#39;</span><span class="p">,</span> <span class="s">&#39;item_from_row&#39;</span><span class="p">,</span>
+           <span class="s">&#39;load_input&#39;</span><span class="p">,</span> <span class="s">&#39;read_table&#39;</span><span class="p">,</span> <span class="s">&#39;read_tagged_phot&#39;</span><span class="p">,</span> <span class="s">&#39;readfile&#39;</span><span class="p">,</span>
+           <span class="s">&#39;replace_ext&#39;</span><span class="p">,</span> <span class="s">&#39;savetxt&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="InputParameters"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputParameters">[docs]</a><span class="k">class</span> <span class="nc">InputParameters</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    need to make a dictionary of all the possible parameters</span>
+<span class="sd">        (in the ex: rsp.TrilegalUtils.galaxy_input_dict())</span>
+<span class="sd">    need to make a formatted string with dictionary printing</span>
+<span class="sd">        (in the ex: rsp.TrilegalUtils.galaxy_input_fmt())</span>
+
+<span class="sd">    example</span>
+<span class="sd">    import ResolvedStellarPops as rsp</span>
+<span class="sd">    inp = rsp.fileIO.input_parameters(default_dict=rsp.TrilegalUtils.galaxy_input_dict())</span>
+<span class="sd">    send any replacement params as kwargs.</span>
+<span class="sd">    inp.write_params(&#39;test&#39;, rsp.TrilegalUtils.galaxy_input_fmt())</span>
+<span class="sd">    $ cat test</span>
+
+<span class="sd">    use print inp to see what current values are in cmd line.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">dict</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">default_dict</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;need a default dict!&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">default_dict</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;need values in default dictionary.&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">possible_params</span><span class="p">(</span><span class="n">default_dict</span><span class="p">)</span>
+
+<div class="viewcode-block" id="InputParameters.possible_params"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputParameters.possible_params">[docs]</a>    <span class="k">def</span> <span class="nf">possible_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        assign key as attribute name and value as attribute value from</span>
+<span class="sd">        dictionary</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">default_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+</div>
+<div class="viewcode-block" id="InputParameters.update_params"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputParameters.update_params">[docs]</a>    <span class="k">def</span> <span class="nf">update_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_dict</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        only overwrite attributes that already exist from dictionary</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)]</span>
+</div>
+<div class="viewcode-block" id="InputParameters.add_params"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputParameters.add_params">[docs]</a>    <span class="k">def</span> <span class="nf">add_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_dict</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        add or overwrite attributes from dictionary</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+</div>
+<div class="viewcode-block" id="InputParameters.write_params"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputParameters.write_params">[docs]</a>    <span class="k">def</span> <span class="nf">write_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_file</span><span class="p">,</span> <span class="n">formatter</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">new_file</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">formatter</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pprint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&quot;&quot;</span>
+
+</div>
+<div class="viewcode-block" id="savetxt"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.savetxt">[docs]</a><span class="k">def</span> <span class="nf">savetxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    np.savetxt wrapper that adds header. Some versions of savetxt</span>
+<span class="sd">    already allow this...</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">fmt</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&#39;wrote&#39;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="InputFile"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputFile">[docs]</a><span class="k">class</span> <span class="nc">InputFile</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    a class to replace too many kwargs from the input file.</span>
+<span class="sd">    does two things:</span>
+<span class="sd">    1. sets a default dictionary (see input_defaults) as attributes</span>
+<span class="sd">    2. unpacks the dictionary from load_input as attributes</span>
+<span class="sd">        (overwrites defaults).</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">default_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">default_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_dict</span> <span class="o">=</span> <span class="n">load_input</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unpack_dict</span><span class="p">()</span>
+
+<div class="viewcode-block" id="InputFile.set_defaults"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputFile.set_defaults">[docs]</a>    <span class="k">def</span> <span class="nf">set_defaults</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_def</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unpack_dict</span><span class="p">(</span><span class="n">udict</span><span class="o">=</span><span class="n">in_def</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="InputFile.unpack_dict"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputFile.unpack_dict">[docs]</a>    <span class="k">def</span> <span class="nf">unpack_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">udict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">udict</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">udict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_dict</span>
+        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">udict</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+
+</div></div>
+<div class="viewcode-block" id="InputFile2"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.InputFile2">[docs]</a><span class="k">class</span> <span class="nc">InputFile2</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    a class to replace too many kwargs from the input file.</span>
+<span class="sd">    does two things:</span>
+<span class="sd">    1. sets a default dictionary (see input_defaults) as attributes</span>
+<span class="sd">    2. unpacks the dictionary from load_input as attributes</span>
+<span class="sd">        (overwrites defaults).</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="nb">dict</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">default_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">default_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">load_input</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+
+</div>
+<div class="viewcode-block" id="load_input"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.load_input">[docs]</a><span class="k">def</span> <span class="nf">load_input</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    reads an input file into a dictionary.</span>
+<span class="sd">    file must have key first then value(s)</span>
+<span class="sd">    Will make &#39;True&#39; into a boolean True</span>
+<span class="sd">    Will understand if a value is a float, string, or list, etc.</span>
+<span class="sd">    Ignores all lines that start with #, but not with # on the same line as</span>
+<span class="sd">    key, value.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">literal_eval</span>
+    <span class="k">except</span> <span class="ne">NameError</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">ast</span> <span class="kn">import</span> <span class="n">literal_eval</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;#&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">))</span>
+    <span class="c"># do we have a list?</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="c"># float</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="o">==</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c"># list:</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">temp</span><span class="p">)</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">temp</span>
+        <span class="c"># dict:</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">temp1</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">temp1</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span> <span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">temp1</span><span class="p">[</span><span class="mi">1</span><span class="p">])}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c"># boolean</span>
+            <span class="n">true</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;TRUE&#39;</span><span class="p">)</span>
+            <span class="n">false</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;FALSE&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">true</span> <span class="ow">or</span> <span class="n">false</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="c"># string</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="readfile"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.readfile">[docs]</a><span class="k">def</span> <span class="nf">readfile</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">col_key_line</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">comment_char</span><span class="o">=</span><span class="s">&#39;#&#39;</span><span class="p">,</span> <span class="n">string_column</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    reads a file as a np array, uses the comment char and col_key_line</span>
+<span class="sd">    to get the name of the columns.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">col_key_line</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
+        <span class="n">col_keys</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">comment_char</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="n">col_keys</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">col_key_line</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">comment_char</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="n">c</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">col_keys</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">string_column</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">dtype</span><span class="p">[</span><span class="n">string_column</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">col_keys</span><span class="p">[</span><span class="n">string_column</span><span class="p">],</span> <span class="s">&#39;|S16&#39;</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">invalid_raise</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                         <span class="n">skip_header</span><span class="o">=</span><span class="n">col_key_line</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+</div>
+<div class="viewcode-block" id="get_row"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.get_row">[docs]</a><span class="k">def</span> <span class="nf">get_row</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">index_key</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    send a np.array with dtype.names and choose a column item.</span>
+<span class="sd">    For example:</span>
+<span class="sd">    $ data.dtype.names</span>
+<span class="sd">    (&#39;target&#39;, &#39;opt_trgb&#39;, &#39;nopt_trgb&#39;, &#39;nopt_agb&#39;, &#39;ir_trgb&#39;,  &#39;nir_trgb&#39;,</span>
+<span class="sd">    &#39;nir_agb&#39;)</span>
+<span class="sd">    # for an array like:</span>
+<span class="sd">    (&#39;kkh37&#39;, 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),</span>
+<span class="sd">    get_row(data, &#39;target&#39;, &#39;kkh37&#39;)</span>
+<span class="sd">    (&#39;kkh37&#39;, 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">fixed_index</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">index</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">arr</span><span class="p">[</span><span class="n">index_key</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fixed_index</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">fixed_index</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">index</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">arr</span><span class="p">[</span><span class="n">index_key</span><span class="p">])</span>
+    <span class="n">fixed_index</span> <span class="o">=</span> <span class="n">fixed_index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="n">fixed_index</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="n">fixed_index</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;using </span><span class="si">%s</span><span class="s"> instead of </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">fixed_index</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
+    <span class="n">item_key</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">index_key</span><span class="p">]</span> <span class="o">==</span> <span class="n">fixed_index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">item_key</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="item_from_row"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.item_from_row">[docs]</a><span class="k">def</span> <span class="nf">item_from_row</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">index_key</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">column_name</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    send a np.array with dtype.names and choose a column item.</span>
+<span class="sd">    For example:</span>
+<span class="sd">    $ data.dtype.names</span>
+<span class="sd">    (&#39;target&#39;, &#39;opt_trgb&#39;, &#39;nopt_trgb&#39;, &#39;nopt_agb&#39;, &#39;ir_trgb&#39;,  &#39;nir_trgb&#39;,</span>
+<span class="sd">    &#39;nir_agb&#39;)</span>
+<span class="sd">    # for an array like:</span>
+<span class="sd">    (&#39;kkh37&#39;, 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),</span>
+<span class="sd">    $ item_from_row(data, &#39;target&#39;, &#39;kkh37&#39;, &#39;opt_trgb&#39;)</span>
+<span class="sd">    23.54</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">row</span> <span class="o">=</span> <span class="n">get_row</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">index_key</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">row</span><span class="p">[</span><span class="n">column_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="replace_ext"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.replace_ext">[docs]</a><span class="k">def</span> <span class="nf">replace_ext</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">ext</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    input</span>
+<span class="sd">    filename string with .ext</span>
+<span class="sd">    new_ext replace ext with new ext</span>
+<span class="sd">    eg:</span>
+<span class="sd">    $ replace_ext(&#39;data.02.SSS.v4.dat&#39;, &#39;.log&#39;)</span>
+<span class="sd">    data.02.SSS.v4.log</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="s">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filename</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">ext</span>
+
+</div>
+<div class="viewcode-block" id="read_tagged_phot"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.read_tagged_phot">[docs]</a><span class="k">def</span> <span class="nf">read_tagged_phot</span><span class="p">(</span><span class="n">tagged_file</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    reads an ascii photometry file that has been tagged by stage.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;ra&#39;</span><span class="p">,</span> <span class="s">&#39;dec&#39;</span><span class="p">,</span> <span class="s">&#39;mag1&#39;</span><span class="p">,</span> <span class="s">&#39;mag2&#39;</span><span class="p">,</span> <span class="s">&#39;mag1err&#39;</span><span class="p">,</span> <span class="s">&#39;mag2err&#39;</span><span class="p">,</span> <span class="s">&#39;stage&#39;</span><span class="p">]</span>
+    <span class="n">fits</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">tagged_file</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fits</span>
+
+</div>
+<div class="viewcode-block" id="ensure_file"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.ensure_file">[docs]</a><span class="k">def</span> <span class="nf">ensure_file</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mad</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    input</span>
+<span class="sd">    f (string): if f is not a file will print &quot;no file&quot;</span>
+<span class="sd">    optional</span>
+<span class="sd">    mad (bool)[True]: if mad is True, will exit program.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;there is no file&#39;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mad</span><span class="p">:</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">test</span>
+
+</div>
+<div class="viewcode-block" id="ensure_dir"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.ensure_dir">[docs]</a><span class="k">def</span> <span class="nf">ensure_dir</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    will make all dirs necessary for input to be an existing directory.</span>
+<span class="sd">    if input does not end with &#39;/&#39; it will add it, and then make a directory.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">+=</span> <span class="s">&#39;/&#39;</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;made dirs:&#39;</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="read_table"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.read_table">[docs]</a><span class="k">def</span> <span class="nf">read_table</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">comment_char</span><span class="o">=</span><span class="s">&#39;#&#39;</span><span class="p">,</span> <span class="n">loud</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">loud</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">time</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">elapsed</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">loud</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%.3f</span><span class="s">s: lines read&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="p">()))</span>
+
+    <span class="n">col_keys</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">comment_char</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+    <span class="n">Ncols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">col_keys</span><span class="p">)</span>
+    <span class="n">Nrows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">comment_char</span><span class="p">)])</span>
+
+    <span class="k">if</span> <span class="n">loud</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%.3f</span><span class="s">s: Nrows </span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="p">(),</span> <span class="n">Nrows</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">Nrows</span><span class="p">,</span> <span class="n">Ncols</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">comment_char</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">loud</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%.3f</span><span class="s">s: data filled&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">elapsed</span><span class="p">()))</span>
+
+    <span class="n">tab</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">col_keys</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tab</span>
+
+</div>
+<div class="viewcode-block" id="Table"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.Table">[docs]</a><span class="k">class</span> <span class="nc">Table</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    use with read_table(filename)</span>
+<span class="sd">    self.data_array</span>
+<span class="sd">    self.key_dict</span>
+<span class="sd">    self.name</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_array</span><span class="p">,</span> <span class="n">col_keys</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_array</span> <span class="o">=</span> <span class="n">data_array</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">col_keys</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">col_keys</span><span class="p">))))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Table.get_row"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.Table.get_row">[docs]</a>    <span class="k">def</span> <span class="nf">get_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span>
+</div>
+<div class="viewcode-block" id="Table.get_col"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.Table.get_col">[docs]</a>    <span class="k">def</span> <span class="nf">get_col</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_array</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
+
+</div></div>
+<div class="viewcode-block" id="get_files"><a class="viewcode-back" href="../../../resolvedstellarpops.io.html#resolvedstellarpops.io.fileIO.get_files">[docs]</a><span class="k">def</span> <span class="nf">get_files</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">search_string</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    returns a list of files, similar to ls src/search_string</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">src</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">):</span>
+        <span class="n">src</span> <span class="o">+=</span> <span class="s">&#39;/&#39;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob1</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">search_string</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;Can&#39;&#39;t find </span><span class="si">%s</span><span class="s"> in </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">search_string</span><span class="p">,</span> <span class="n">src</span><span class="p">))</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">ensure_file</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">f</span><span class="p">),</span> <span class="n">mad</span><span class="o">=</span><span class="bp">False</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">files</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

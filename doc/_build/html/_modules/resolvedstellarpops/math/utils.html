@@ -1,0 +1,551 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.math.utils &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.math.utils</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.math.utils</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot; Missing documentation &quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">interp1d</span>
+<span class="kn">from</span> <span class="nn">matplotlib.path</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;between&#39;</span><span class="p">,</span> <span class="s">&#39;bin_up&#39;</span><span class="p">,</span> <span class="s">&#39;brighter&#39;</span><span class="p">,</span> <span class="s">&#39;closest_match&#39;</span><span class="p">,</span> <span class="s">&#39;closest_match2d&#39;</span><span class="p">,</span>
+           <span class="s">&#39;double_gaussian&#39;</span><span class="p">,</span> <span class="s">&#39;extrap1d&#39;</span><span class="p">,</span> <span class="s">&#39;find_peaks&#39;</span><span class="p">,</span> <span class="s">&#39;gaussian&#39;</span><span class="p">,</span>
+           <span class="s">&#39;get_verts&#39;</span><span class="p">,</span> <span class="s">&#39;hist_it_up&#39;</span><span class="p">,</span> <span class="s">&#39;inside&#39;</span><span class="p">,</span> <span class="s">&#39;is_numeric&#39;</span><span class="p">,</span> <span class="s">&#39;min_dist2d&#39;</span><span class="p">,</span>
+           <span class="s">&#39;mp_double_gauss&#39;</span><span class="p">,</span> <span class="s">&#39;points_inside_poly&#39;</span><span class="p">,</span> <span class="s">&#39;smooth&#39;</span><span class="p">,</span> <span class="s">&#39;spread_bins&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="points_inside_poly"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.points_inside_poly">[docs]</a><span class="k">def</span> <span class="nf">points_inside_poly</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">all_verts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Proxy to the correct way with mpl &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">all_verts</span><span class="p">,</span> <span class="n">close</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span><span class="o">.</span><span class="n">contains_points</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="hist_it_up"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.hist_it_up">[docs]</a><span class="k">def</span> <span class="nf">hist_it_up</span><span class="p">(</span><span class="n">mag2</span><span class="p">,</span> <span class="n">res</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">threash</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="c"># do fine binning and hist</span>
+    <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">mag2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">mag2</span><span class="p">),</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">mag2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">bins</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c"># drop the too fine bins</span>
+    <span class="n">binds</span> <span class="o">=</span> <span class="n">spread_bins</span><span class="p">(</span><span class="n">hist</span><span class="p">,</span> <span class="n">threash</span><span class="o">=</span><span class="n">threash</span><span class="p">)</span>
+    <span class="c"># return the hist, bins.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">binds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">binds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bins</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">mag2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">bins</span><span class="p">[</span><span class="n">binds</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="spread_bins"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.spread_bins">[docs]</a><span class="k">def</span> <span class="nf">spread_bins</span><span class="p">(</span><span class="n">hist</span><span class="p">,</span> <span class="n">threash</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    goes through in index order of hist and returns indices such that</span>
+<span class="sd">    each bin will add to at least threash.</span>
+<span class="sd">    Returns the indices of the new bins to use (should then re-hist)</span>
+<span class="sd">    ex:</span>
+<span class="sd">    bins is something set that works well for large densities</span>
+<span class="sd">    h = np.histogram(mag2, bins=bins)[0]</span>
+<span class="sd">    binds = spread_bins(h)</span>
+<span class="sd">    hist, bins = np.histogram(mag2, bins=bins[binds])</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist</span><span class="p">):</span>
+        <span class="k">while</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">hist</span><span class="p">[</span><span class="n">j</span><span class="p">:</span><span class="n">i</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">threash</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="c">#print j, i, len(hist)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">hist</span><span class="p">):</span>
+                <span class="k">break</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">b</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="brighter"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.brighter">[docs]</a><span class="k">def</span> <span class="nf">brighter</span><span class="p">(</span><span class="n">mag2</span><span class="p">,</span> <span class="n">trgb</span><span class="p">,</span> <span class="n">inds</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39; number of stars brighter than trgb, make sure mag2 is</span>
+<span class="sd">        the same filter as trgb!&#39;&#39;&#39;</span>
+    <span class="n">i</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">mag2</span> <span class="o">&lt;</span> <span class="n">trgb</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">inds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">i</span>
+
+</div>
+<div class="viewcode-block" id="extrap1d"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.extrap1d">[docs]</a><span class="k">def</span> <span class="nf">extrap1d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xout_arr</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    linear extapolation from interp1d class, a way around bounds_error.</span>
+<span class="sd">    Adapted from:</span>
+<span class="sd">    http://stackoverflow.com/questions/2745329/how-to-make-scipy-interpolate-give-an-extrapolated-result-beyond-the-input-range</span>
+<span class="sd">    Returns the interpolator class and yout_arr</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c"># Interpolator class</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="n">xo</span> <span class="o">=</span> <span class="n">xout_arr</span>
+    <span class="c"># Boolean indexing approach</span>
+    <span class="c"># Generate an empty output array for &quot;y&quot; values</span>
+    <span class="n">yo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">xo</span><span class="p">)</span>
+
+    <span class="c"># Values lower than the minimum &quot;x&quot; are extrapolated at the same time</span>
+    <span class="n">low</span> <span class="o">=</span> <span class="n">xo</span> <span class="o">&lt;</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">yo</span><span class="p">[</span><span class="n">low</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">xo</span><span class="p">[</span><span class="n">low</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c"># Values higher than the maximum &quot;x&quot; are extrapolated at same time</span>
+    <span class="n">high</span> <span class="o">=</span> <span class="n">xo</span> <span class="o">&gt;</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">yo</span><span class="p">[</span><span class="n">high</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">xo</span><span class="p">[</span><span class="n">high</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="c"># Values inside the interpolation range are interpolated directly</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">xo</span> <span class="o">&gt;=</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xo</span> <span class="o">&lt;=</span> <span class="n">f</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">yo</span><span class="p">[</span><span class="n">inside</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">xo</span><span class="p">[</span><span class="n">inside</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">yo</span>
+
+</div>
+<div class="viewcode-block" id="find_peaks"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.find_peaks">[docs]</a><span class="k">def</span> <span class="nf">find_peaks</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    from</span>
+<span class="sd">    http://stackoverflow.com/questions/4624970/finding-local-maxima-minima-with-numpy-in-a-1d-numpy-array</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">gradients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="c">#print gradients</span>
+
+    <span class="n">maxima_num</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">minima_num</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_locations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">min_locations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">gradients</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="nb">cmp</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">cmp</span><span class="p">(</span><span class="n">gradients</span><span class="p">[</span><span class="n">count</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span>
+           <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">gradients</span><span class="p">[</span><span class="n">count</span><span class="p">])):</span>
+            <span class="n">maxima_num</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">max_locations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="nb">cmp</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">cmp</span><span class="p">(</span><span class="n">gradients</span><span class="p">[</span><span class="n">count</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span>
+           <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">gradients</span><span class="p">[</span><span class="n">count</span><span class="p">])):</span>
+            <span class="n">minima_num</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">min_locations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+
+    <span class="n">turning_points</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;maxima_number&#39;</span><span class="p">:</span> <span class="n">maxima_num</span><span class="p">,</span>
+                      <span class="s">&#39;minima_number&#39;</span><span class="p">:</span> <span class="n">minima_num</span><span class="p">,</span>
+                      <span class="s">&#39;maxima_locations&#39;</span><span class="p">:</span> <span class="n">max_locations</span><span class="p">,</span>
+                      <span class="s">&#39;minima_locations&#39;</span><span class="p">:</span> <span class="n">min_locations</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">turning_points</span>
+
+</div>
+<div class="viewcode-block" id="min_dist2d"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.min_dist2d">[docs]</a><span class="k">def</span> <span class="nf">min_dist2d</span><span class="p">(</span><span class="n">xpoint</span><span class="p">,</span> <span class="n">ypoint</span><span class="p">,</span> <span class="n">xarr</span><span class="p">,</span> <span class="n">yarr</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;index and distance of point in [xarr, yarr] nearest to [xpoint, ypoint]&#39;&#39;&#39;</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">xarr</span> <span class="o">-</span> <span class="n">xpoint</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yarr</span> <span class="o">-</span> <span class="n">ypoint</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">dist</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="closest_match2d"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.closest_match2d">[docs]</a><span class="k">def</span> <span class="nf">closest_match2d</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">normed</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    finds closest point between of arrays x2[ind], y2[ind] and x1, y1.</span>
+<span class="sd">    Just minimizes</span>
+<span class="sd">    the radius of a circle.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">normed</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x1</span><span class="p">)</span> <span class="o">-</span> <span class="n">x2</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x2</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">y1</span><span class="p">)</span> <span class="o">-</span> <span class="n">y2</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">y2</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y2</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">dist</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="closest_match"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.closest_match">[docs]</a><span class="k">def</span> <span class="nf">closest_match</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">somearray</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">somearray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">somearray</span><span class="p">)</span>
+    <span class="n">difference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="n">somearray</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">somearray</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">difference</span> <span class="o">&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="n">somearray</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+            <span class="n">difference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="n">somearray</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">i</span>
+    <span class="k">return</span> <span class="n">index</span><span class="p">,</span> <span class="n">difference</span>
+
+</div>
+<div class="viewcode-block" id="between"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.between">[docs]</a><span class="k">def</span> <span class="nf">between</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">mdim</span><span class="p">,</span> <span class="n">mbrt</span><span class="p">,</span> <span class="n">inds</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    returns indices between two floats, mdim and mbrt. A quick check exists so</span>
+<span class="sd">    this will work with regular numbers, not just stupid magnitudes.</span>
+<span class="sd">    if inds, will return intersection of between and inds</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">mdim</span> <span class="o">&lt;</span> <span class="n">mbrt</span><span class="p">:</span>
+        <span class="n">mtmp</span> <span class="o">=</span> <span class="n">mbrt</span>
+        <span class="n">mbrt</span> <span class="o">=</span> <span class="n">mdim</span>
+        <span class="n">mdim</span> <span class="o">=</span> <span class="n">mtmp</span>
+    <span class="n">i</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">((</span><span class="n">arr</span> <span class="o">&lt;</span> <span class="n">mdim</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">arr</span> <span class="o">&gt;</span> <span class="n">mbrt</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">intersect1d</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">inds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">i</span>
+
+</div>
+<div class="viewcode-block" id="inside"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.inside">[docs]</a><span class="k">def</span> <span class="nf">inside</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">verts</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">get_verts_args</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    returns the indices of u, v that are within the boundries of x, y.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">verts</span><span class="p">:</span>
+        <span class="n">verts</span> <span class="o">=</span> <span class="n">get_verts</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">get_verts_args</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">verts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">points_inside_poly</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">verts</span><span class="p">)</span>
+    <span class="n">ind</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ind</span>
+
+</div>
+<div class="viewcode-block" id="get_verts"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.get_verts">[docs]</a><span class="k">def</span> <span class="nf">get_verts</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    simple edge detection returns n, 2 array</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;dx&#39;</span><span class="p">)</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;dy&#39;</span><span class="p">)</span>
+    <span class="n">nbinsx</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;nbinsx&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">nbinsy</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;nbinsy&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">smooth</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;smooth&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">smooth</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">smooth</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">smooth</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">ymin</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">ymax</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">xmin</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">xmax</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">dx</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">dy</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xmax</span> <span class="o">-</span> <span class="n">xmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">nbinsx</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">ymax</span> <span class="o">-</span> <span class="n">ymin</span><span class="p">)</span> <span class="o">/</span> <span class="n">nbinsy</span>
+
+    <span class="k">if</span> <span class="n">nbinsx</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">nbinsy</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">nbinsy</span> <span class="o">=</span> <span class="p">(</span><span class="n">ymax</span> <span class="o">-</span> <span class="n">ymin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span>
+        <span class="n">nbinsx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xmax</span> <span class="o">-</span> <span class="n">xmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span>
+
+    <span class="n">ymid</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">min_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">max_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbinsy</span><span class="p">):</span>
+        <span class="n">yinner</span> <span class="o">=</span> <span class="n">ymin</span> <span class="o">+</span> <span class="n">j</span> <span class="o">*</span> <span class="n">dy</span>
+        <span class="n">youter</span> <span class="o">=</span> <span class="n">ymin</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dy</span>
+        <span class="c"># counter intuitive because I&#39;m dealing with mags...</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">((</span><span class="n">y</span> <span class="o">&gt;</span> <span class="n">yinner</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">y</span> <span class="o">&lt;</span> <span class="n">youter</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">smooth</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">min_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span> <span class="o">-</span> <span class="mf">3.</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">]))</span>
+                <span class="n">max_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span> <span class="o">+</span> <span class="mf">3.</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">]))</span>
+                <span class="n">ymid</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">yinner</span> <span class="o">+</span> <span class="n">youter</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">min_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">]))</span>
+                <span class="n">max_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">]))</span>
+                <span class="n">ymid</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">yinner</span> <span class="o">+</span> <span class="n">youter</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+
+    <span class="n">max_x</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+    <span class="n">ymidr</span> <span class="o">=</span> <span class="n">ymid</span><span class="p">[:]</span>
+    <span class="n">ymidr</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+
+    <span class="c"># close polygon</span>
+    <span class="n">max_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">min_x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c"># close polygon</span>
+    <span class="n">ymidr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ymid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c"># get verticies of polygon</span>
+    <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">min_x</span><span class="p">,</span> <span class="n">max_x</span><span class="p">))</span>
+    <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">ymid</span><span class="p">,</span> <span class="n">ymidr</span><span class="p">))</span>
+    <span class="n">verts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">verts</span>
+
+</div>
+<div class="viewcode-block" id="is_numeric"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.is_numeric">[docs]</a><span class="k">def</span> <span class="nf">is_numeric</span><span class="p">(</span><span class="n">lit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return value of numeric literal string or ValueError exception</span>
+<span class="sd">    From http://rosettacode.org/wiki/Determine_if_a_string_is_numeric#Python</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c"># Empty String</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lit</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">lit</span>
+    <span class="c"># Handle &#39;0&#39;</span>
+    <span class="k">if</span> <span class="n">lit</span> <span class="o">==</span> <span class="s">&#39;0&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="c"># Hex/Binary</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lit</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c"># sometimes just &#39;-&#39; means no data...</span>
+        <span class="n">litneg</span> <span class="o">=</span> <span class="n">lit</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">lit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;-&#39;</span> <span class="k">else</span> <span class="n">lit</span>
+        <span class="k">if</span> <span class="n">litneg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;0&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">litneg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="s">&#39;xX&#39;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">lit</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">litneg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="s">&#39;bB&#39;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">lit</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">lit</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+    <span class="c"># Int/Float/Complex</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">lit</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">lit</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">complex</span><span class="p">(</span><span class="n">lit</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="n">lit</span>
+
+</div>
+<div class="viewcode-block" id="bin_up"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.bin_up">[docs]</a><span class="k">def</span> <span class="nf">bin_up</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">nbinsx</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">nbinsy</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dx</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dy</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adapted from contour_plus writen by Oliver Fraser.</span>
+<span class="sd">    Commented out a means to bin up by setting dx, dy. I found it more useful</span>
+<span class="sd">    to choose the number of bins in the x and y direction (nbinsx, nbinsy)</span>
+
+<span class="sd">    # xrange = np.arange(xmin, xmax, dx)</span>
+<span class="sd">    # yrange = np.arange(ymin, ymax, dy)</span>
+<span class="sd">    # nbinsx = xrange.shape[0]</span>
+<span class="sd">    # nbinsy = yrange.shape[0]</span>
+
+<span class="sd">    Returns Z, xrange, yrange</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">npts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">xmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>  <span class="c"># cast these for matplotlib&#39;s w/o np support</span>
+    <span class="n">xmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="n">ymin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+    <span class="n">ymax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">nbinsx</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">nbinsx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xmax</span> <span class="o">-</span> <span class="n">xmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span>
+    <span class="k">if</span> <span class="n">nbinsy</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">nbinsy</span> <span class="o">=</span> <span class="p">(</span><span class="n">ymax</span> <span class="o">-</span> <span class="n">ymin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span>
+    <span class="k">if</span> <span class="n">dx</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xmax</span> <span class="o">-</span> <span class="n">xmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">nbinsx</span>
+    <span class="k">if</span> <span class="n">dy</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">ymax</span> <span class="o">-</span> <span class="n">ymin</span><span class="p">)</span> <span class="o">/</span> <span class="n">nbinsy</span>
+
+    <span class="nb">xrange</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;xrange&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">,</span> <span class="n">nbinsx</span><span class="p">))</span>
+    <span class="n">yrange</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;yrange&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span><span class="p">,</span> <span class="n">nbinsy</span><span class="p">))</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nbinsy</span><span class="p">,</span> <span class="n">nbinsx</span><span class="p">))</span>
+    <span class="n">xbin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">npts</span><span class="p">)</span>
+    <span class="n">ybin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">npts</span><span class="p">)</span>
+    <span class="c"># assign each point to a bin</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">npts</span><span class="p">):</span>
+        <span class="n">xbin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">xmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span><span class="p">),</span> <span class="n">nbinsx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">ybin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">((</span><span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">ymin</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span><span class="p">),</span> <span class="n">nbinsy</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c"># and count how many are in each bin</span>
+        <span class="n">Z</span><span class="p">[</span><span class="n">ybin</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">xbin</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">Z</span><span class="p">,</span> <span class="nb">xrange</span><span class="p">,</span> <span class="n">yrange</span>
+
+</div>
+<div class="viewcode-block" id="smooth"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.smooth">[docs]</a><span class="k">def</span> <span class="nf">smooth</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">window_len</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s">&#39;hanning&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    taken from http://www.scipy.org/Cookbook/SignalSmooth</span>
+<span class="sd">    smooth the data using a window with requested size.</span>
+
+<span class="sd">    This method is based on the convolution of a scaled window with the signal.</span>
+<span class="sd">    The signal is prepared by introducing reflected copies of the signal</span>
+<span class="sd">    (with the window size) in both ends so that transient parts are minimized</span>
+<span class="sd">    in the begining and end part of the output signal.</span>
+
+<span class="sd">    input:</span>
+<span class="sd">        x: the input signal</span>
+<span class="sd">        window_len: the dimension of the smoothing window; should be an odd integer</span>
+<span class="sd">        window: the type of window from &#39;flat&#39;, &#39;hanning&#39;, &#39;hamming&#39;, &#39;bartlett&#39;, &#39;blackman&#39;</span>
+<span class="sd">            flat window will produce a moving average smoothing.</span>
+
+<span class="sd">    output:</span>
+<span class="sd">        the smoothed signal</span>
+
+<span class="sd">    example:</span>
+
+<span class="sd">    &gt;&gt;&gt; t = np.linspace(-2, 2, 0.1)</span>
+<span class="sd">    &gt;&gt;&gt; x = np.sin(t) + np.random.randn(len(t)) * 0.1</span>
+<span class="sd">    &gt;&gt;&gt; y = smooth(x)</span>
+
+<span class="sd">    see also:</span>
+
+<span class="sd">    np.hanning, np.hamming, np.bartlett, np.blackman, np.convolve</span>
+<span class="sd">    scipy.signal.lfilter</span>
+
+<span class="sd">    TODO: the window parameter could be the window itself if an array instead of a string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;smooth only accepts 1 dimension arrays.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="n">window_len</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Input vector needs to be bigger than window size.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">window_len</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">window</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;flat&#39;</span><span class="p">,</span> <span class="s">&#39;hanning&#39;</span><span class="p">,</span> <span class="s">&#39;hamming&#39;</span><span class="p">,</span> <span class="s">&#39;bartlett&#39;</span><span class="p">,</span> <span class="s">&#39;blackman&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Window is on of &#39;flat&#39;, &#39;hanning&#39;, &#39;hamming&#39;, &#39;bartlett&#39;, &#39;blackman&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="n">window_len</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">0</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span> <span class="o">-</span><span class="n">window_len</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+
+    <span class="k">if</span> <span class="n">window</span> <span class="o">==</span> <span class="s">&#39;flat&#39;</span><span class="p">:</span>  <span class="c"># moving average</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">window_len</span><span class="p">,</span> <span class="s">&#39;d&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="s">&#39;np.&#39;</span> <span class="o">+</span> <span class="n">window</span> <span class="o">+</span> <span class="s">&#39;(window_len)&#39;</span><span class="p">)</span>
+
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span><span class="n">w</span> <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">s</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s">&#39;valid&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y</span>
+
+</div>
+<div class="viewcode-block" id="gaussian"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.gaussian">[docs]</a><span class="k">def</span> <span class="nf">gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    gaussian(arr,p): p[0] = norm, p[1] = mean, p[2]=sigma</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+
+</div>
+<div class="viewcode-block" id="double_gaussian"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.double_gaussian">[docs]</a><span class="k">def</span> <span class="nf">double_gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    gaussian(arr,p): p[0] = norm1, p[1] = mean1, p[2]=sigma1</span>
+<span class="sd">                     p[3] = norm2, p[4] = mean2, p[5]=sigma2</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span> <span class="o">+</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">[</span><span class="mi">3</span><span class="p">:])</span>
+
+</div>
+<div class="viewcode-block" id="mp_double_gauss"><a class="viewcode-back" href="../../../resolvedstellarpops.math.html#resolvedstellarpops.math.utils.mp_double_gauss">[docs]</a><span class="k">def</span> <span class="nf">mp_double_gauss</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">fjac</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    double gaussian for mpfit</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">double_gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">status</span><span class="p">,</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">model</span><span class="p">)</span> <span class="o">/</span> <span class="n">err</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

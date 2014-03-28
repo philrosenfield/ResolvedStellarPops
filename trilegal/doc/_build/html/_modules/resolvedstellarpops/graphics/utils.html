@@ -1,0 +1,715 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.graphics.utils &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.graphics.utils</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.graphics.utils</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="n">rcParams</span>
+<span class="kn">from</span> <span class="nn">matplotlib.patches</span> <span class="kn">import</span> <span class="n">FancyArrow</span>
+<span class="kn">from</span> <span class="nn">matplotlib.ticker</span> <span class="kn">import</span> <span class="n">NullFormatter</span><span class="p">,</span> <span class="n">MultipleLocator</span>
+<span class="kn">from</span> <span class="nn">matplotlib.path</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;arrow_on_line&#39;</span><span class="p">,</span> <span class="s">&#39;colorplot_by_stage&#39;</span><span class="p">,</span> <span class="s">&#39;discrete_colors&#39;</span><span class="p">,</span>
+           <span class="s">&#39;forceAspect&#39;</span><span class="p">,</span> <span class="s">&#39;histOutline&#39;</span><span class="p">,</span> <span class="s">&#39;load_ann_kwargs&#39;</span><span class="p">,</span>
+           <span class="s">&#39;load_scatter_kwargs&#39;</span><span class="p">,</span> <span class="s">&#39;plot_lines&#39;</span><span class="p">,</span> <span class="s">&#39;plot_numbs&#39;</span><span class="p">,</span>
+           <span class="s">&#39;points_inside_poly&#39;</span><span class="p">,</span> <span class="s">&#39;reverse_xaxis&#39;</span><span class="p">,</span> <span class="s">&#39;reverse_yaxis&#39;</span><span class="p">,</span>
+           <span class="s">&#39;scatter_colorbar&#39;</span><span class="p">,</span> <span class="s">&#39;set_up_three_panel_plot&#39;</span><span class="p">,</span>
+           <span class="s">&#39;setup_five_panel_plot&#39;</span><span class="p">,</span> <span class="s">&#39;setup_four_panel&#39;</span><span class="p">,</span> <span class="s">&#39;setup_multiplot&#39;</span><span class="p">,</span>
+           <span class="s">&#39;stitch_cmap&#39;</span><span class="p">,</span> <span class="s">&#39;two_panel_plot&#39;</span><span class="p">,</span> <span class="s">&#39;two_panel_plot_vert&#39;</span><span class="p">,</span> <span class="s">&#39;update_rc&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="update_rc"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.update_rc">[docs]</a><span class="k">def</span> <span class="nf">update_rc</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot; apply some updates to make better figures &quot;&quot;&quot;</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;text.usetex&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;text.latex.unicode&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;axes.linewidth&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;ytick.labelsize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;large&#39;</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;xtick.labelsize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;large&#39;</span>
+    <span class="n">rcParams</span><span class="p">[</span><span class="s">&#39;axes.edgecolor&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;grey&#39;</span>
+    <span class="n">rc</span><span class="p">(</span><span class="s">&#39;text&#39;</span><span class="p">,</span> <span class="n">usetex</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="points_inside_poly"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.points_inside_poly">[docs]</a><span class="k">def</span> <span class="nf">points_inside_poly</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">all_verts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Proxy to the correct way with mpl &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">all_verts</span><span class="p">,</span> <span class="n">close</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span><span class="o">.</span><span class="n">contains_points</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="stitch_cmap"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.stitch_cmap">[docs]</a><span class="k">def</span> <span class="nf">stitch_cmap</span><span class="p">(</span><span class="n">cmap1</span><span class="p">,</span> <span class="n">cmap2</span><span class="p">,</span> <span class="n">stitch_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">dfrac</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Code adapted from Dr. Adrienne Stilp</span>
+<span class="sd">    Stitch two color maps together:</span>
+<span class="sd">        cmap1 from 0 and stitch_frac</span>
+<span class="sd">        and</span>
+<span class="sd">        cmap2 from stitch_frac to 1</span>
+<span class="sd">        with dfrac spacing inbetween</span>
+
+<span class="sd">    ex: stitch black to white to white to red:</span>
+<span class="sd">    stitched = stitch_cmap(cm.Greys_r, cm.Reds, stitch_frac=0.525, dfrac=0.05)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">seg1</span> <span class="o">=</span> <span class="n">cmap1</span><span class="o">.</span><span class="n">_segmentdata</span>
+    <span class="n">seg2</span> <span class="o">=</span> <span class="n">cmap2</span><span class="o">.</span><span class="n">_segmentdata</span>
+
+    <span class="n">frac1</span> <span class="o">=</span> <span class="n">stitch_frac</span> <span class="o">-</span> <span class="n">dfrac</span>
+    <span class="n">frac2</span> <span class="o">=</span> <span class="n">stitch_frac</span> <span class="o">+</span> <span class="n">dfrac</span>
+
+    <span class="n">blue_array_1</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="n">frac1</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg1</span><span class="p">[</span><span class="s">&#39;blue&#39;</span><span class="p">]]</span>
+    <span class="n">blue_array_2</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">frac2</span><span class="p">)</span> <span class="o">+</span> <span class="n">frac2</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg2</span><span class="p">[</span><span class="s">&#39;blue&#39;</span><span class="p">]]</span>
+
+    <span class="n">red_array_1</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="n">frac1</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg1</span><span class="p">[</span><span class="s">&#39;red&#39;</span><span class="p">]]</span>
+    <span class="n">red_array_2</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">frac2</span><span class="p">)</span> <span class="o">+</span> <span class="n">frac2</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="p">)</span> <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg2</span><span class="p">[</span><span class="s">&#39;red&#39;</span><span class="p">]]</span>
+
+    <span class="n">green_array_1</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="n">frac1</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg1</span><span class="p">[</span><span class="s">&#39;green&#39;</span><span class="p">]]</span>
+    <span class="n">green_array_2</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i0</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">frac2</span><span class="p">)</span> <span class="o">+</span> <span class="n">frac2</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="n">seg2</span><span class="p">[</span><span class="s">&#39;green&#39;</span><span class="p">]]</span>
+
+    <span class="n">new_segments</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;blue&#39;</span><span class="p">:</span> <span class="n">blue_array_1</span> <span class="o">+</span> <span class="n">blue_array_2</span><span class="p">,</span>
+                    <span class="s">&#39;red&#39;</span><span class="p">:</span> <span class="n">red_array_1</span> <span class="o">+</span> <span class="n">red_array_2</span><span class="p">,</span>
+                    <span class="s">&#39;green&#39;</span><span class="p">:</span> <span class="n">green_array_1</span> <span class="o">+</span> <span class="n">green_array_2</span><span class="p">}</span>
+
+    <span class="n">new_cmap_name</span> <span class="o">=</span> <span class="s">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">cmap1</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">cmap2</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+    <span class="n">new_cmap</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">LinearSegmentedColormap</span><span class="p">(</span><span class="n">new_cmap_name</span><span class="p">,</span>
+                                                         <span class="n">new_segments</span><span class="p">,</span>
+                                                         <span class="mi">1024</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_cmap</span>
+
+</div>
+<div class="viewcode-block" id="arrow_on_line"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.arrow_on_line">[docs]</a><span class="k">def</span> <span class="nf">arrow_on_line</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">xarr</span><span class="p">,</span> <span class="n">yarr</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">plt_kw</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="n">arrs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">plt_kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">({</span><span class="s">&#39;head_width&#39;</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="s">&#39;linewidth&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                   <span class="s">&#39;length_includes_head&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+                   <span class="s">&#39;ec&#39;</span><span class="p">:</span> <span class="s">&quot;none&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">plt_kw</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">xarr</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">xarr</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">yarr</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="n">yarr</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)):</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">FancyArrow</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dx</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dy</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="o">**</span><span class="n">plt_kw</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+        <span class="n">arrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arrs</span>
+
+</div>
+<div class="viewcode-block" id="plot_lines"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.plot_lines">[docs]</a><span class="k">def</span> <span class="nf">plot_lines</span><span class="p">(</span><span class="n">axs</span><span class="p">,</span> <span class="nb">xrange</span><span class="p">,</span> <span class="n">yval</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;black&#39;</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axs</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">((</span><span class="nb">xrange</span><span class="p">),</span> <span class="p">(</span><span class="n">yval</span><span class="p">,</span> <span class="n">yval</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="forceAspect"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.forceAspect">[docs]</a><span class="k">def</span> <span class="nf">forceAspect</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    forces the aspect ratio of a given axis</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_images</span><span class="p">()</span>
+    <span class="n">extent</span> <span class="o">=</span> <span class="n">im</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_extent</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="nb">abs</span><span class="p">((</span><span class="n">extent</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">extent</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">extent</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">extent</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span> <span class="o">/</span> <span class="n">aspect</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="plot_numbs"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.plot_numbs">[docs]</a><span class="k">def</span> <span class="nf">plot_numbs</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">xpos</span><span class="p">,</span> <span class="n">ypos</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">ax</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="s">r&#39;$</span><span class="si">%i</span><span class="s">$&#39;</span> <span class="o">%</span> <span class="n">item</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="n">xpos</span><span class="p">,</span> <span class="n">ypos</span><span class="p">),</span> <span class="n">ha</span><span class="o">=</span><span class="s">&#39;left&#39;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="setup_multiplot"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.setup_multiplot">[docs]</a><span class="k">def</span> <span class="nf">setup_multiplot</span><span class="p">(</span><span class="n">nplots</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                    <span class="n">subplots_kwargs</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    fyi subplots args:</span>
+<span class="sd">        nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True,</span>
+<span class="sd">        subplot_kw=None, **fig_kw</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nplots</span><span class="p">))</span>
+    <span class="n">nextra</span> <span class="o">=</span> <span class="n">nplots</span> <span class="o">-</span> <span class="n">nx</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="n">nx</span>
+    <span class="k">if</span> <span class="n">nextra</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">ny</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ny</span><span class="p">)</span>
+
+    <span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axs</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">nrows</span><span class="o">=</span><span class="n">nx</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="n">ny</span><span class="p">,</span> <span class="o">**</span><span class="n">subplots_kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ylabel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="n">ylabel</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+                           <span class="n">xycoords</span><span class="o">=</span><span class="s">&#39;figure fraction&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">,</span>
+                           <span class="n">rotation</span><span class="o">=</span><span class="s">&#39;vertical&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xlabel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="n">xlabel</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">),</span>
+                           <span class="n">xycoords</span><span class="o">=</span><span class="s">&#39;figure fraction&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.</span> <span class="o">-</span> <span class="mf">0.04</span><span class="p">),</span>
+                           <span class="n">xycoords</span><span class="o">=</span><span class="s">&#39;figure fraction&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axs</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="colorplot_by_stage"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.colorplot_by_stage">[docs]</a><span class="k">def</span> <span class="nf">colorplot_by_stage</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">marker</span><span class="p">,</span> <span class="n">stages</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="c"># inds from calc_LFIR are based on only resolved stars.</span>
+    <span class="kn">from</span> <span class="nn">ResolvedStellarPops.TrilegalUtils</span> <span class="kn">import</span> <span class="n">get_label_stage</span>
+
+    <span class="k">if</span> <span class="n">cols</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="n">discrete_colors</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">stages</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">stages</span><span class="p">)):</span>
+        <span class="n">ind</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">stages</span> <span class="o">==</span> <span class="n">s</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">marker</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mew</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">get_label_stage</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">ax</span><span class="p">,</span> <span class="n">cols</span>
+
+</div>
+<div class="viewcode-block" id="discrete_colors"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.discrete_colors">[docs]</a><span class="k">def</span> <span class="nf">discrete_colors</span><span class="p">(</span><span class="n">Ncolors</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s">&#39;gist_rainbow&#39;</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    returns list of RGBA tuples length Ncolors</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">cmap</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="n">colormap</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">cmap</span><span class="p">(</span><span class="mf">1.</span> <span class="o">*</span> <span class="n">i</span> <span class="o">/</span> <span class="n">Ncolors</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Ncolors</span><span class="p">)]</span>
+
+</div>
+<div class="viewcode-block" id="load_scatter_kwargs"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.load_scatter_kwargs">[docs]</a><span class="k">def</span> <span class="nf">load_scatter_kwargs</span><span class="p">(</span><span class="n">color_array</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cm</span><span class="o">.</span><span class="n">jet</span><span class="p">):</span>
+    <span class="n">kw</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;zorder&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+          <span class="s">&#39;alpha&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+          <span class="s">&#39;edgecolor&#39;</span><span class="p">:</span> <span class="s">&#39;k&#39;</span><span class="p">,</span>
+          <span class="s">&#39;c&#39;</span><span class="p">:</span> <span class="n">color_array</span><span class="p">,</span>
+          <span class="s">&#39;cmap&#39;</span><span class="p">:</span> <span class="n">cmap</span><span class="p">,</span>
+          <span class="s">&#39;vmin&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">color_array</span><span class="p">),</span>
+          <span class="s">&#39;vmax&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">color_array</span><span class="p">)</span>
+          <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">kw</span>
+
+</div>
+<div class="viewcode-block" id="scatter_colorbar"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.scatter_colorbar">[docs]</a><span class="k">def</span> <span class="nf">scatter_colorbar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">color_array</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    makes a scatter plot with a float array as colors.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c"># c_array is an array of floats -- so this would be your fit value</span>
+    <span class="n">scatter_kwargs</span> <span class="o">=</span> <span class="n">load_scatter_kwargs</span><span class="p">(</span><span class="n">color_array</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">ax</span> <span class="ow">or</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">markersize</span><span class="p">,</span> <span class="o">**</span><span class="n">scatter_kwargs</span><span class="p">)</span>
+
+    <span class="c"># lets you get the colors if you want them for something else</span>
+    <span class="c"># ie sc.get_facecolors()</span>
+    <span class="c"># you might not need to do this</span>
+    <span class="c">#sc.update_scalarmappable()</span>
+
+    <span class="c"># then to get the colorbar</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ax</span><span class="p">,</span> <span class="n">sc</span>
+
+</div>
+<div class="viewcode-block" id="reverse_yaxis"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.reverse_yaxis">[docs]</a><span class="k">def</span> <span class="nf">reverse_yaxis</span><span class="p">(</span><span class="n">ax</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="reverse_xaxis"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.reverse_xaxis">[docs]</a><span class="k">def</span> <span class="nf">reverse_xaxis</span><span class="p">(</span><span class="n">ax</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="load_ann_kwargs"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.load_ann_kwargs">[docs]</a><span class="k">def</span> <span class="nf">load_ann_kwargs</span><span class="p">():</span>
+    <span class="kn">from</span> <span class="nn">matplotlib.patheffects</span> <span class="kn">import</span> <span class="n">withStroke</span>
+    <span class="n">myeffect</span> <span class="o">=</span> <span class="n">withStroke</span><span class="p">(</span><span class="n">foreground</span><span class="o">=</span><span class="s">&quot;w&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">ann_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">path_effects</span><span class="o">=</span><span class="p">[</span><span class="n">myeffect</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">ann_kwargs</span>
+</div>
+<span class="n">ann_kwargs</span> <span class="o">=</span> <span class="n">load_ann_kwargs</span><span class="p">()</span>
+
+
+<span class="sd">&quot;&quot;&quot; Undefined funcition ReadFileUtils.read_binary_table</span>
+
+<span class="sd">def plot_cmd(fitsfile=None, yaxis=&#39;I&#39;, upper_contour=False, **kwargs):</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+<span class="sd">    upper_contour contour only above TRGB</span>
+<span class="sd">    kwargs: outfile, save_plot</span>
+<span class="sd">    absmag</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+<span class="sd">    new_plot = kwargs.get(&#39;new_plot&#39;, True)</span>
+<span class="sd">    ax = kwargs.get(&#39;ax&#39;, &#39;&#39;)</span>
+<span class="sd">    save_plot = kwargs.get(&#39;save_plot&#39;, False)</span>
+<span class="sd">    if fitsfile is None:</span>
+<span class="sd">        mag1 = kwargs.get(&#39;mag1&#39;, None)</span>
+<span class="sd">        mag2 = kwargs.get(&#39;mag2&#39;, None)</span>
+<span class="sd">        filter1 = kwargs.get(&#39;filter1&#39;, &#39;&#39;)</span>
+<span class="sd">        filter2 = kwargs.get(&#39;filter2&#39;, &#39;&#39;)</span>
+<span class="sd">        title = kwargs.get(&#39;title&#39;, &#39;&#39;)</span>
+<span class="sd">    else:</span>
+<span class="sd">        fits = ReadFileUtils.read_binary_table(fitsfile)</span>
+<span class="sd">        filter1, filter2 = misc.get_filters(fitsfile)</span>
+<span class="sd">        title = misc.get_title(fitsfile)</span>
+<span class="sd">        trgb= Astronomy.get_tab5_trgb_Av_dmod(title)[0]</span>
+<span class="sd">        try:</span>
+<span class="sd">            mag1 = fits.get_col(&#39;MAG1_WFPC2&#39;)</span>
+<span class="sd">            mag2 = fits.get_col(&#39;MAG2_WFPC2&#39;)</span>
+<span class="sd">        except:</span>
+<span class="sd">            mag1 = fits.get_col(&#39;MAG1_ACS&#39;)</span>
+<span class="sd">            mag2 = fits.get_col(&#39;MAG2_ACS&#39;)</span>
+
+<span class="sd">    abs_mag = kwargs.get(&#39;abs_mag&#39;, True)</span>
+<span class="sd">    if abs_mag == True:</span>
+<span class="sd">        mag1 = Astronomy.HSTmag2Mag(mag1, title, filter1)</span>
+<span class="sd">        mag2 = Astronomy.HSTmag2Mag(mag2, title, filter2)</span>
+
+<span class="sd">    color = mag1-mag2</span>
+
+<span class="sd">    if yaxis == &#39;I&#39;:</span>
+<span class="sd">        mag = mag2</span>
+<span class="sd">        Filter = filter2</span>
+<span class="sd">    else:</span>
+<span class="sd">        mag = mag1</span>
+<span class="sd">        Filter = filter1</span>
+
+<span class="sd">    dx = 0.05</span>
+<span class="sd">    dy = 0.05</span>
+<span class="sd">    if upper_contour == False:</span>
+<span class="sd">        Z, xrange, yrange = math-utils.bin_up(color, mag, dx=dx, dy=dy)</span>
+<span class="sd">    else:</span>
+<span class="sd">        Trgb = trgb-dmod-Av</span>
+<span class="sd">        inds = np.nonzero(mag&lt;(Trgb))[0]</span>
+<span class="sd">        Z, xrange, yrange = math-utils.bin_up(color[inds], mag[inds], dx=dx, dy=dy)</span>
+
+<span class="sd">    if new_plot == True:</span>
+<span class="sd">        fig = plt.figure()</span>
+<span class="sd">        ax = plt.axes()</span>
+
+<span class="sd">    ax.plot(color, mag, &#39;, &#39;, color=&#39;black&#39;)</span>
+<span class="sd">    cs = plt.contour(Z, 10, extent=[xrange[0], xrange[-1], yrange[0], yrange[-1]], zorder=10)</span>
+<span class="sd">    #ax.clabel(cs, cs.levels, inline=True, fmt=&#39;%r %%&#39;, fontsize=10)</span>
+<span class="sd">    cbar = plt.colorbar(cs)</span>
+<span class="sd">    cbar.ax.set_ylabel(r&#39;$\rho_{*}$&#39;)</span>
+<span class="sd">    ax.set_xlabel(r&#39;$%s-%s$&#39;%(filter1, filter2))</span>
+<span class="sd">    ax.set_ylabel(r&#39;$%s$&#39;%Filter)</span>
+<span class="sd">    if title != &#39;&#39;:</span>
+<span class="sd">        ax.set_title(r&#39;$%s$&#39;%title)</span>
+<span class="sd">    reverse_yaxis(ax)</span>
+<span class="sd">    xlim = kwargs.get(&#39;xlim&#39;, &#39;None&#39;)</span>
+<span class="sd">    if xlim != &#39;None&#39;: ax.set_xlim(xlim)</span>
+<span class="sd">    if save_plot==True:</span>
+<span class="sd">        outfile = kwargs.get(&#39;outfile&#39;, fitsfile+&#39;.cmd.png&#39;)</span>
+<span class="sd">        plt.savefig(outfile)</span>
+<span class="sd">        logger.info(&#39;wrote %s&#39; % outfile)</span>
+<span class="sd">        plt.close()</span>
+<span class="sd">    return ax</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="set_up_three_panel_plot"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.set_up_three_panel_plot">[docs]</a><span class="k">def</span> <span class="nf">set_up_three_panel_plot</span><span class="p">():</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+    <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">lefter</span> <span class="o">=</span> <span class="n">left</span> <span class="o">+</span> <span class="n">width</span> <span class="o">+</span> <span class="n">d</span>
+    <span class="n">mid</span> <span class="o">=</span> <span class="n">bottom</span> <span class="o">+</span> <span class="n">height</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span>
+    <span class="n">lefts</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">lefter</span><span class="p">,</span> <span class="n">left</span><span class="p">]</span>
+    <span class="n">bottoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">mid</span><span class="p">,</span> <span class="n">mid</span><span class="p">,</span> <span class="n">bottom</span><span class="p">]</span>
+    <span class="n">widths</span> <span class="o">=</span> <span class="p">[</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">width</span> <span class="o">+</span> <span class="n">d</span><span class="p">]</span>
+    <span class="n">heights</span> <span class="o">=</span> <span class="p">[</span><span class="n">height</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">height</span> <span class="o">-</span> <span class="mf">0.1</span><span class="p">]</span>
+
+    <span class="n">axs</span> <span class="o">=</span> <span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="n">l</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">])</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">lefts</span><span class="p">,</span> <span class="n">bottoms</span><span class="p">,</span> <span class="n">widths</span><span class="p">,</span> <span class="n">heights</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">axs</span>
+
+</div>
+<div class="viewcode-block" id="two_panel_plot"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.two_panel_plot">[docs]</a><span class="k">def</span> <span class="nf">two_panel_plot</span><span class="p">(</span><span class="n">sizex</span><span class="p">,</span> <span class="n">sizey</span><span class="p">,</span> <span class="n">xlab1</span><span class="p">,</span> <span class="n">xlab2</span><span class="p">,</span> <span class="n">ylab</span><span class="p">,</span> <span class="n">ylab2</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">ftsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">mag2_cut</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">mag2_max</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">sizex</span><span class="p">,</span> <span class="n">sizey</span><span class="p">))</span>
+    <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.8</span>
+
+    <span class="n">left2</span> <span class="o">=</span> <span class="n">left</span> <span class="o">+</span> <span class="n">width</span> <span class="o">+</span> <span class="mf">0.065</span>
+    <span class="k">if</span> <span class="n">ylab2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">left2</span> <span class="o">=</span> <span class="n">left</span> <span class="o">+</span> <span class="n">width</span> <span class="o">+</span> <span class="mf">0.08</span>
+    <span class="n">axis1</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+    <span class="n">axis2</span> <span class="o">=</span> <span class="p">[</span><span class="n">left2</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">axis1</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="p">(</span><span class="n">mag2_cut</span><span class="p">,</span> <span class="n">mag2_max</span><span class="p">)</span> <span class="p">)</span>  <span class="c"># set all axes limits here</span>
+    <span class="c">#ax1.set_ylim( (0.0001, 10.) )</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">xlab1</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">r&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">ylab</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">axis2</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="n">ax1</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span> <span class="p">)</span>
+    <span class="c">#ax2.set_ylim( ax1.get_ylim() )</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">xlab2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ylab2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">r&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">ylab2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span>
+
+</div>
+<div class="viewcode-block" id="two_panel_plot_vert"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.two_panel_plot_vert">[docs]</a><span class="k">def</span> <span class="nf">two_panel_plot_vert</span><span class="p">(</span><span class="n">oney</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ftsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">mag2_cut</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">mag2_max</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+    <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.13</span><span class="p">,</span> <span class="mf">0.83</span>
+    <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.41</span>
+    <span class="n">dh</span> <span class="o">=</span> <span class="mf">0.03</span>
+
+    <span class="n">axis1</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+    <span class="n">axis2</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="p">(</span><span class="n">bottom</span> <span class="o">+</span> <span class="n">height</span> <span class="o">+</span> <span class="n">dh</span><span class="p">),</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">axis1</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="p">(</span><span class="n">mag2_cut</span><span class="p">,</span> <span class="n">mag2_max</span><span class="p">)</span> <span class="p">)</span>  <span class="c"># set all axes limits here</span>
+    <span class="c">#ax1.set_ylim( (0.0001, 10.) )</span>
+    <span class="k">if</span> <span class="n">oney</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="s">r&#39;$\#/ 3.6 \mu \rm{m\ Region\ Integrated\ Flux\ (Jy}^{-1}\rm{)}$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="mf">0.025</span><span class="p">,</span> <span class="o">.</span><span class="mi">5</span><span class="p">),</span> <span class="n">xycoords</span><span class="o">=</span><span class="s">&#39;figure fraction&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="s">&#39;vertical&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;$\rm{mag}$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">axis2</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="n">ax1</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span> <span class="p">)</span>
+    <span class="c">#ax2.set_ylim( ax1.get_ylim() )</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span>
+
+</div>
+<div class="viewcode-block" id="setup_four_panel"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.setup_four_panel">[docs]</a><span class="k">def</span> <span class="nf">setup_four_panel</span><span class="p">(</span><span class="n">ftsize</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="n">lefter</span> <span class="o">=</span> <span class="n">left</span> <span class="o">+</span> <span class="n">width</span> <span class="o">+</span> <span class="mf">0.01</span>
+    <span class="n">higher</span> <span class="o">=</span> <span class="n">bottom</span> <span class="o">+</span> <span class="n">height</span> <span class="o">+</span> <span class="mf">0.01</span>
+
+    <span class="c"># plot and fig sizes</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+    <span class="n">ll_axis</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+    <span class="n">lr_axis</span> <span class="o">=</span> <span class="p">[</span><span class="n">lefter</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+    <span class="n">ul_axis</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">higher</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+    <span class="n">ur_axis</span> <span class="o">=</span> <span class="p">[</span><span class="n">lefter</span><span class="p">,</span> <span class="n">higher</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span>
+
+    <span class="n">ax_ll</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">ll_axis</span><span class="p">)</span>
+    <span class="n">ax_ll</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.75</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c"># model and data x limits here</span>
+    <span class="n">ax_ll</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span> <span class="p">(</span><span class="mf">24.8</span><span class="p">,</span> <span class="mi">18</span><span class="p">))</span>  <span class="c"># set all y limits here</span>
+
+    <span class="n">ax_lr</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">lr_axis</span><span class="p">)</span>
+    <span class="n">ax_lr</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span> <span class="p">)</span>
+    <span class="n">ax_lr</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span> <span class="p">)</span>
+
+    <span class="n">ax_ul</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">ul_axis</span><span class="p">)</span>
+    <span class="n">ax_ul</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span> <span class="p">)</span>
+    <span class="n">ax_ul</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span> <span class="p">)</span>
+
+    <span class="n">ax_ur</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">ur_axis</span><span class="p">)</span>
+    <span class="n">ax_ur</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span> <span class="p">)</span>
+    <span class="n">ax_ur</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span> <span class="n">ax_ll</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span> <span class="p">)</span>
+
+    <span class="n">ax_lr</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax_ur</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax_ur</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax_ul</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+
+    <span class="c"># titles</span>
+    <span class="c">#x = fig.text(0.5, 0.96, r&#39;$\rm{%s}$&#39; % (&#39;Disk Field&#39;), horizontalalignment=&#39;center&#39;, verticalalignment=&#39;top&#39;, size=20)</span>
+    <span class="n">ax_ur</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">r&#39;$\rm{Disk\ Field}$&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;black&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax_ul</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">r&#39;$\rm{Bulge\ Field}$&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;black&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax_ll</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">r&#39;$F336W$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax_ll</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;$F275W-F336W$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax_ul</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">ax_ll</span><span class="o">.</span><span class="n">get_ylabel</span><span class="p">(),</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+    <span class="n">ax_lr</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">ax_ll</span><span class="o">.</span><span class="n">get_xlabel</span><span class="p">(),</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ax_ll</span><span class="p">,</span> <span class="n">ax_lr</span><span class="p">,</span> <span class="n">ax_ul</span><span class="p">,</span> <span class="n">ax_ur</span>
+
+</div>
+<div class="viewcode-block" id="setup_five_panel_plot"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.setup_five_panel_plot">[docs]</a><span class="k">def</span> <span class="nf">setup_five_panel_plot</span><span class="p">(</span><span class="n">ftsize</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">left</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="mf">0.06</span><span class="p">,</span> <span class="mf">0.175</span>
+    <span class="n">bottom</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.82</span>
+    <span class="n">dl</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">lefts</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span> <span class="o">+</span> <span class="p">(</span><span class="n">width</span> <span class="o">+</span> <span class="n">dl</span><span class="p">)</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+
+    <span class="c"># plot and fig sizes</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+    <span class="n">axiss</span> <span class="o">=</span> <span class="p">[[</span><span class="n">l</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lefts</span><span class="p">]</span>
+
+    <span class="n">axs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">axiss</span><span class="p">)):</span>
+        <span class="n">axs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">axiss</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axs</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.75</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>   <span class="c"># model and data x limits here</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span> <span class="p">(</span><span class="mf">24.8</span><span class="p">,</span> <span class="mi">19</span><span class="p">))</span>   <span class="c"># set all y limits here</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_locator</span><span class="p">(</span><span class="n">MultipleLocator</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">axs</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">NullFormatter</span><span class="p">())</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;$F275W-F336W$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">axs</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">r&#39;$F336W$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">ftsize</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">axs</span>
+
+</div>
+<div class="viewcode-block" id="histOutline"><a class="viewcode-back" href="../../../resolvedstellarpops.graphics.html#resolvedstellarpops.graphics.utils.histOutline">[docs]</a><span class="k">def</span> <span class="nf">histOutline</span><span class="p">(</span><span class="n">dataIn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Then you do something like..</span>
+
+<span class="sd">    Any of the np keyword arguments can be passed:</span>
+
+<span class="sd">    bins, hist = histOutline(x)</span>
+
+<span class="sd">    plt.plot(bins, hist)</span>
+
+<span class="sd">    or plt.fill_between(bins, hist)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="p">(</span><span class="n">histIn</span><span class="p">,</span> <span class="n">binsIn</span><span class="p">)</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">dataIn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">stepSize</span> <span class="o">=</span> <span class="n">binsIn</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">binsIn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">binsIn</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">binsIn</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">bb</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">binsIn</span><span class="p">)):</span>
+        <span class="n">bins</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bb</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">binsIn</span><span class="p">[</span><span class="n">bb</span><span class="p">]</span>
+        <span class="n">bins</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bb</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">binsIn</span><span class="p">[</span><span class="n">bb</span><span class="p">]</span> <span class="o">+</span> <span class="n">stepSize</span>
+        <span class="k">if</span> <span class="n">bb</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">histIn</span><span class="p">):</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bb</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">histIn</span><span class="p">[</span><span class="n">bb</span><span class="p">]</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bb</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">histIn</span><span class="p">[</span><span class="n">bb</span><span class="p">]</span>
+
+    <span class="n">bins</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">bins</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">bins</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">bins</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</div>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Stuff from Adrienne:</span>
+<span class="sd">I started this email because I wanted to know if you had the answer, and I found it along the way. Now I think it&#39;s useful knowledge. Basically, it&#39;s an easy way to put a legend anywhere on a figure in figure coordinates, not axis coordinates or data coordinates. Helpful if you have one legend for multiple subplots.</span>
+
+<span class="sd">Basically, you can do a transform in legend to tell matplotlib that you&#39;re specifying the coordinates in data units or in axis units, ie,</span>
+
+<span class="sd">bbox_transform = ax.transAxes (0 - 1 means left to right or bottom to top of current axis)</span>
+
+<span class="sd">bbox_transform = ax.transData (specify location in data coordinates for that particular axis)</span>
+
+<span class="sd">bbox_transform = fig.transFigure (specify location in figure coordinates, so 0 - 1 means bottom to top or left to right of the current *figure*, not the current axis)</span>
+
+<span class="sd">Now I am trying to figure out how to get it to use points from different subplots in one legend.. fun.</span>
+
+<span class="sd">proxy artists:</span>
+<span class="sd">    p_corr = matplotlib.lines.Line2D([0], [0], marker = &#39;o&#39;, color = &#39;k&#39;,</span>
+<span class="sd">                                     linestyle = &#39;None&#39;)</span>
+<span class="sd">    p_uncorr = matplotlib.lines.Line2D([0], [0], marker = &#39;o&#39;, color = &#39;0.7&#39;,</span>
+<span class="sd">                                       linestyle = &#39;None&#39;,</span>
+<span class="sd">                                       markeredgecolor = &#39;0.7&#39;)</span>
+
+<span class="sd">    l = plt.legend([p_corr, p_uncorr], [&quot;Correlated&quot;, &quot;Uncorrelated&quot;],</span>
+<span class="sd">                   bbox_transform = fig.transFigure, loc = &#39;upper right&#39;,</span>
+<span class="sd">                   bbox_to_anchor = (0.9, 0.9),</span>
+<span class="sd">                   numpoints = 1,</span>
+<span class="sd">                   title = &quot;Log scaling&quot;,</span>
+<span class="sd">                   borderpad = 1,</span>
+<span class="sd">                   handletextpad = 0.3,</span>
+<span class="sd">                   labelspacing = 0.5)#,</span>
+<span class="sd">                   #prop = matplotlib.font_manager.FontProperties(size=20))</span>
+
+<span class="sd">I&#39;ve been looking for this for a while. I don&#39;t know how you do colors in plotting but I think it&#39;s different than me. This is good for scatterplots with color.</span>
+
+<span class="sd">Easy to way go from array of float values of any range -&gt; floats between 0 and 1 with some scaling so you can pass it to a colormap -&gt; colors:</span>
+
+
+<span class="sd">import matplotlib</span>
+
+<span class="sd">norm_instance = matplotlib.colors.Normalize(vmin = np.min(float_array),</span>
+<span class="sd">    vmax = np.max(float_array) )</span>
+
+<span class="sd">normed_floats = norm_instance( float_array )</span>
+
+<span class="sd">colors = matplotlib.cm.jet( normed_floats ) # or any cmap really.</span>
+
+
+<span class="sd">and voila, colors is your usual array of [R G B alpha] values for the color or each point. I&#39;ve been trying to find something like this for a long time and finally stumbled across the right google search terms.</span>
+
+<span class="sd">There&#39;s also a matplotlib.colors.LogNorm if you want to normalize the colors on a log scale.</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">import matplotlib.ticker as poop</span>
+<span class="sd">ax.yaxis.set_major_formatter( poop.FormatStrFormatter(&#39;%g&#39;))</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">POWERLAWS</span>
+
+<span class="sd">http://arxiv.org/abs/0905.0474</span>
+<span class="sd">   fig = plt.figure(figsize = (7,3))</span>
+<span class="sd">    gs = gridspec.GridSpec(1, 4, left = 0.15, right = 0.9,</span>
+<span class="sd">                           bottom = 0.1, top = 0.9,</span>
+<span class="sd">                           width_ratios = [1, 1, 1, 0.05])</span>
+<span class="sd">    #gs.update( ) # like subplots_adjust</span>
+
+<span class="sd">    # data</span>
+<span class="sd">    ax_s1 = host_subplot(gs[0])</span>
+<span class="sd">    ax_s2 = host_subplot(gs[1])</span>
+<span class="sd">    ax_m2 = host_subplot(gs[2])</span>
+<span class="sd">    cax_hidden = host_subplot(gs[3])</span>
+<span class="sd">    cax_hidden.axis(&#39;off&#39;) # we only need its x position for later, so hide cax.</span>
+
+<span class="sd">    ### plot some shit</span>
+<span class="sd">    im_s1 = ax_s1.imshow(A)</span>
+
+<span class="sd">    fig.canvas.draw()</span>
+<span class="sd">    extents_s1 = ax_s1.figbox.extents</span>
+<span class="sd">    extents_cax = cax_hidden.figbox.extents</span>
+
+<span class="sd">    # make a new subplot axis with specified location for the colorbar.</span>
+<span class="sd">    poop_position = [ extents_cax[0], # left</span>
+<span class="sd">                     extents_s1[1], # bottom</span>
+<span class="sd">                     extents_cax[2] - extents_cax[0], # width</span>
+<span class="sd">                     extents_s1[3] - extents_s1[1] ] # height</span>
+
+<span class="sd">    poop_ax = plt.axes(poop_position)</span>
+
+<span class="sd">    # make the colorbar</span>
+<span class="sd">    cb = plt.colorbar(im_s1, cax = poop_ax)#, ticks = cb_ticks)</span>
+<span class="sd">far easier if you have only one subplot instead of 3 like my previous example</span>
+
+
+<span class="sd">from mpl_toolkits.axes_grid1 import make_axes_locatable</span>
+
+<span class="sd">def poop():</span>
+<span class="sd">    fig = plt.figure(figsize = (6,4))</span>
+<span class="sd">    fig.subplots_adjust(left = 0.2, right = 0.8,</span>
+<span class="sd">                        bottom = 0.2, top = 0.8)</span>
+<span class="sd">    ax = host_subplot(111)</span>
+
+<span class="sd">    divider = make_axes_locatable(ax)</span>
+<span class="sd">    cax = divider.append_axes(&#39;right&#39;, &#39;5%&#39;, pad = 1)</span>
+
+
+<span class="sd">    # ... plot something</span>
+<span class="sd">    mappable = plt.imshow(array)</span>
+
+<span class="sd">    plt.colorbar(mappable, cax = cax)</span>
+<span class="sd">&#39;&#39;&#39;</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

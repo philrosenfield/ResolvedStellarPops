@@ -362,7 +362,7 @@ class star_pop(object):
         return inds
 
     def make_hess(self, binsize, absmag=False, useasts=False, slice_inds=None,
-                  hess_kw={}):
+                  hess_kw={}, col=None, mag=None):
         '''
         adds a hess diagram of color, mag2 or Color, Mag2 (if absmag is True).
         if useasts is true will use ast_mags.
@@ -373,22 +373,24 @@ class star_pop(object):
 
         See astronomy_utils doc for more information.
         '''
-        if absmag is True:
-            col = self.Color
-            mag = self.Mag2
-        elif useasts is True:
-            col = self.ast_color[self.rec]
-            mag = self.ast_mag2[self.rec]
-        else:
-            col = self.color
-            mag = self.mag2
+        if col is None and mag is None:
+            if absmag is True:
+                col = self.Color
+                mag = self.Mag2
+            elif useasts is True:
+                col = self.ast_color[self.rec]
+                mag = self.ast_mag2[self.rec]
+            else:
+                col = self.color
+                mag = self.mag2
         if slice_inds is not None:
             col = col[slice_inds]
             mag = mag[slice_inds]
         self.hess = astronomy_utils.hess(col, mag, binsize, **hess_kw)
         return
 
-    def hess_plot(self, fig=None, ax=None, colorbar=False, imshow_kw={}):
+    def hess_plot(self, fig=None, ax=None, colorbar=False, imshow_kw={},
+                  filter1=None, filter2=None):
         '''
         Plots a hess diagram with imshow.
         default kwargs passed to imshow:
@@ -399,12 +401,10 @@ class star_pop(object):
                                  self.hess[1][-1], self.hess[1][0]]}
         '''
         assert hasattr(self, 'hess'), 'run self.make_hess before plotting'
-        if hasattr(self, 'filter2') and hasattr(self, 'filter1'):
-            filter1 = self.filter1
-            filter2 = self.filter2
-        else:
-            filter1 = None
-            filter2 = None
+        if filter1 is None and filter2 is None:
+            if hasattr(self, 'filter2') and hasattr(self, 'filter1'):
+                filter1 = self.filter1
+                filter2 = self.filter2
         ax = astronomy_utils.hess_plot(self.hess, fig=fig, ax=ax,
                                        filter1=filter1, filter2=filter2,
                                        colorbar=colorbar,
@@ -784,7 +784,7 @@ class star_pop(object):
         for i, sinds in enumerate(sindss):
             if stage_inds is not None:
                 s_inds = stage_inds
-            
+
             s_inds = np.intersect1d(inds, sinds)
             imag = mag[s_inds]
             if len(imag) < 2:

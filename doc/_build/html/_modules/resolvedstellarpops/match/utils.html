@@ -1,0 +1,986 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.match.utils &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.match.utils</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.match.utils</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">io</span>
+<span class="kn">from</span> <span class="nn">..galaxies</span> <span class="kn">import</span> <span class="n">Galaxy</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">match_config</span> <span class="k">as</span> <span class="n">config</span>
+<span class="c">#from .. import graphics</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;CalcsfhParams&#39;</span><span class="p">,</span> <span class="s">&#39;calcsfh_dict&#39;</span><span class="p">,</span> <span class="s">&#39;calcsfh_pars_fmt&#39;</span><span class="p">,</span> <span class="s">&#39;call_match&#39;</span><span class="p">,</span>
+           <span class="s">&#39;check_exclude_gates&#39;</span><span class="p">,</span> <span class="s">&#39;check_for_bg_file&#39;</span><span class="p">,</span> <span class="s">&#39;get_fit&#39;</span><span class="p">,</span>
+           <span class="s">&#39;make_calcsfh_param_file&#39;</span><span class="p">,</span> <span class="s">&#39;make_exclude_gates&#39;</span><span class="p">,</span> <span class="s">&#39;make_match_param&#39;</span><span class="p">,</span>
+           <span class="s">&#39;make_phot&#39;</span><span class="p">,</span> <span class="s">&#39;match_light&#39;</span><span class="p">,</span> <span class="s">&#39;match_param_default_dict&#39;</span><span class="p">,</span>
+           <span class="s">&#39;match_param_fmt&#39;</span><span class="p">,</span> <span class="s">&#39;match_stats&#39;</span><span class="p">,</span> <span class="s">&#39;plot_zctmp&#39;</span><span class="p">,</span> <span class="s">&#39;poly2str&#39;</span><span class="p">,</span>
+           <span class="s">&#39;process_match_sfh&#39;</span><span class="p">,</span> <span class="s">&#39;read_binned_sfh&#39;</span><span class="p">,</span> <span class="s">&#39;read_match_cmd&#39;</span><span class="p">,</span>
+           <span class="s">&#39;read_match_old&#39;</span><span class="p">,</span> <span class="s">&#39;read_match_sfh&#39;</span><span class="p">,</span> <span class="s">&#39;read_zctmp&#39;</span><span class="p">,</span> <span class="s">&#39;write_match_bg&#39;</span><span class="p">,</span>
+           <span class="s">&#39;write_qsub&#39;</span> <span class="p">]</span>
+
+
+<div class="viewcode-block" id="match_stats"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.match_stats">[docs]</a><span class="k">def</span> <span class="nf">match_stats</span><span class="p">(</span><span class="n">sfh_file</span><span class="p">,</span> <span class="n">match_cmd_file</span><span class="p">,</span> <span class="n">nfp_nonsfr</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">nmc_runs</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+                <span class="n">outfile</span><span class="o">=</span><span class="s">&#39;cmd_stats.dat&#39;</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    NFP = # of non-zero time bins</span>
+<span class="sd">          + dmod + av + 1 for metallicity (zinc) + 2 for background.</span>
+
+<span class="sd">    run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins</span>
+<span class="sd">    in sfh_file.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">stats_exe</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">stat_exe</span>
+    <span class="n">sfr_data</span> <span class="o">=</span> <span class="n">read_binned_sfh</span><span class="p">(</span><span class="n">sfh_file</span><span class="p">)</span>
+    <span class="n">inds</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">sfr_data</span><span class="o">.</span><span class="n">sfr</span><span class="p">)</span>
+
+    <span class="n">perr_frac</span> <span class="o">=</span> <span class="n">sfr_data</span><span class="o">.</span><span class="n">sfr_errp</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">/</span> <span class="n">sfr_data</span><span class="o">.</span><span class="n">sfr</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span>
+    <span class="n">merr_frac</span> <span class="o">=</span> <span class="n">sfr_data</span><span class="o">.</span><span class="n">sfr_errm</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">/</span> <span class="n">sfr_data</span><span class="o">.</span><span class="n">sfr</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span>
+
+    <span class="n">nonzero_bins</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">inds</span><span class="p">)</span>
+    <span class="n">nfp</span> <span class="o">=</span> <span class="n">nonzero_bins</span> <span class="o">+</span> <span class="n">nfp_nonsfr</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%i</span><span class="s"> </span><span class="si">%i</span><span class="s"> &gt;&gt; </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">stats_exe</span><span class="p">,</span> <span class="n">match_cmd_file</span><span class="p">,</span> <span class="n">nmc_runs</span><span class="p">,</span> <span class="n">nfp</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&#39;writing to&#39;</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="s">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;min + sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">perr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;min - sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">merr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;median + sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">perr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;median - sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">merr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;max + sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">perr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;max - sfr err: </span><span class="si">%.3f</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">merr_frac</span><span class="p">))</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;# </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cmd</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="k">return</span>
+
+</div>
+<div class="viewcode-block" id="read_match_old"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.read_match_old">[docs]</a><span class="k">def</span> <span class="nf">read_match_old</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;read older than v2.5 match output&#39;&#39;&#39;</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;lagei&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;lagef&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;sfr&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;nstars&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">skip_header</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">skip_footer</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                         <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">recarray</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="read_binned_sfh"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.read_binned_sfh">[docs]</a><span class="k">def</span> <span class="nf">read_binned_sfh</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    reads the *.zc.sfh file from match, the one created using HMC from</span>
+<span class="sd">    Dolphin 2013. Not sure what one of the cols is, so I have it a lixo.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;lagei&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;lagef&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;sfr&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;sfr_errp&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;sfr_errm&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh_errp&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh_errm&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh_disp&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh_disp_errp&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mh_disp_errm&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;csfr&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;csfr_errp&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;csfr_errm&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">skip_header</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+                             <span class="n">skip_footer</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">recarray</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="make_phot"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.make_phot">[docs]</a><span class="k">def</span> <span class="nf">make_phot</span><span class="p">(</span><span class="n">gal</span><span class="p">,</span> <span class="n">fname</span><span class="o">=</span><span class="s">&#39;phot.dat&#39;</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    makes phot.dat input file for match, a list of V and I mags.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">gal</span><span class="o">.</span><span class="n">mag1</span><span class="p">,</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag2</span><span class="p">)),</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s">&#39;</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="make_match_param"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.make_match_param">[docs]</a><span class="k">def</span> <span class="nf">make_match_param</span><span class="p">(</span><span class="n">gal</span><span class="p">,</span> <span class="n">more_gal_kw</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Make param.sfh input file for match</span>
+<span class="sd">    see rsp.match_utils.match_param_fmt()</span>
+
+<span class="sd">    takes calcsfh search limits to be the photometric limits of the stars in the cmd.</span>
+<span class="sd">    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,</span>
+<span class="sd">    comp50mag2 are there.</span>
+
+<span class="sd">    only set up for acs and wfpc, if other photsystems need to check syntax with match</span>
+<span class="sd">    filters.</span>
+
+<span class="sd">    All values passed to more_gal_kw overwrite defaults.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">more_gal_kw</span> <span class="o">=</span> <span class="n">more_gal_kw</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="c"># load parameters</span>
+    <span class="n">inp</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">input_parameters</span><span class="p">(</span><span class="n">default_dict</span><span class="o">=</span><span class="n">match_param_default_dict</span><span class="p">())</span>
+
+    <span class="c"># add parameteres</span>
+    <span class="n">cmin</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">color</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">cmax</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">color</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">vmin</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag1</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">imin</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag2</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="s">&#39;acs&#39;</span> <span class="ow">in</span> <span class="n">gal</span><span class="o">.</span><span class="n">photsys</span><span class="p">:</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;F&#39;</span><span class="p">,</span> <span class="s">&#39;WFC&#39;</span><span class="p">)</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter2</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;F&#39;</span><span class="p">,</span> <span class="s">&#39;WFC&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="s">&#39;wfpc&#39;</span> <span class="ow">in</span> <span class="n">gal</span><span class="o">.</span><span class="n">photsys</span><span class="p">:</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter2</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">photsys</span><span class="p">,</span> <span class="n">gal</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span><span class="p">,</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter2</span><span class="p">)</span>
+
+    <span class="c"># default doesn&#39;t move dmod or av.</span>
+    <span class="n">gal_kw</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;dmod1&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">dmod</span><span class="p">,</span> <span class="s">&#39;dmod2&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">dmod</span><span class="p">,</span> <span class="s">&#39;av1&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">Av</span><span class="p">,</span> <span class="s">&#39;av2&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">Av</span><span class="p">,</span>
+              <span class="s">&#39;V&#39;</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span> <span class="s">&#39;I&#39;</span><span class="p">:</span> <span class="n">I</span><span class="p">,</span> <span class="s">&#39;Vmax&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">comp50mag1</span><span class="p">,</span> <span class="s">&#39;Imax&#39;</span><span class="p">:</span> <span class="n">gal</span><span class="o">.</span><span class="n">comp50mag2</span><span class="p">,</span>
+              <span class="s">&#39;V-Imin&#39;</span><span class="p">:</span> <span class="n">cmin</span><span class="p">,</span> <span class="s">&#39;V-Imax&#39;</span><span class="p">:</span> <span class="n">cmax</span><span class="p">,</span> <span class="s">&#39;Vmin&#39;</span><span class="p">:</span> <span class="n">vmin</span><span class="p">,</span> <span class="s">&#39;Imin&#39;</span><span class="p">:</span> <span class="n">imin</span><span class="p">}</span>
+
+    <span class="c"># combine sources of params</span>
+    <span class="n">phot_kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">match_param_default_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">gal_kw</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">more_gal_kw</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+    <span class="n">inp</span><span class="o">.</span><span class="n">add_params</span><span class="p">(</span><span class="n">phot_kw</span><span class="p">)</span>
+
+    <span class="c"># write out</span>
+    <span class="n">inp</span><span class="o">.</span><span class="n">write_params</span><span class="p">(</span><span class="s">&#39;param.sfh&#39;</span><span class="p">,</span> <span class="n">match_param_fmt</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">inp</span>
+
+</div>
+<div class="viewcode-block" id="match_param_default_dict"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.match_param_default_dict">[docs]</a><span class="k">def</span> <span class="nf">match_param_default_dict</span><span class="p">():</span>
+    <span class="n">dd</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;ddmod&#39;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span> <span class="s">&#39;dav&#39;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+          <span class="s">&#39;logzmin&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.3</span><span class="p">,</span> <span class="s">&#39;logzmax&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s">&#39;dlogz&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+          <span class="s">&#39;logzmin0&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.3</span><span class="p">,</span> <span class="s">&#39;logzmax0&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="s">&#39;logzmin1&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.3</span><span class="p">,</span> <span class="s">&#39;logzmax1&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">,</span>
+          <span class="s">&#39;BF&#39;</span><span class="p">:</span> <span class="mf">0.35</span><span class="p">,</span> <span class="s">&#39;bad0&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="s">&#39;bad1&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+          <span class="s">&#39;ncmds&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+          <span class="s">&#39;Vstep&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s">&#39;V-Istep&#39;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span> <span class="s">&#39;fake_sm&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+          <span class="s">&#39;nexclude_gates&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#39;excludegates&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">,</span>
+          <span class="s">&#39;ninclude_gates&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#39;include_gates&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">dd</span>
+
+</div>
+<div class="viewcode-block" id="match_param_fmt"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.match_param_fmt">[docs]</a><span class="k">def</span> <span class="nf">match_param_fmt</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    calcsfh parameter format, set up for dan&#39;s runs and parsec M&lt;12.</span>
+<span class="sd">    NOTE exclude and include gates are strings and must have a space at</span>
+<span class="sd">    their beginning.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;&#39;-1 </span><span class="si">%(dmod1).3f</span><span class="s"> </span><span class="si">%(dmod2).3f</span><span class="s"> </span><span class="si">%(ddmod).3f</span><span class="s"> </span><span class="si">%(av1).3f</span><span class="s"> </span><span class="si">%(av2).3f</span><span class="s"> </span><span class="si">%(dav).3f</span><span class="s"></span>
+<span class="si">%(logzmin).2f</span><span class="s"> </span><span class="si">%(logzmax).2f</span><span class="s"> </span><span class="si">%(dlogz).2f</span><span class="s"> </span><span class="si">%(logzmin0).2f</span><span class="s"> </span><span class="si">%(logzmax0).2f</span><span class="s"> </span><span class="si">%(logzmin1).2f</span><span class="s"> </span><span class="si">%(logzmax1).2f</span><span class="s"></span>
+<span class="si">%(BF).2f</span><span class="s"> </span><span class="si">%(bad0).6f</span><span class="s"> </span><span class="si">%(bad1).6f</span><span class="s"></span>
+<span class="si">%(ncmds)i</span><span class="s"></span>
+<span class="si">%(Vstep).2f</span><span class="s"> %(V-Istep).2f </span><span class="si">%(fake_sm)i</span><span class="s"> %(V-Imin).2f %(V-Imax).2f </span><span class="si">%(V)s</span><span class="s">,</span><span class="si">%(I)s</span><span class="s"></span>
+<span class="si">%(Vmin).2f</span><span class="s"> </span><span class="si">%(Vmax).2f</span><span class="s"> </span><span class="si">%(V)s</span><span class="s"></span>
+<span class="si">%(Imin).2f</span><span class="s"> </span><span class="si">%(Imax).2f</span><span class="s"> </span><span class="si">%(I)s</span><span class="s"></span>
+<span class="si">%(nexclude_gates)i%(exclude_gates)s</span><span class="s"> </span><span class="si">%(ninclude_gates)i%(include_gates)s</span><span class="s"></span>
+<span class="s">43</span>
+<span class="s">7.30 7.40</span>
+<span class="s">7.40 7.50</span>
+<span class="s">7.50 7.60</span>
+<span class="s">7.60 7.70</span>
+<span class="s">7.70 7.80</span>
+<span class="s">7.80 7.90</span>
+<span class="s">7.90 8.00</span>
+<span class="s">8.00 8.10</span>
+<span class="s">8.10 8.20</span>
+<span class="s">8.20 8.30</span>
+<span class="s">8.30 8.40</span>
+<span class="s">8.40 8.50</span>
+<span class="s">8.50 8.60</span>
+<span class="s">8.60 8.70</span>
+<span class="s">8.70 8.75</span>
+<span class="s">8.75 8.80</span>
+<span class="s">8.80 8.85</span>
+<span class="s">8.85 8.90</span>
+<span class="s">8.90 8.95</span>
+<span class="s">8.95 9.00</span>
+<span class="s">9.00 9.05</span>
+<span class="s">9.05 9.10</span>
+<span class="s">9.10 9.15</span>
+<span class="s">9.15 9.20</span>
+<span class="s">9.20 9.25</span>
+<span class="s">9.25 9.30</span>
+<span class="s">9.30 9.35</span>
+<span class="s">9.35 9.40</span>
+<span class="s">9.40 9.45</span>
+<span class="s">9.45 9.50</span>
+<span class="s">9.50 9.55</span>
+<span class="s">9.55 9.60</span>
+<span class="s">9.60 9.65</span>
+<span class="s">9.65 9.70</span>
+<span class="s">9.70 9.75</span>
+<span class="s">9.75 9.80</span>
+<span class="s">9.80 9.85</span>
+<span class="s">9.85 9.90</span>
+<span class="s">9.90 9.95</span>
+<span class="s">9.95 10.00</span>
+<span class="s">10.00 10.05</span>
+<span class="s">10.05 10.10</span>
+<span class="s">10.10 10.15</span>
+<span class="s">-1 5 -1bg.dat</span>
+<span class="s">-1  1 -1</span>
+<span class="s">&#39;&#39;&#39;</span>
+
+</div>
+<div class="viewcode-block" id="make_exclude_gates"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.make_exclude_gates">[docs]</a><span class="k">def</span> <span class="nf">make_exclude_gates</span><span class="p">(</span><span class="n">fits_files</span><span class="p">,</span> <span class="n">trgb</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">make_plot</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Create the string for the match input file &#39;exclude gates&#39;</span>
+<span class="sd">    this only works for the trgb, assumes V vs V-I cmds in match</span>
+<span class="sd">    takes arbitary values for color max and min (hard coded)</span>
+
+<span class="sd">    send a string of fits_files (abspath preferred)</span>
+
+<span class="sd">    also has a hardcoded edge for hs117.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">round_it</span><span class="p">(</span><span class="n">numb</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">numb</span> <span class="o">*</span> <span class="mi">20</span><span class="p">)</span> <span class="o">/</span> <span class="mi">20</span>
+
+    <span class="c">#if make_plot is True:</span>
+    <span class="c">#    fig, (axs) = graphics.GraphicsUtils.setup_multiplot(len(fits_files), figsize=(30,30))</span>
+    <span class="c">#    axs = np.squeeze(np.concatenate(axs))</span>
+
+    <span class="n">exclude_gate</span> <span class="o">=</span> <span class="s">&#39; </span><span class="si">%(c0).2f</span><span class="s"> </span><span class="si">%(m0).2f</span><span class="s"> </span><span class="si">%(c1).2f</span><span class="s"> </span><span class="si">%(m1).2f</span><span class="s"> </span><span class="si">%(c2).2f</span><span class="s"> </span><span class="si">%(m2).2f</span><span class="s"> </span><span class="si">%(c3).2f</span><span class="s"> </span><span class="si">%(m3).2f</span><span class="s">&#39;</span>
+    <span class="n">exclude_gates</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">gal_kw</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;filetype&#39;</span><span class="p">:</span> <span class="s">&#39;fitstable&#39;</span><span class="p">,</span> <span class="s">&#39;hla&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span> <span class="s">&#39;angst&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span> <span class="s">&#39;band&#39;</span><span class="p">:</span> <span class="s">&#39;opt&#39;</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">fits_file</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fits_files</span><span class="p">):</span>
+        <span class="n">gal</span> <span class="o">=</span> <span class="n">Galaxy</span><span class="p">(</span><span class="n">fits_file</span><span class="p">,</span> <span class="o">**</span><span class="n">gal_kw</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">trgb</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">cmin</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span>
+            <span class="k">if</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span> <span class="o">==</span> <span class="s">&#39;F475W&#39;</span><span class="p">:</span>
+                <span class="n">cmax</span> <span class="o">=</span> <span class="mi">4</span>
+            <span class="k">if</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span> <span class="o">==</span> <span class="s">&#39;F606W&#39;</span><span class="p">:</span>
+                <span class="n">cmax</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="n">Vmax</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag1</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+            <span class="n">Vmin</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">trgb</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;need to code in cmin, cmax, vmin, vmax...&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">exclude_gates</span>
+        <span class="k">if</span> <span class="s">&#39;hs117&#39;</span> <span class="ow">in</span> <span class="n">fits_file</span><span class="p">:</span>
+            <span class="n">cmax</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="n">Vmax</span> <span class="o">=</span> <span class="mi">23</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="mf">0.1</span>
+        <span class="n">exclude_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;c0&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmin</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta</span><span class="p">,</span> <span class="s">&#39;m0&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmin</span> <span class="o">+</span> <span class="n">Vmin</span><span class="p">)</span> <span class="o">-</span> <span class="n">delta</span><span class="p">,</span>
+                        <span class="s">&#39;c1&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmax</span><span class="p">)</span> <span class="o">-</span> <span class="n">delta</span><span class="p">,</span> <span class="s">&#39;m1&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmax</span> <span class="o">+</span> <span class="n">Vmin</span><span class="p">)</span> <span class="o">-</span> <span class="n">delta</span><span class="p">,</span>
+                        <span class="s">&#39;c2&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmax</span><span class="p">)</span> <span class="o">-</span> <span class="n">delta</span><span class="p">,</span> <span class="s">&#39;m2&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">Vmax</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta</span><span class="p">,</span>
+                        <span class="s">&#39;c3&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">cmin</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta</span><span class="p">,</span> <span class="s">&#39;m3&#39;</span><span class="p">:</span> <span class="n">round_it</span><span class="p">(</span><span class="n">Vmax</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta</span><span class="p">}</span>
+        <span class="n">exclude_gates</span><span class="p">[</span><span class="n">fits_file</span><span class="p">]</span> <span class="o">=</span> <span class="n">exclude_gate</span> <span class="o">%</span> <span class="n">exclude_dict</span>
+
+        <span class="c">#if make_plot is True:</span>
+        <span class="c">#    test_arr = np.column_stack(([exclude_dict[&#39;c0&#39;], exclude_dict[&#39;m0&#39;]],</span>
+        <span class="c">#                                [exclude_dict[&#39;c1&#39;], exclude_dict[&#39;m1&#39;]],</span>
+        <span class="c">#                                [exclude_dict[&#39;c1&#39;], exclude_dict[&#39;m2&#39;]],</span>
+        <span class="c">#                                [exclude_dict[&#39;c0&#39;], exclude_dict[&#39;m2&#39;]],</span>
+        <span class="c">#                                [exclude_dict[&#39;c0&#39;], exclude_dict[&#39;m0&#39;]]))</span>
+        <span class="c">#</span>
+        <span class="c">#    gal.plot_cmd(gal.color, gal.mag1, levels=3, threshold=100,</span>
+        <span class="c">#                 ax=axs[i], filter1=gal.filter1, yfilter=gal.filter1)</span>
+
+        <span class="c">#    gal.photsys = &#39;wfc3snap&#39;</span>
+        <span class="c">#    gal.decorate_cmd(ax=axs[i], trgb=True, filter1=gal.filter1)</span>
+        <span class="c">#    axs[i].plot(test_arr[0, :], test_arr[1,:], lw=3, ls=&#39;--&#39;, color=&#39;green&#39;)</span>
+        <span class="c">#    axs[i].set_ylim(gal.mag1.max() + 1, Vmax - 1)</span>
+    <span class="c">#if make_plot is True:</span>
+    <span class="c">#    plt.savefig(&#39;exclude_gates_%i.png&#39; % len(fits_files), dpi=300)</span>
+    <span class="c">#    print(&#39;wrote exclude_gates_%i.png&#39; % len(fits_files))</span>
+    <span class="c">#    return exclude_gates, axs</span>
+    <span class="k">return</span> <span class="n">exclude_gates</span>
+
+
+<span class="c">## All the code below is old, and could use rsp.fileIO or soemthing else.</span>
+</div>
+<div class="viewcode-block" id="read_zctmp"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.read_zctmp">[docs]</a><span class="k">def</span> <span class="nf">read_zctmp</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;To&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+            <span class="s">&#39;Tf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+            <span class="s">&#39;sfr&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+            <span class="s">&#39;logz&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])}</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+    <span class="n">nrow</span><span class="p">,</span> <span class="n">ncol</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+
+    <span class="n">data</span><span class="p">[</span><span class="s">&#39;logz&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">:]:</span>
+        <span class="n">to</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">tf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">sfr</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="n">data</span><span class="p">[</span><span class="s">&#39;To&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;To&#39;</span><span class="p">],</span> <span class="n">to</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="s">&#39;Tf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;Tf&#39;</span><span class="p">],</span> <span class="n">tf</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">],</span> <span class="n">sfr</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nrow</span><span class="p">,</span> <span class="n">ncol</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+</div>
+<div class="viewcode-block" id="plot_zctmp"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.plot_zctmp">[docs]</a><span class="k">def</span> <span class="nf">plot_zctmp</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">read_zctmp</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">ResolvedStellarPops.convertz</span> <span class="kn">import</span> <span class="n">convertz</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">convertz</span><span class="p">(</span><span class="n">feh</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;logz&#39;</span><span class="p">])[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span>
+    <span class="n">z_plt_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0002</span><span class="p">,</span> <span class="mf">0.0008</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.004</span><span class="p">,</span> <span class="mf">0.008</span><span class="p">,</span> <span class="mf">0.010</span><span class="p">,</span> <span class="mf">0.015</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">])</span>
+
+    <span class="n">inds</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">z</span> <span class="o">&lt;</span> <span class="n">zp</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">zp</span> <span class="ow">in</span> <span class="n">z_plt_arr</span><span class="p">]</span>
+    <span class="n">binned_sfr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="n">inds</span><span class="p">[</span><span class="n">j</span><span class="p">]])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">]))]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inds</span><span class="p">))])</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+
+    <span class="p">[</span><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s">&#39;To&#39;</span><span class="p">],</span> <span class="n">binned_sfr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">ls</span><span class="o">=</span><span class="s">&#39;steps&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">z_plt_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z_plt_arr</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">&#39;$Gyr\ ago$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">&#39;$SFR\ M_\odot/yr$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s">&#39;.png&#39;</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="read_match_sfh"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.read_match_sfh">[docs]</a><span class="k">def</span> <span class="nf">read_match_sfh</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">bgfile</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="n">footer</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">if</span> <span class="n">bgfile</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">footer</span> <span class="o">+=</span> <span class="mi">2</span>
+    <span class="n">col_head</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;to&#39;</span><span class="p">,</span> <span class="s">&#39;tf&#39;</span><span class="p">,</span> <span class="s">&#39;sfr&#39;</span><span class="p">,</span> <span class="s">&#39;nstars&#39;</span><span class="p">,</span> <span class="s">&#39;dlogz&#39;</span><span class="p">,</span> <span class="s">&#39;dmod&#39;</span><span class="p">]</span>
+    <span class="n">sfh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">skip_header</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">skip_footer</span><span class="o">=</span><span class="n">footer</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">col_head</span><span class="p">)</span>
+    <span class="n">sfh</span> <span class="o">=</span> <span class="n">sfh</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">recarray</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sfh</span>
+
+</div>
+<div class="viewcode-block" id="process_match_sfh"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.process_match_sfh">[docs]</a><span class="k">def</span> <span class="nf">process_match_sfh</span><span class="p">(</span><span class="n">sfhfile</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s">&#39;processed_sfh.out&#39;</span><span class="p">,</span> <span class="n">bgfile</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                      <span class="n">sarah_sim</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">footer</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    turn a match sfh output file into a sfr-z table for trilegal.</span>
+
+<span class="sd">    check: after new isochrones, do we need to go from lage 10.15 to 10.13?</span>
+<span class="sd">    todo: add possibility for z-dispersion.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">bgfile</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">footer</span> <span class="o">+=</span> <span class="mi">2</span>
+
+    <span class="n">fmt</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%.6g</span><span class="s"> </span><span class="si">%.6g</span><span class="s"> </span><span class="si">%.4g</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">to</span><span class="p">,</span> <span class="n">tf</span><span class="p">,</span> <span class="n">sfr</span><span class="p">,</span> <span class="n">nstars</span><span class="p">,</span> <span class="n">dlogz</span><span class="p">,</span> <span class="n">dmod</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">sfhfile</span><span class="p">,</span> <span class="n">skip_header</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                                                     <span class="n">skip_footer</span><span class="o">=</span><span class="n">footer</span><span class="p">,</span>
+                                                     <span class="n">unpack</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+    <span class="n">half_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">dlogz</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span> <span class="mi">2</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span>
+    <span class="c"># correct age for trilegal isochrones.</span>
+    <span class="n">tf</span><span class="p">[</span><span class="n">tf</span> <span class="o">==</span> <span class="mf">10.15</span><span class="p">]</span> <span class="o">=</span> <span class="mf">10.13</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">to</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">sarah_sim</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">z1</span> <span class="o">=</span> <span class="n">dlogz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">half_bin</span>
+                <span class="n">z2</span> <span class="o">=</span> <span class="n">dlogz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">half_bin</span>
+                <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/=</span> <span class="mf">2.</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="mf">1e3</span>  <span class="c"># sfr is normalized in trilegal</span>
+                <span class="n">z1</span> <span class="o">=</span> <span class="mf">0.019</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">dlogz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">half_bin</span><span class="p">)</span>
+                <span class="n">z2</span> <span class="o">=</span> <span class="mf">0.019</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">dlogz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">half_bin</span><span class="p">)</span>
+            <span class="n">age1a</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="n">to</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">age1p</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">to</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="p">)</span>
+            <span class="n">age2a</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="n">tf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">age2p</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">tf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="p">)</span>
+
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age1a</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">z1</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age1p</span><span class="p">,</span> <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">z1</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age2a</span><span class="p">,</span> <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">z2</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age2p</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">z2</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age1a</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">z2</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age1p</span><span class="p">,</span> <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">z2</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age2a</span><span class="p">,</span> <span class="n">sfr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">z1</span><span class="p">))</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="n">age2p</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">z1</span><span class="p">))</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&#39;wrote&#39;</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">outfile</span>
+
+</div>
+<div class="viewcode-block" id="check_exclude_gates"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.check_exclude_gates">[docs]</a><span class="k">def</span> <span class="nf">check_exclude_gates</span><span class="p">(</span><span class="n">matchpars</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">qsub</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="c">#mc = 0</span>
+    <span class="n">zinc</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">qsub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">qsub</span><span class="p">,</span><span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">q</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;#&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;cd&#39;</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">continue</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="c">#calcsfh = command[0]</span>
+            <span class="n">matchpars</span> <span class="o">=</span> <span class="n">command</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">command</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="c">#matchfake = command[3]</span>
+            <span class="c">#sfh = command[4]</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="n">command</span><span class="p">[</span><span class="mi">5</span><span class="p">:</span><span class="n">command</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;&gt;&#39;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">flags</span><span class="p">:</span>
+            <span class="c">#if flag == &#39;-allstars&#39;:</span>
+            <span class="c">#    mc = 1</span>
+            <span class="k">if</span> <span class="n">flag</span> <span class="o">==</span> <span class="s">&#39;-zinc&#39;</span><span class="p">:</span>
+                <span class="n">zinc</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">matchpars</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">match</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;need either qsub file or matchpars and match file&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="n">mag1</span><span class="p">,</span> <span class="n">mag2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">match</span><span class="p">,</span> <span class="n">unpack</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">matchpars</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">zinc</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">7</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;zinc might not be set right in matchpars&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">zinc</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">==</span> <span class="mi">7</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;zinc flag should be on according to matchpars.&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">mm</span> <span class="ow">in</span> <span class="n">m</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;bg.dat&#39;</span><span class="p">,</span> <span class="n">mm</span><span class="p">):</span>
+            <span class="n">bg</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">file</span> <span class="o">==</span> <span class="s">&#39;bg.dat&#39;</span><span class="p">:</span>
+                    <span class="n">bg</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">bg</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&#39;No bg.dat file in this directory, but matchpars calls for one&#39;</span><span class="p">)</span>
+
+    <span class="n">excludes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+    <span class="n">nregions</span> <span class="o">=</span> <span class="n">excludes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">nregions</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">excludes</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">mag</span> <span class="o">=</span> <span class="n">excludes</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">col</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">mag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mag</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;not ready to do more than one region&#39;</span><span class="p">)</span>
+
+    <span class="n">colmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">colmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">4</span><span class="p">])</span>
+    <span class="n">mag1min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">mag1max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">mag2min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">mag2max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">mag2cut</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">((</span><span class="n">mag2</span> <span class="o">&gt;</span> <span class="n">mag2max</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">mag2</span> <span class="o">&lt;</span> <span class="n">mag2min</span><span class="p">))</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">mag1</span> <span class="o">-</span> <span class="n">mag2</span><span class="p">,</span> <span class="n">mag1</span><span class="p">,</span> <span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;grey&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">mag1</span><span class="p">[</span><span class="n">mag2cut</span><span class="p">]</span> <span class="o">-</span> <span class="n">mag2</span><span class="p">[</span><span class="n">mag2cut</span><span class="p">],</span> <span class="n">mag1</span><span class="p">[</span><span class="n">mag2cut</span><span class="p">],</span> <span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;black&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">colmin</span><span class="p">,</span> <span class="n">colmin</span><span class="p">],</span> <span class="p">[</span><span class="n">mag1min</span><span class="p">,</span> <span class="n">mag1max</span><span class="p">],</span><span class="s">&#39;--&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">colmax</span><span class="p">,</span> <span class="n">colmax</span><span class="p">],</span> <span class="p">[</span><span class="n">mag1min</span><span class="p">,</span> <span class="n">mag1max</span><span class="p">],</span><span class="s">&#39;--&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">colmin</span><span class="p">,</span> <span class="n">colmax</span><span class="p">],</span> <span class="p">[</span><span class="n">mag1min</span><span class="p">,</span> <span class="n">mag1min</span><span class="p">],</span><span class="s">&#39;--&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">colmin</span><span class="p">,</span> <span class="n">colmax</span><span class="p">],</span> <span class="p">[</span><span class="n">mag1max</span><span class="p">,</span> <span class="n">mag1max</span><span class="p">],</span><span class="s">&#39;--&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">,</span><span class="s">&#39;-&#39;</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">qsub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">qsub</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">nregions</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">mag</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;red&#39;</span><span class="p">)</span>
+    <span class="n">off</span> <span class="o">=</span> <span class="mf">0.1</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">([</span><span class="n">colmin</span> <span class="o">-</span> <span class="n">off</span><span class="p">,</span>
+              <span class="n">colmax</span> <span class="o">+</span> <span class="n">off</span><span class="p">,</span>
+              <span class="n">mag1min</span> <span class="o">+</span> <span class="n">off</span><span class="p">,</span>
+              <span class="n">mag1max</span> <span class="o">-</span> <span class="n">off</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">qsub</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s">&#39;.png&#39;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;wrote &#39;</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">qsub</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s">&#39;.png&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="read_match_cmd"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.read_match_cmd">[docs]</a><span class="k">def</span> <span class="nf">read_match_cmd</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    reads MATCH .cmd file</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c"># mc = open(filename, &#39;r&#39;).readlines()</span>
+    <span class="c"># I don&#39;t know what the 7th column is, so I call it lixo.</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;mag&#39;</span><span class="p">,</span> <span class="s">&#39;color&#39;</span><span class="p">,</span> <span class="s">&#39;Nobs&#39;</span><span class="p">,</span> <span class="s">&#39;Nsim&#39;</span><span class="p">,</span> <span class="s">&#39;diff&#39;</span><span class="p">,</span> <span class="s">&#39;sig&#39;</span><span class="p">,</span> <span class="s">&#39;lixo&#39;</span><span class="p">]</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">skip_header</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">names</span><span class="p">,</span> <span class="n">invalid_raise</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cmd</span>
+
+</div>
+<div class="viewcode-block" id="write_qsub"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.write_qsub">[docs]</a><span class="k">def</span> <span class="nf">write_qsub</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">,</span> <span class="n">qsubfile</span><span class="p">,</span> <span class="n">zinc</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">mc</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">calcsfh_path</span> <span class="o">=</span> <span class="s">&#39;calcsfh&#39;</span>
+    <span class="n">flags</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">zinc</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="s">&#39;-zinc&#39;</span>
+
+    <span class="k">if</span> <span class="n">cwd</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">cwd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="n">fits</span> <span class="o">=</span> <span class="n">phot</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.match&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sfh</span> <span class="o">=</span> <span class="n">fits</span> <span class="o">+</span> <span class="s">&#39;.sfh&#39;</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">fits</span> <span class="o">+</span> <span class="s">&#39;.log&#39;</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">fits</span> <span class="o">+</span> <span class="s">&#39;.msg&#39;</span>
+    <span class="k">if</span> <span class="n">mc</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;mc&#39;</span><span class="p">,</span> <span class="n">cwd</span><span class="p">):</span>
+            <span class="n">log</span> <span class="o">=</span> <span class="s">&#39;mc/&#39;</span> <span class="o">+</span> <span class="n">log</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s">&#39;mc/&#39;</span> <span class="o">+</span> <span class="n">msg</span>
+            <span class="n">sfh</span> <span class="o">=</span> <span class="s">&#39;mc/&#39;</span> <span class="o">+</span> <span class="n">sfh</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="s">&#39;#PBS -l nodes=1:ppn=1 </span><span class="se">\n</span><span class="s">#PBS -j oe </span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;#PBS -o </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;#PBS -l walltime=12:00:00 </span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="k">if</span> <span class="n">mc</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;#PBS -M philrose@astro.washington.edu </span><span class="se">\n</span><span class="s">&#39;</span>
+
+    <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;#PBS -m abe </span><span class="se">\n</span><span class="s">#PBS -V </span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;cd </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cwd</span>
+    <span class="k">if</span> <span class="n">mc</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> &gt; </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">calcsfh_path</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">,</span> <span class="n">sfh</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> &#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">calcsfh_path</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">,</span> <span class="n">sfh</span><span class="p">)</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39;-allstars -logterrsig=0.03 -mbolerrsig=0.41&#39;</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="s">&#39; </span><span class="si">%s</span><span class="s"> &gt; </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">flags</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">qsubfile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">qsub</span><span class="p">:</span>
+        <span class="n">qsub</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="check_for_bg_file"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.check_for_bg_file">[docs]</a><span class="k">def</span> <span class="nf">check_for_bg_file</span><span class="p">(</span><span class="n">param</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    the bg.dat file in the calcsfh parameter file can only be 79 chars long.</span>
+<span class="sd">    this will check for that. If the length is longer than 78 chars, will</span>
+<span class="sd">    rewrite the param file with a local copy, and copy the bg.dat file to</span>
+<span class="sd">    current directory.</span>
+
+<span class="sd">    Must delete the local dir&#39;s bg.dat in another module (if you want to).</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="kn">import</span> <span class="nn">shutil</span>
+    <span class="c"># read current param file</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+    <span class="c"># second to last line has bg.dat in it.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">pm</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">bg_file</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="c"># this needs to be abspath to work.... must get -1 or 1 out of the way</span>
+        <span class="n">bg_file</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">):]</span>
+        <span class="c"># this is only a problem for large filenames.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bg_file</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">78</span><span class="p">:</span>
+            <span class="n">bg_file</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c"># overwrite param file to have local copy of bg.dat</span>
+    <span class="k">if</span> <span class="n">bg_file</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39; </span><span class="si">% s</span><span class="s"> filename is too long. Copying it locally.&#39;</span> <span class="o">%</span>
+                       <span class="n">bg_file</span><span class="p">)</span>
+        <span class="n">pm2</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pm</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]:</span>
+            <span class="n">pm2</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="n">pm2</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;-1 1 -1</span><span class="si">%s</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">bg_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">pm2</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">pm</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">pm2</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="c"># copy bg.dat here.</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">bg_file</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>
+        <span class="n">bg_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">bg_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bg_file</span>
+
+</div>
+<div class="viewcode-block" id="write_match_bg"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.write_match_bg">[docs]</a><span class="k">def</span> <span class="nf">write_match_bg</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">mag2</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="n">mag1</span> <span class="o">=</span> <span class="n">color</span> <span class="o">+</span> <span class="n">mag2</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">mag1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">mag2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#39;match_bg is empty.&#39;</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">mag1</span><span class="p">,</span> <span class="n">mag2</span><span class="p">)),</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s">&#39;</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&#39;wrote match_bg as </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="k">return</span>
+
+</div>
+<div class="viewcode-block" id="call_match"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.call_match">[docs]</a><span class="k">def</span> <span class="nf">call_match</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;zinc&#39;</span><span class="p">,</span> <span class="s">&#39;PADUA_AGB&#39;</span><span class="p">],</span>
+               <span class="n">loud</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    wrapper for calcsfh, takes as many flags as you want.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">calcsfh</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;MATCH&#39;</span><span class="p">],</span> <span class="s">&#39;calcsfh&#39;</span><span class="p">)</span>
+
+    <span class="n">bg_file</span> <span class="o">=</span> <span class="n">check_for_bg_file</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+
+    <span class="p">[</span><span class="n">io</span><span class="o">.</span><span class="n">ensure_file</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">)]</span>
+
+    <span class="n">cmd</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">calcsfh</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">phot</span><span class="p">,</span> <span class="n">fake</span><span class="p">,</span> <span class="n">out</span><span class="p">))</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="s">&#39; -&#39;</span> <span class="o">+</span> <span class="s">&#39; -&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">flags</span><span class="p">)</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="s">&#39; &gt; </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="n">cmd</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; - &#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">loud</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&#39;PROBLEM WITH </span><span class="si">%s</span><span class="s"> SKIPPING!&#39;</span> <span class="o">%</span> <span class="n">param</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">if</span> <span class="n">bg_file</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bg_file</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+</div>
+<div class="viewcode-block" id="calcsfh_dict"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.calcsfh_dict">[docs]</a><span class="k">def</span> <span class="nf">calcsfh_dict</span><span class="p">():</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    default dictionary for calcsfh.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s">&#39;dmod&#39;</span><span class="p">:</span> <span class="mf">10.</span><span class="p">,</span>
+            <span class="s">&#39;Av&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">,</span>
+            <span class="s">&#39;filter1&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;filter2&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;bright1&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;faint1&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;bright2&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;faint2&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;color&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;mag&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;dmod2&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;colmin&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;colmax&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;Av2&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;imf&#39;</span><span class="p">:</span> <span class="mf">1.30</span><span class="p">,</span>
+            <span class="s">&#39;ddmod&#39;</span><span class="p">:</span> <span class="mf">0.050</span><span class="p">,</span>
+            <span class="s">&#39;dAv&#39;</span><span class="p">:</span> <span class="mf">0.050</span><span class="p">,</span>
+            <span class="s">&#39;logzmin&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.3</span><span class="p">,</span>
+            <span class="s">&#39;logzmax&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s">&#39;dlogz&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s">&#39;zinc&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+            <span class="s">&#39;bf&#39;</span><span class="p">:</span> <span class="mf">0.35</span><span class="p">,</span>
+            <span class="s">&#39;bad0&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+            <span class="s">&#39;bad1&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+            <span class="s">&#39;Ncmds&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;dmag&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s">&#39;dcol&#39;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+            <span class="s">&#39;fake_sm&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+            <span class="s">&#39;nexclude_gates&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;exclude_poly&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;ncombine_gates&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;combine_poly&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
+            <span class="s">&#39;ntbins&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;dobg&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;bg_hess&#39;</span><span class="p">:</span> <span class="o">.</span><span class="mi">0</span><span class="p">,</span>   <span class="c"># neg if it&#39;s a .CMD, else it&#39;s same fmt as match_phot</span>
+            <span class="s">&#39;smooth&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;ilogzmin&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.3</span><span class="p">,</span>
+            <span class="s">&#39;ilogzmax&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.3</span><span class="p">,</span>
+            <span class="s">&#39;flogzmin&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.9</span><span class="p">,</span>
+            <span class="s">&#39;flogzmax&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.1</span><span class="p">,</span>
+            <span class="s">&#39;match_bg&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">}</span>
+
+</div>
+<div class="viewcode-block" id="CalcsfhParams"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.CalcsfhParams">[docs]</a><span class="k">class</span> <span class="nc">CalcsfhParams</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    someday, this will be a generic parameter house... someday. someday.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">default_dict</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">default_dict</span> <span class="o">=</span> <span class="n">calcsfh_dict</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">default_dict</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#39;need values in default dictionary.&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">calcsfh_possible_params</span><span class="p">(</span><span class="n">default_dict</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CalcsfhParams.calcsfh_possible_params"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.CalcsfhParams.calcsfh_possible_params">[docs]</a>    <span class="k">def</span> <span class="nf">calcsfh_possible_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_dict</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">default_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="CalcsfhParams.update_params"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.CalcsfhParams.update_params">[docs]</a>    <span class="k">def</span> <span class="nf">update_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_dict</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        only overwrite attributes that already exist from dictionary</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="CalcsfhParams.add_params"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.CalcsfhParams.add_params">[docs]</a>    <span class="k">def</span> <span class="nf">add_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_dict</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        add or overwrite attributes from dictionary</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+
+</div></div>
+<div class="viewcode-block" id="make_calcsfh_param_file"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.make_calcsfh_param_file">[docs]</a><span class="k">def</span> <span class="nf">make_calcsfh_param_file</span><span class="p">(</span><span class="n">pmfile</span><span class="p">,</span> <span class="n">galaxy</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">calcsfh_par_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                            <span class="n">kwargs</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    to search over range of av: set Av Av2 dAv as kwargs.</span>
+<span class="sd">    to search over range of dmod: set dmod dmod2 ddmod in kwargs</span>
+
+<span class="sd">    NOTE:</span>
+<span class="sd">    can only handle 1 exclude gate and 1 combine gate.</span>
+<span class="sd">    bg.dat has limited number of characters!!</span>
+
+<span class="sd">    input:</span>
+<span class="sd">    optional: galaxy object to grab attributes from</span>
+
+<span class="sd">    kwargs:</span>
+<span class="sd">    all parameters can be kwargs, technically, they aren&#39;t really kwargs since</span>
+<span class="sd">    they aren&#39;t optional. Sorry python gods.</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">calcsfh_pars</span> <span class="o">=</span> <span class="n">CalcsfhParams</span><span class="p">(</span><span class="n">default_dict</span><span class="o">=</span><span class="n">calcsfh_par_dict</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">galaxy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">gal</span> <span class="o">=</span> <span class="n">galaxy</span>
+        <span class="c"># take attributes from galaxy object</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">update_params</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">__dict__</span><span class="p">)</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">faint1</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">comp50mag1</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">faint2</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">comp50mag2</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">colmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">colmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">bright1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">mag1</span><span class="p">)</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">bright2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">gal</span><span class="o">.</span><span class="n">mag2</span><span class="p">)</span>
+
+    <span class="c"># assign kwargs (to overwrite galaxy attributes):</span>
+    <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">add_params</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c"># if dmod and av range is not set, used fixed.</span>
+    <span class="k">if</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">dmod2</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">dmod2</span> <span class="o">=</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">dmod</span>
+
+    <span class="k">if</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">Av2</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">Av2</span> <span class="o">=</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">Av</span>
+
+    <span class="n">line</span> <span class="o">=</span> <span class="n">calcsfh_pars_fmt</span><span class="p">(</span><span class="n">calcsfh_pars</span><span class="p">)</span>
+    <span class="c">#print calcsfh_pars.__dict__</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">pmfile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+    <span class="n">pm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span> <span class="o">%</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">__dict__</span><span class="p">)</span>
+    <span class="n">pm</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> wrote </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">make_calcsfh_param_file</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">pmfile</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pmfile</span>
+
+</div>
+<div class="viewcode-block" id="calcsfh_pars_fmt"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.calcsfh_pars_fmt">[docs]</a><span class="k">def</span> <span class="nf">calcsfh_pars_fmt</span><span class="p">(</span><span class="n">calcsfh_pars</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    a pythonic way of writing calcsfh parameter file:</span>
+<span class="sd">    from match2.4 readme</span>
+<span class="sd">    IMF m-Mmin m-Mmax d(m-M) Avmin Avmax dAv</span>
+<span class="sd">    logZmin logZmax dlogZ</span>
+<span class="sd">    BF Bad0 Bad1</span>
+<span class="sd">    Ncmds</span>
+<span class="sd">    Vstep V-Istep fake_sm V-Imin V-Imax V, I  (per CMD)</span>
+<span class="sd">    Vmin Vmax V                              (per filter)</span>
+<span class="sd">    Imin Imax I                              (per filter)</span>
+<span class="sd">    Nexclude_gates exclude_gates Ncombine_gates combine_gates (per CMD)</span>
+<span class="sd">    Ntbins</span>
+<span class="sd">      To Tf (for each time bin) &lt;--- NOT IMPLEMENTED!</span>
+<span class="sd">    optional background bins</span>
+
+<span class="sd">    exclude/include gates only works for one of each at most.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">line</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%(imf).2f</span><span class="s"> </span><span class="si">%(dmod).2f</span><span class="s"> </span><span class="si">%(dmod2).2f</span><span class="s"> </span><span class="si">%(ddmod).3f</span><span class="s"> </span><span class="si">%(Av).2f</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39; </span><span class="si">%(Av2).2f</span><span class="s"> </span><span class="si">%(dAv).3f</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">zinc</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(logzmin).1f</span><span class="s"> </span><span class="si">%(logzmax).1f</span><span class="s"> </span><span class="si">%(dlogz).1f</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(logzmin).1f</span><span class="s"> </span><span class="si">%(logzmax).1f</span><span class="s"> </span><span class="si">%(dlogz).1f</span><span class="s"> </span><span class="si">%(ilogzmin).1f</span><span class="s">&#39;</span>
+        <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39; </span><span class="si">%(ilogzmax).1f</span><span class="s"> </span><span class="si">%(flogzmin).1f</span><span class="s"> </span><span class="si">%(flogzmax).1f</span><span class="se">\n</span><span class="s">&#39;</span>
+
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(bf).2f</span><span class="s"> </span><span class="si">%(bad0)f</span><span class="s"> </span><span class="si">%(bad1)f</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(Ncmds)i</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(dmag).1f</span><span class="s"> </span><span class="si">%(dcol).2f</span><span class="s"> </span><span class="si">%(fake_sm)i</span><span class="s"> </span><span class="si">%(colmin).1f</span><span class="s"> </span><span class="si">%(colmax).1f</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39; </span><span class="si">%(filter1)s</span><span class="s">,</span><span class="si">%(filter2)s</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(bright1).2f</span><span class="s"> </span><span class="si">%(faint1).2f</span><span class="s"> </span><span class="si">%(filter1)s</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(bright2).2f</span><span class="s"> </span><span class="si">%(faint2).2f</span><span class="s"> </span><span class="si">%(filter2)s</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="k">if</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">nexclude_gates</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%i</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">nexclude_gates</span><span class="p">,</span>
+                           <span class="n">poly2str</span><span class="p">(</span><span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">nexclude_poly</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">ncombine_gates</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39; </span><span class="si">%i</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">ncombine_gates</span><span class="p">,</span>
+                                   <span class="n">poly2str</span><span class="p">(</span><span class="n">calcsfh_pars</span><span class="o">.</span><span class="n">ncombine_poly</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(nexclude_gates)i</span><span class="s"> </span><span class="si">%(ncombine_gates)i</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(ntbins)i</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="c"># if ntbins != 0: something...[to tf\n for to, tf in zip(TO, TF)]</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="si">%(dobg)i</span><span class="s"> </span><span class="si">%(bg_hess).3f</span><span class="s"> </span><span class="si">%(smooth)i%(match_bg)s</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s">&#39;-1 1 -1</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="k">return</span> <span class="n">line</span>
+
+</div>
+<div class="viewcode-block" id="poly2str"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.poly2str">[docs]</a><span class="k">def</span> <span class="nf">poly2str</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    print an array as a string without brackets. I coulda done a better</span>
+<span class="sd">    google search to get this right.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">poly</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">poly</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;[&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;]&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="get_fit"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.get_fit">[docs]</a><span class="k">def</span> <span class="nf">get_fit</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="n">fh</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+          <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">chi2</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fh</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">fit</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fh</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">chi2</span><span class="p">,</span> <span class="n">fit</span>
+
+</div>
+<div class="viewcode-block" id="match_light"><a class="viewcode-back" href="../../../resolvedstellarpops.match.html#resolvedstellarpops.match.utils.match_light">[docs]</a><span class="k">def</span> <span class="nf">match_light</span><span class="p">(</span><span class="n">gal</span><span class="p">,</span> <span class="n">pm_file</span><span class="p">,</span> <span class="n">match_phot</span><span class="p">,</span> <span class="n">match_fake</span><span class="p">,</span> <span class="n">match_out</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span>
+                <span class="n">flags</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;zinc&#39;</span><span class="p">,</span> <span class="s">&#39;PADUA_AGB&#39;</span><span class="p">],</span> <span class="n">make_plot</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                <span class="n">figname</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">match_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">loud</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+
+    <span class="c"># prepare parameter file</span>
+    <span class="n">make_calcsfh_param_file</span><span class="p">(</span><span class="n">pm_file</span><span class="p">,</span> <span class="n">galaxy</span><span class="o">=</span><span class="n">gal</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">match_kwargs</span><span class="p">)</span>
+
+    <span class="c"># run match</span>
+    <span class="n">match_out</span> <span class="o">=</span> <span class="n">call_match</span><span class="p">(</span><span class="n">pm_file</span><span class="p">,</span> <span class="n">match_phot</span><span class="p">,</span> <span class="n">match_fake</span><span class="p">,</span> <span class="n">match_out</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span>
+                           <span class="n">flags</span><span class="o">=</span><span class="n">flags</span><span class="p">,</span> <span class="n">loud</span><span class="o">=</span><span class="n">loud</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">loud</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">([</span><span class="n">l</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()])</span>
+
+    <span class="k">if</span> <span class="n">match_out</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="c"># read the fit</span>
+    <span class="n">chi2</span><span class="p">,</span> <span class="n">fit</span> <span class="o">=</span> <span class="n">get_fit</span><span class="p">(</span><span class="n">match_out</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> Chi^2: </span><span class="si">%f</span><span class="s"> Fit: </span><span class="si">%f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">match_out</span><span class="p">,</span> <span class="n">chi2</span><span class="p">,</span> <span class="n">fit</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">make_plot</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="c"># make plot</span>
+        <span class="k">if</span> <span class="n">model_name</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">model_name</span> <span class="o">=</span> <span class="s">&#39;Model&#39;</span>
+
+        <span class="c">#alabel = r&#39;$%s$&#39; % model_name.replace(&#39;_&#39;,&#39;\ &#39;)</span>
+        <span class="n">cmdgrid</span> <span class="o">=</span> <span class="n">match_out</span> <span class="o">+</span> <span class="s">&#39;.cmd&#39;</span>
+        <span class="c">#grid = match_graphics.pgcmd(cmdgrid,</span>
+        <span class="c">#                            labels=[gal.target, alabel, &#39;$Difference$&#39;, &#39;$\chi^2=%.3f$&#39; % chi2],</span>
+        <span class="c">#                            **{&#39;filter1&#39;: gal.filter1,</span>
+        <span class="c">#                               &#39;filter2&#39;: gal.filter2})</span>
+        <span class="c"># save plot</span>
+        <span class="k">if</span> <span class="n">figname</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">figname</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">replace_ext</span><span class="p">(</span><span class="n">cmdgrid</span><span class="p">,</span> <span class="s">&#39;.png&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">figname</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> wrote </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">match_light</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">figname</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">chi2</span><span class="p">,</span> <span class="n">fit</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

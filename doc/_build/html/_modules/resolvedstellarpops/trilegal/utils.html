@@ -1,0 +1,952 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.trilegal.utils &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.trilegal.utils</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.trilegal.utils</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">math</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">io</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">graphics</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;HRD&#39;</span><span class="p">,</span> <span class="s">&#39;PadovaIsoch&#39;</span><span class="p">,</span> <span class="s">&#39;IsoTrack2&#39;</span><span class="p">,</span> <span class="s">&#39;Trilegal_SFH&#39;</span><span class="p">,</span>
+           <span class="s">&#39;change_galaxy_input&#39;</span><span class="p">,</span> <span class="s">&#39;cmd_input_dict&#39;</span><span class="p">,</span> <span class="s">&#39;cmd_input_fmt&#39;</span><span class="p">,</span>
+           <span class="s">&#39;find_mag_num&#39;</span><span class="p">,</span> <span class="s">&#39;find_photsys_number&#39;</span><span class="p">,</span> <span class="s">&#39;galaxy_input_dict&#39;</span><span class="p">,</span>
+           <span class="s">&#39;galaxy_input_fmt&#39;</span><span class="p">,</span> <span class="s">&#39;get_args&#39;</span><span class="p">,</span> <span class="s">&#39;get_label_stage&#39;</span><span class="p">,</span> <span class="s">&#39;get_loop_data&#39;</span><span class="p">,</span>
+           <span class="s">&#39;get_stage_label&#39;</span><span class="p">,</span> <span class="s">&#39;read_cmd_input_file&#39;</span><span class="p">,</span> <span class="s">&#39;read_isotrack_file&#39;</span><span class="p">,</span>
+           <span class="s">&#39;read_loop_from_ptrci&#39;</span><span class="p">,</span> <span class="s">&#39;read_ptcri&#39;</span><span class="p">,</span> <span class="s">&#39;read_ptcri2&#39;</span><span class="p">,</span> <span class="s">&#39;run_trilegal&#39;</span><span class="p">,</span>
+           <span class="s">&#39;string_in_lines&#39;</span><span class="p">,</span> <span class="s">&#39;write_spread&#39;</span><span class="p">,</span> <span class="s">&#39;write_trilegal_sim&#39;</span> <span class="p">]</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+
+    <span class="k">def</span> <span class="nf">HRD</span><span class="p">(</span><span class="n">age</span><span class="p">,</span> <span class="n">logl</span><span class="p">,</span> <span class="n">logte</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">eep_list</span><span class="p">,</span> <span class="n">ieep</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Same as class HRD</span>
+<span class="sd">        However, built-ins are faster in general</span>
+
+<span class="sd">        Rule of thumb: if a class only has a __init__</span>
+<span class="sd">        and does not use inheritance, a function does better</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hrd</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s">&#39;HRD&#39;</span><span class="p">,</span> <span class="s">&#39;age logl logte mass eep_dict&#39;</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+        <span class="n">hrd</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">age</span><span class="p">)</span>
+        <span class="n">hrd</span><span class="o">.</span><span class="n">logl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">logl</span><span class="p">)</span>
+        <span class="n">hrd</span><span class="o">.</span><span class="n">logte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">logte</span><span class="p">)</span>
+        <span class="n">hrd</span><span class="o">.</span><span class="n">mass</span> <span class="o">=</span> <span class="n">mass</span>
+        <span class="n">hrd</span><span class="o">.</span><span class="n">eep_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">eep_list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ieep</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">hrd</span>
+
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+<div class="viewcode-block" id="HRD"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.HRD">[docs]</a>    <span class="k">class</span> <span class="nc">HRD</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; HR diagram &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">age</span><span class="p">,</span> <span class="n">logl</span><span class="p">,</span> <span class="n">logte</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">eep_list</span><span class="p">,</span> <span class="n">ieep</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">age</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">logl</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">logte</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mass</span> <span class="o">=</span> <span class="n">mass</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eep_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">eep_list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ieep</span><span class="p">)))</span>
+
+</div>
+<div class="viewcode-block" id="PadovaIsoch"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.PadovaIsoch">[docs]</a><span class="k">class</span> <span class="nc">PadovaIsoch</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptcri_file</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ptcri_file</span> <span class="o">=</span> <span class="n">ptcri_file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">read_padova_isoch</span><span class="p">()</span>
+
+<div class="viewcode-block" id="PadovaIsoch.read_padova_isoch"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.PadovaIsoch.read_padova_isoch">[docs]</a>    <span class="k">def</span> <span class="nf">read_padova_isoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        returns age, logl, logte.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcri_file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">p</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span>
+
+        <span class="c"># keep the space because !M exists in the files.</span>
+        <span class="n">inds</span><span class="p">,</span> <span class="n">masses</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; M=&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span> <span class="k">for</span>
+                             <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="k">if</span> <span class="s">&#39; M=&#39;</span> <span class="ow">in</span> <span class="n">l</span><span class="p">])</span>
+
+        <span class="n">last</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="k">if</span> <span class="s">&#39;!M&#39;</span> <span class="ow">in</span> <span class="n">l</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds</span><span class="p">,</span> <span class="n">last</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">masses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">masses</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inds</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">mass</span> <span class="o">=</span> <span class="n">masses</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">isoc_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">inds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">inds</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">age</span><span class="p">,</span> <span class="n">logl</span><span class="p">,</span> <span class="n">logte</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">l</span><span class="p">[:</span><span class="mi">35</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+                                     <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="n">isoc_inds</span><span class="p">]])</span>
+            <span class="n">eep_list</span><span class="p">,</span> <span class="n">ieep</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="mi">35</span><span class="p">:]</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="n">isoc_inds</span><span class="p">]</span>
+                                   <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">35</span><span class="p">:]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">==</span> <span class="mi">2</span><span class="p">])</span>
+            <span class="n">ieep</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">ieep</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;iso_m</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">strmass</span><span class="p">(</span><span class="n">mass</span><span class="p">),</span>
+                             <span class="n">HRD</span><span class="p">(</span><span class="n">age</span><span class="p">,</span> <span class="n">logl</span><span class="p">,</span> <span class="n">logte</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">eep_list</span><span class="p">,</span> <span class="n">ieep</span><span class="p">))</span>
+
+        <span class="k">return</span>
+</div>
+<div class="viewcode-block" id="PadovaIsoch.strmass"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.PadovaIsoch.strmass">[docs]</a>    <span class="k">def</span> <span class="nf">strmass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mass</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s">&#39;</span><span class="si">%.3f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">mass</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="PadovaIsoch.plot_padova_isoch"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.PadovaIsoch.plot_padova_isoch">[docs]</a>    <span class="k">def</span> <span class="nf">plot_padova_isoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">figname</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">masses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">figname</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">figname</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">replace_ext</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcri_file</span><span class="p">,</span> <span class="s">&#39;.png&#39;</span><span class="p">)</span>
+        <span class="n">figtitle</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ptcri_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">,</span> <span class="s">&#39;\_&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">masses</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">masses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">masses</span>
+
+        <span class="nb">max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="s">&#39;iso_m</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">strmass</span><span class="p">(</span><span class="n">m</span><span class="p">)]</span><span class="o">.</span><span class="n">eep_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">masses</span><span class="p">])</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="n">graphics</span><span class="o">.</span><span class="n">GraphicsUtils</span><span class="o">.</span><span class="n">discrete_colors</span><span class="p">(</span><span class="nb">max</span><span class="p">)</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">mass</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">masses</span><span class="p">):</span>
+            <span class="n">isoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="s">&#39;iso_m</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">strmass</span><span class="p">(</span><span class="n">mass</span><span class="p">)]</span>
+            <span class="n">logte</span> <span class="o">=</span> <span class="n">isoch</span><span class="o">.</span><span class="n">logte</span>
+            <span class="n">logl</span> <span class="o">=</span> <span class="n">isoch</span><span class="o">.</span><span class="n">logl</span>
+            <span class="n">ptinds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">isoch</span><span class="o">.</span><span class="n">eep_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">logte</span><span class="p">,</span> <span class="n">logl</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;black&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">masses</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">logte</span><span class="p">[</span><span class="n">ptinds</span><span class="p">],</span> <span class="n">logl</span><span class="p">[</span><span class="n">ptinds</span><span class="p">],</span> <span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;blue&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+            <span class="n">sinds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">ptinds</span><span class="p">)</span>
+            <span class="n">ptinds</span> <span class="o">=</span> <span class="n">ptinds</span><span class="p">[</span><span class="n">sinds</span><span class="p">]</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">isoch</span><span class="o">.</span><span class="n">eep_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="n">sinds</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ptinds</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">logte</span><span class="p">[</span><span class="n">ptinds</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="n">logl</span><span class="p">[</span><span class="n">ptinds</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="s">&#39;o&#39;</span><span class="p">,</span>
+                            <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">,</span> <span class="s">&#39;\_&#39;</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">logte</span><span class="p">[</span><span class="n">ptinds</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="n">logl</span><span class="p">[</span><span class="n">ptinds</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="s">&#39;o&#39;</span><span class="p">,</span>
+                            <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mf">4.6</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">&#39;$LOG\ TE$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">&#39;$LOG\ L$&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">r&#39;$\textrm{</span><span class="si">%s</span><span class="s">}$&#39;</span> <span class="o">%</span> <span class="n">figtitle</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">figname</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="write_trilegal_sim"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.write_trilegal_sim">[docs]</a><span class="k">def</span> <span class="nf">write_trilegal_sim</span><span class="p">(</span><span class="n">sgal</span><span class="p">,</span> <span class="n">outfile</span><span class="p">,</span> <span class="n">slice_inds</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    writes trilegal sim to outfile.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">header</span> <span class="o">=</span> <span class="n">sgal</span><span class="o">.</span><span class="n">get_header</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">header</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">):</span>
+            <span class="n">header</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">header</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sgal</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">data_array</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%10.5f</span><span class="s">&#39;</span><span class="p">)</span>
+    <span class="k">return</span>
+
+</div>
+<div class="viewcode-block" id="write_spread"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.write_spread">[docs]</a><span class="k">def</span> <span class="nf">write_spread</span><span class="p">(</span><span class="n">sgal</span><span class="p">,</span> <span class="n">outfile</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">slice_inds</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">overwrite</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">outfile</span><span class="p">):</span>
+        <span class="c"># ast corrected filters are filter_cor, this may be changed... anyway</span>
+        <span class="c"># need someway to check if ast corrections were made.</span>
+        <span class="n">cors</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sgal</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">key_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="s">&#39;_cor&#39;</span> <span class="ow">in</span> <span class="n">c</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&#39;can not make spread file without ast_corrections&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="n">filt1</span><span class="p">,</span> <span class="n">filt2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">cors</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sgal</span><span class="p">,</span> <span class="s">&#39;ast_mag1&#39;</span><span class="p">):</span>
+            <span class="c"># this isn&#39;t only a trilegal catalog, it&#39;s already been corrected</span>
+            <span class="c"># with asts, and sliced for only recovered asts. see simgalaxy.</span>
+            <span class="n">cor_mag1</span> <span class="o">=</span> <span class="n">sgal</span><span class="o">.</span><span class="n">ast_mag1</span><span class="p">[</span><span class="n">sgal</span><span class="o">.</span><span class="n">rec</span><span class="p">]</span>
+            <span class="n">cor_mag2</span> <span class="o">=</span> <span class="n">sgal</span><span class="o">.</span><span class="n">ast_mag2</span><span class="p">[</span><span class="n">sgal</span><span class="o">.</span><span class="n">rec</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c"># it&#39;s a trilegal catalog, now with ast corrections, though was not</span>
+            <span class="c"># loaded with them, perhaps they were just written to a new file.</span>
+            <span class="n">cor_mag1_full</span> <span class="o">=</span> <span class="n">sgal</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_col</span><span class="p">(</span><span class="n">filt1</span><span class="p">)</span>
+            <span class="n">cor_mag2_full</span> <span class="o">=</span> <span class="n">sgal</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_col</span><span class="p">(</span><span class="n">filt2</span><span class="p">)</span>
+            <span class="n">rec1</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cor_mag1_full</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">90.</span><span class="p">)</span>
+            <span class="n">rec2</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cor_mag2_full</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">90.</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">slice_inds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">rec</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">rec1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">rec2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">slice_inds</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">rec</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">rec1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">rec2</span><span class="p">))</span>
+            <span class="n">cor_mag1</span> <span class="o">=</span> <span class="n">cor_mag1_full</span><span class="p">[</span><span class="n">rec</span><span class="p">]</span>
+            <span class="n">cor_mag2</span> <span class="o">=</span> <span class="n">cor_mag2_full</span><span class="p">[</span><span class="n">rec</span><span class="p">]</span>
+
+        <span class="n">cor_mags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">cor_mag1</span><span class="p">,</span> <span class="n">cor_mag2</span><span class="p">))</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;# </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s"> </span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">filt1</span><span class="p">,</span> <span class="n">filt2</span><span class="p">))</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">cor_mags</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%10.5f</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;wrote </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">outfile</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> exists, send overwrite=True arg to overwrite&#39;</span> <span class="o">%</span> <span class="n">outfile</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">outfile</span>
+
+</div>
+<div class="viewcode-block" id="change_galaxy_input"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.change_galaxy_input">[docs]</a><span class="k">def</span> <span class="nf">change_galaxy_input</span><span class="p">(</span><span class="n">galaxy_input</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    if no kwargs are given, will write None as object_mass and object_sfr_file.</span>
+<span class="sd">    see galaxy_input_dict()-</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">input_pars</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">input_parameters</span><span class="p">(</span><span class="n">galaxy_input_dict</span><span class="p">())</span>
+    <span class="n">input_pars</span><span class="o">.</span><span class="n">add_params</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">input_pars</span><span class="o">.</span><span class="n">write_params</span><span class="p">(</span><span class="n">galaxy_input</span><span class="p">,</span> <span class="n">galaxy_input_fmt</span><span class="p">())</span>
+
+</div>
+<div class="viewcode-block" id="find_mag_num"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.find_mag_num">[docs]</a><span class="k">def</span> <span class="nf">find_mag_num</span><span class="p">(</span><span class="n">file_mag</span><span class="p">,</span> <span class="n">filter1</span><span class="p">):</span>
+    <span class="n">file_mag</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;TRILEGAL_ROOT&#39;</span><span class="p">],</span> <span class="n">file_mag</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_mag</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">line</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">filter1</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> not found in </span><span class="si">%s</span><span class="s">.&#39;</span> <span class="p">(</span><span class="n">filter1</span><span class="p">,</span> <span class="n">file_mag</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="galaxy_input_dict"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.galaxy_input_dict">[docs]</a><span class="k">def</span> <span class="nf">galaxy_input_dict</span><span class="p">(</span><span class="n">photsys</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">filter1</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">object_mass</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                      <span class="n">object_sfr_file</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">aringer</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="n">photom_dir</span> <span class="o">=</span> <span class="s">&#39;odfnew&#39;</span>
+    <span class="k">if</span> <span class="n">aringer</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">photom_dir</span> <span class="o">+=</span> <span class="s">&#39;bern&#39;</span>
+    <span class="n">file_mag</span> <span class="o">=</span> <span class="s">&#39;tab_mag_</span><span class="si">%s</span><span class="s">/tab_mag_</span><span class="si">%s</span><span class="s">.dat&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">photom_dir</span><span class="p">,</span> <span class="n">photsys</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s">&#39;coord_kind&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;coord1&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;coord2&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;field_area&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;kind_mag&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+            <span class="s">&#39;file_mag&#39;</span><span class="p">:</span> <span class="n">file_mag</span><span class="p">,</span>
+            <span class="s">&#39;file_bcspec&#39;</span><span class="p">:</span> <span class="s">&#39;bc_odfnew/</span><span class="si">%s</span><span class="s">/bc_cspec.dat&#39;</span> <span class="o">%</span> <span class="n">photsys</span><span class="p">,</span>
+            <span class="s">&#39;kind_dustM&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;file_dustM&#39;</span><span class="p">:</span> <span class="s">&#39;tab_dust/tab_dust_dpmod60alox40_</span><span class="si">%s</span><span class="s">.dat&#39;</span> <span class="o">%</span> <span class="n">photsys</span><span class="p">,</span>
+            <span class="s">&#39;kind_dustC&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;file_dustC&#39;</span><span class="p">:</span> <span class="s">&#39;tab_dust/tab_dust_AMCSIC15_</span><span class="si">%s</span><span class="s">.dat&#39;</span> <span class="o">%</span> <span class="n">photsys</span><span class="p">,</span>
+            <span class="s">&#39;mag_num&#39;</span><span class="p">:</span> <span class="n">find_mag_num</span><span class="p">(</span><span class="n">file_mag</span><span class="p">,</span> <span class="n">filter1</span><span class="p">),</span>
+            <span class="s">&#39;mag_limit_val&#39;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+            <span class="s">&#39;mag_resolution&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s">&#39;r_sun&#39;</span><span class="p">:</span> <span class="mf">8500.0</span><span class="p">,</span>
+            <span class="s">&#39;z_sun&#39;</span><span class="p">:</span> <span class="mf">24.2</span><span class="p">,</span>
+            <span class="s">&#39;file_imf&#39;</span><span class="p">:</span> <span class="s">&#39;tab_imf/imf_chabrier_lognormal.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;binary_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;binary_frac&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;binary_mrinf&#39;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+            <span class="s">&#39;binary_mrsup&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;extinction_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;extinction_rho_sun&#39;</span><span class="p">:</span> <span class="mf">0.00015</span><span class="p">,</span>
+            <span class="s">&#39;extinction_infty&#39;</span><span class="p">:</span> <span class="mf">0.045756</span><span class="p">,</span>
+            <span class="s">&#39;extinction_infty_disp&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;extinction_h_r&#39;</span><span class="p">:</span> <span class="mf">100000.0</span><span class="p">,</span>
+            <span class="s">&#39;extinction_h_z&#39;</span><span class="p">:</span> <span class="mf">110.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_rho_sun&#39;</span><span class="p">:</span> <span class="mf">59.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_h_r&#39;</span><span class="p">:</span> <span class="mf">2800.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_r_min&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_r_max&#39;</span><span class="p">:</span> <span class="mf">15000.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_h_z0&#39;</span><span class="p">:</span> <span class="mf">95.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_hz_tau0&#39;</span><span class="p">:</span> <span class="mf">4400000000.0</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_hz_alpha&#39;</span><span class="p">:</span> <span class="mf">1.6666</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_sfr_file&#39;</span><span class="p">:</span> <span class="s">&#39;tab_sfr/file_sfr_thindisk_mod.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_sfr_mult_factorA&#39;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+            <span class="s">&#39;thindisk_sfr_mult_factorB&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;rho_thickdisk_sun&#39;</span><span class="p">:</span> <span class="mf">0.0015</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_h_r&#39;</span><span class="p">:</span> <span class="mf">2800.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_r_min&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_r_max&#39;</span><span class="p">:</span> <span class="mf">15000.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_h_z&#39;</span><span class="p">:</span> <span class="mf">800.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_sfr_file&#39;</span><span class="p">:</span> <span class="s">&#39;tab_sfr/file_sfr_thickdisk.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_sfr_mult_factorA&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;thickdisk_sfr_mult_factorB&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;halo_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;halo_rho_sun&#39;</span><span class="p">:</span> <span class="mf">0.00015</span><span class="p">,</span>
+            <span class="s">&#39;halo_r_eff&#39;</span><span class="p">:</span> <span class="mf">2800.0</span><span class="p">,</span>
+            <span class="s">&#39;halo_q&#39;</span><span class="p">:</span> <span class="mf">0.65</span><span class="p">,</span>
+            <span class="s">&#39;halo_sfr_file&#39;</span><span class="p">:</span> <span class="s">&#39;tab_sfr/file_sfr_halo.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;halo_sfr_mult_factorA&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;halo_sfr_mult_factorB&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_rho_central&#39;</span><span class="p">:</span> <span class="mf">76.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_am&#39;</span><span class="p">:</span> <span class="mf">1900.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_a0&#39;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_eta&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+            <span class="s">&#39;bulge_csi&#39;</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>
+            <span class="s">&#39;bulge_phi&#39;</span><span class="p">:</span> <span class="mf">20.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_cutoffmass&#39;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+            <span class="s">&#39;bulge_sfr_file&#39;</span><span class="p">:</span> <span class="s">&#39;tab_sfr/file_sfr_bulge.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;bulge_sfr_mult_factorA&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;bulge_sfr_mult_factorB&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;object_kind&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;object_mass&#39;</span><span class="p">:</span> <span class="n">object_mass</span><span class="p">,</span>
+            <span class="s">&#39;object_dist&#39;</span><span class="p">:</span> <span class="mf">10.</span><span class="p">,</span>
+            <span class="s">&#39;object_avkind&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;object_av&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;object_cutoffmass&#39;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+            <span class="s">&#39;object_sfr_file&#39;</span><span class="p">:</span> <span class="n">object_sfr_file</span><span class="p">,</span>
+            <span class="s">&#39;object_sfr_mult_factorA&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s">&#39;object_sfr_mult_factorB&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s">&#39;output_file_type&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+
+</div>
+<div class="viewcode-block" id="galaxy_input_fmt"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.galaxy_input_fmt">[docs]</a><span class="k">def</span> <span class="nf">galaxy_input_fmt</span><span class="p">():</span>
+    <span class="n">fmt</span> <span class="o">=</span> \
+        <span class="sd">&quot;&quot;&quot;%(coord_kind)i %(coord1).1f %(coord2).1f %(field_area).1f # 1: galactic l, b (deg), field_area (deg2) # 2: ra dec in ore ( gradi 0..24)</span>
+
+<span class="sd">%(kind_mag)i %(file_mag)s # kind_mag, file_mag</span>
+<span class="sd">%(file_bcspec)s</span>
+<span class="sd">%(kind_dustM)i %(file_dustM)s # kind_dustM, file_dustM</span>
+<span class="sd">%(kind_dustC)i %(file_dustC)s # kind_dustC, file_dustC</span>
+<span class="sd">%(mag_num)i %(mag_limit_val)i %(mag_resolution).1f # Magnitude: num, limiting value, resolution</span>
+
+<span class="sd">%(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)</span>
+
+<span class="sd">%(file_imf)s # file_imf</span>
+<span class="sd">%(binary_kind)i # binary_kind: 0=none, 1=yes</span>
+<span class="sd">%(binary_frac).2f # binary_frac: binary fraction</span>
+<span class="sd">%(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1</span>
+
+<span class="sd">%(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty</span>
+<span class="sd">%(extinction_rho_sun)f  # extinction_rho_sun: local extinction density Av, in mag/pc</span>
+<span class="sd">%(extinction_infty)f %(extinction_infty_disp).1f  # extinction_infty: extinction Av at infinity in mag, dispersion</span>
+<span class="sd">%(extinction_h_r).1f %(extinction_h_z).1f  # extinction_h_r, extinction_h_z: radial and vertical scales</span>
+
+<span class="sd">%(thindisk_kind)i  # thindisk kind: 0=none, 1=z_exp, 2=z_sech, 3=z_sech2</span>
+<span class="sd">%(thindisk_rho_sun).1f  # thindisk_rho_sun: local thindisk surface density, in stars formed/pc2</span>
+<span class="sd">%(thindisk_h_r).1f %(thindisk_r_min).1f %(thindisk_r_max).1f  # thindisk_h_r, thindisk_r_min,max: radial scale, truncation radii</span>
+<span class="sd">%(thindisk_h_z0).1f %(thindisk_hz_tau0).1f %(thindisk_hz_alpha)%f # thindisk_h_z0, thindisk_hz_tau0, thindisk_hz_alpha: height now, increase time, exponent</span>
+<span class="sd">%(thindisk_sfr_file)s %(thindisk_sfr_mult_factorA).1f %(thindisk_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B (from A*t + B)</span>
+
+<span class="sd">%(thickdisk_kind)i # thickdisk kind: 0=none, 1=z_exp, 2=z_sech2, 3=z_sech2</span>
+<span class="sd">%(rho_thickdisk_sun)f  # rho_thickdisk_sun: local thickdisk volume density, in stars formed/pc3</span>
+<span class="sd">%(thickdisk_h_r).1f %(thickdisk_r_min).1f %(thickdisk_r_max).1f # thickdisk_h_r, thickdisk_r_min,max: radial scale, truncation radii</span>
+<span class="sd">%(thickdisk_h_z).1f # thickdisk_h_z: scale heigth (a single value)</span>
+<span class="sd">%(thickdisk_sfr_file)s %(thickdisk_sfr_mult_factorA).1f %(thickdisk_sfr_mult_factorB).1f  # File with (t, SFR, Z), factors A, B</span>
+
+<span class="sd">%(halo_kind)i # halo kind: 0=none, 1=1/r^4 cf Young 76, 2=oblate cf Gilmore</span>
+<span class="sd">%(halo_rho_sun)f # 0.0001731 0.0001154 halo_rho_sun: local halo volume density, to be done later: 0.001 for 1</span>
+<span class="sd">%(halo_r_eff).1f %(halo_q).2f #  halo_r_eff, halo_q: effective radius on plane (about r_sun/3.0), and oblateness</span>
+<span class="sd">%(halo_sfr_file)s %(halo_sfr_mult_factorA).1f %(halo_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B</span>
+
+<span class="sd">%(bulge_kind)i  # bulge kind: 0=none, 1=cf. Bahcall 86, 2=cf. Binney et al. 97</span>
+<span class="sd">%(bulge_rho_central).1f # bulge_rho_central: central bulge volume density, unrelated to solar position</span>
+<span class="sd">%(bulge_am).1f %(bulge_a0).1f #  bulge_am, bulge_a0: scale length and truncation scale length</span>
+<span class="sd">%(bulge_eta).1f %(bulge_csi).1f %(bulge_phi).1f #  bulge_eta, bulge_csi, bulge_phi0: y/x and z/x axial ratios, angle major-axis sun-centre-line (deg)</span>
+<span class="sd">%(bulge_cutoffmass).1f # bulge_cutoffmass: (Msun) masses lower than this will be ignored</span>
+<span class="sd">%(bulge_sfr_file)s %(bulge_sfr_mult_factorA).1f %(bulge_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B</span>
+
+<span class="sd">%(object_kind)i # object kind: 0=none, 1=at fixed distance</span>
+<span class="sd">%(object_mass)g %(object_dist).1f # object_mass, object_dist: total mass inside field, distance</span>
+<span class="sd">%(object_avkind)i %(object_av).1f # object_avkind, object_av: Av added to foregroud if =0, not added if =1</span>
+<span class="sd">%(object_cutoffmass).1f # object_cutoffmass: (Msun) masses lower than this will be ignored</span>
+<span class="sd">%(object_sfr_file)s %(object_sfr_mult_factorA).1f %(object_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B # la vera eta&#39; e&#39; t_OK=A*(t+B)</span>
+
+<span class="sd">%(output_file_type)i # output file: 1=data points&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">fmt</span>
+
+</div>
+<div class="viewcode-block" id="cmd_input_fmt"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.cmd_input_fmt">[docs]</a><span class="k">def</span> <span class="nf">cmd_input_fmt</span><span class="p">():</span>
+    <span class="n">fmt</span> <span class="o">=</span> \
+        <span class="sd">&quot;&quot;&quot;%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams</span>
+<span class="sd">%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb</span>
+<span class="sd">%(kind_postagb)i %(file_postagb)s # kind_postagb, file_postagb DA VERIFICARE file_postagb</span>
+<span class="sd">%(ifmr_kind)i %(file_ifmr)s # ifmr_kind, file with ifmr</span>
+<span class="sd">%(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency</span>
+<span class="sd">################################explanation######################</span>
+<span class="sd">kind_tracks: 1= normal file</span>
+<span class="sd">file_isotrack: tracks for low+int mass</span>
+<span class="sd">file_lowzams: tracks for low-ZAMS</span>
+<span class="sd">kind_tpagb: 0= none</span>
+<span class="sd">        1= Girardi et al., synthetic on the flight, no dredge up</span>
+<span class="sd">        2= Marigo &amp; Girardi 2001, from file, includes mcore and C/O</span>
+<span class="sd">        3= Marigo &amp; Girardi 2007, from file, includes period, mode and mloss</span>
+<span class="sd">        4= Marigo et al. 2011, from file, includes slope</span>
+<span class="sd">file_tpagb: tracks for TP-AGB</span>
+
+<span class="sd">kind_postagb: 0= none</span>
+<span class="sd">        1= from file</span>
+<span class="sd">file_postagb: PN+WD tracks</span>
+
+<span class="sd">kind_ifmr: 0= default</span>
+<span class="sd">           1= from file</span>
+
+<span class="sd">kind_rgbmloss: 0=off</span>
+<span class="sd">               1=on (with law=Reimers for the moment)&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">fmt</span>
+
+</div>
+<div class="viewcode-block" id="cmd_input_dict"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.cmd_input_dict">[docs]</a><span class="k">def</span> <span class="nf">cmd_input_dict</span><span class="p">():</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s">&#39;kind_tracks&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s">&#39;file_isotrack&#39;</span><span class="p">:</span> <span class="s">&#39;isotrack/parsec/CAF09_S12D_NS.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;file_lowzams&#39;</span><span class="p">:</span> <span class="s">&#39;isotrack/bassazams_fasulla.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;kind_tpagb&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+            <span class="s">&#39;file_tpagb&#39;</span><span class="p">:</span> <span class="s">&#39;isotrack/isotrack_agb/tracce_CAF09_S_JAN13.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;kind_postagb&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;file_postagb&#39;</span><span class="p">:</span> <span class="s">&#39;isotrack/final/pne_wd_test.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;ifmr_kind&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s">&#39;file_ifmr&#39;</span><span class="p">:</span> <span class="s">&#39;tab_ifmr/weidemann.dat&#39;</span><span class="p">,</span>
+            <span class="s">&#39;kind_rgbmloss&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s">&#39;rgbmloss_law&#39;</span><span class="p">:</span> <span class="s">&#39;Reimers&#39;</span><span class="p">,</span>
+            <span class="s">&#39;rgbmloss_efficiency&#39;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">}</span>
+
+</div>
+<div class="viewcode-block" id="Trilegal_SFH"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.Trilegal_SFH">[docs]</a><span class="k">class</span> <span class="nc">Trilegal_SFH</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">galaxy_input</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        file can be galaxy input file for trilegal or trilegal age, sfr, z</span>
+<span class="sd">        file.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">galaxy_input</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">galaxy_input</span> <span class="o">=</span> <span class="n">filename</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_galaxy_input</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span> <span class="o">=</span> <span class="n">filename</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_sfh_file</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_sfh</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Trilegal_SFH.load_sfh"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.Trilegal_SFH.load_sfh">[docs]</a>    <span class="k">def</span> <span class="nf">load_sfh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s">&#39;sfh_file&#39;</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">galaxy_input</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_sfh_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">[:]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">galaxy_input_sfh_line</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">age</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfr</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">,</span> <span class="n">unpack</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="c"># should I do this with dtype?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">z_raw</span> <span class="o">=</span> <span class="n">z</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">__format_cut_age</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cut1_age</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        takes the &gt; or &lt; out of the string, and makes it in yrs.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">flag</span> <span class="o">=</span> <span class="n">cut1_age</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">yrfmt</span> <span class="o">=</span> <span class="mf">1.</span>
+        <span class="n">possible_yrmfts</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;Gyr&#39;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span> <span class="s">&#39;Myr&#39;</span><span class="p">:</span> <span class="mf">1e6</span><span class="p">,</span> <span class="s">&#39;yr&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">py</span><span class="p">,</span> <span class="n">yrfmt</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">possible_yrmfts</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span>
+                                <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">py</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">cut1_age</span><span class="p">):</span>
+                <span class="kn">import</span> <span class="nn">matplotlib</span>
+                <span class="k">if</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">cbook</span><span class="o">.</span><span class="n">is_numlike</span><span class="p">(</span><span class="n">flag</span><span class="p">):</span>
+                    <span class="n">cut1_age</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cut1_age</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">py</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">))</span>
+                    <span class="n">flag</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cut1_age</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cut1_age</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">py</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">))</span>
+                <span class="n">cut1_age</span> <span class="o">*=</span> <span class="n">yrfmt</span>
+        <span class="k">return</span> <span class="n">cut1_age</span><span class="p">,</span> <span class="n">flag</span>
+
+<div class="viewcode-block" id="Trilegal_SFH.increase_sfr"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.Trilegal_SFH.increase_sfr">[docs]</a>    <span class="k">def</span> <span class="nf">increase_sfr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">,</span> <span class="n">cut_age</span><span class="p">,</span> <span class="n">over_write_galaxy_input</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        cut_age is in Myr.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">new_fmt</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">_inc</span><span class="si">%i</span><span class="s">.dat&#39;</span>
+        <span class="n">new_file</span> <span class="o">=</span> <span class="n">new_fmt</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.dat&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span> <span class="n">factor</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">over_write_galaxy_input</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">galaxy_input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">galaxy_input</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">galaxy_input</span> <span class="o">=</span> <span class="n">new_fmt</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">galaxy_input</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.dat&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>
+                                      <span class="n">factor</span><span class="p">)</span>
+
+        <span class="c"># copy arrays to not overwrite attributes</span>
+        <span class="n">sfr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfr</span><span class="p">[:]</span>
+        <span class="n">age</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">age</span><span class="p">[:]</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">[:]</span>
+
+        <span class="c"># convert cut_age to yr</span>
+        <span class="n">cut_age</span> <span class="o">*=</span> <span class="mf">1e6</span>
+
+        <span class="n">inds</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">age</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">cut_age</span><span class="p">))</span>
+        <span class="n">sfr</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">*=</span> <span class="n">factor</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">new_file</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">age</span><span class="p">,</span> <span class="n">sfr</span><span class="p">,</span> <span class="n">z</span><span class="p">])</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="c"># update galaxy_input file</span>
+        <span class="k">print</span> <span class="s">&#39;this is broken!!!!!&#39;</span>
+        <span class="c">#lines[-3] = &#39;%s %s \n&#39; % (new_file, self.galaxy_input_sfh_line)</span>
+        <span class="c">#logger.debug(&#39;new line: %s&#39; % lines[-3])</span>
+        <span class="c">#with open(galaxy_input, &#39;w&#39;) as out:</span>
+        <span class="c">#    [out.write(l) for l in lines]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_galaxy_input</span> <span class="o">=</span> <span class="n">galaxy_input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_sfh_file</span> <span class="o">=</span> <span class="n">new_file</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_galaxy_input</span>
+</div>
+<div class="viewcode-block" id="Trilegal_SFH.adjust_value"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.Trilegal_SFH.adjust_value">[docs]</a>    <span class="k">def</span> <span class="nf">adjust_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val_str</span><span class="p">,</span> <span class="n">str_operation</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s">&#39;default&#39;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        do some operation to a value.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__getattribute__</span><span class="p">(</span><span class="n">val_str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">filename</span> <span class="o">==</span> <span class="s">&#39;default&#39;</span><span class="p">:</span>
+            <span class="n">base_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">new_dir</span> <span class="o">=</span> <span class="s">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">base_dir</span><span class="p">,</span> <span class="s">&#39;adj/&#39;</span><span class="p">])</span>
+            <span class="n">io</span><span class="o">.</span><span class="n">ensure_dir</span><span class="p">(</span><span class="n">new_dir</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_dir</span><span class="p">,</span> <span class="s">&#39;readme&#39;</span><span class="p">),</span> <span class="s">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;SFH file </span><span class="si">%s</span><span class="s"> adjusted from </span><span class="si">%s</span><span class="s">.&#39;</span> <span class="o">%</span>
+                          <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">))</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">     operation: </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">.</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">val_str</span><span class="p">,</span>
+                                                          <span class="n">str_operation</span><span class="p">))</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_dir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfh_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">newval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">eval</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">str_operation</span><span class="p">))</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_sfh</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">val_dict</span><span class="o">=</span><span class="p">{</span><span class="n">val_str</span><span class="p">:</span> <span class="n">newval</span><span class="p">})</span>
+</div>
+<div class="viewcode-block" id="Trilegal_SFH.write_sfh"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.Trilegal_SFH.write_sfh">[docs]</a>    <span class="k">def</span> <span class="nf">write_sfh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">val_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        write the sfh file either give age, sfr, or z or will use</span>
+<span class="sd">        self.age self.sfr or self.z</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">val_dict</span> <span class="o">=</span> <span class="n">val_dict</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">default_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;age&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">age</span><span class="p">,</span> <span class="s">&#39;sfr&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfr</span><span class="p">,</span> <span class="s">&#39;z&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">}</span>
+        <span class="n">new_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">default_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">val_dict</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">new_dict</span><span class="p">[</span><span class="s">&#39;age&#39;</span><span class="p">],</span>
+                                       <span class="n">new_dict</span><span class="p">[</span><span class="s">&#39;sfr&#39;</span><span class="p">],</span>
+                                       <span class="n">new_dict</span><span class="p">[</span><span class="s">&#39;z&#39;</span><span class="p">]))</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                   <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%.3f</span><span class="s"> </span><span class="si">%g</span><span class="s"> </span><span class="si">%.4f</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="k">print</span> <span class="s">&#39;wrote </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">filename</span>
+
+</div></div>
+<div class="viewcode-block" id="find_photsys_number"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.find_photsys_number">[docs]</a><span class="k">def</span> <span class="nf">find_photsys_number</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="n">filter1</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    grabs the index of the filter in the tab mag file for this photsys.</span>
+<span class="sd">    returns the index, and the file name</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">mag_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;BCDIR&#39;</span><span class="p">],</span>
+                            <span class="s">&#39;tab_mag_odfnew/tab_mag_</span><span class="si">%s</span><span class="s">.dat&#39;</span> <span class="o">%</span> <span class="n">photsys</span><span class="p">)</span>
+    <span class="n">magline</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">mag_file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">magline</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">filter1</span><span class="p">),</span> <span class="n">mag_file</span>
+
+</div>
+<div class="viewcode-block" id="run_trilegal"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.run_trilegal">[docs]</a><span class="k">def</span> <span class="nf">run_trilegal</span><span class="p">(</span><span class="n">cmd_input</span><span class="p">,</span> <span class="n">galaxy_input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">loud</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">rmfiles</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                 <span class="n">dry_run</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    runs trilegal with os.system. might be better with subprocess? Also</span>
+<span class="sd">    changes directory to trilegal root, if that&#39;s not in a .cshrc need to</span>
+<span class="sd">    somehow tell it where to go.</span>
+
+<span class="sd">    rmfiles: set to false if running with multiprocessing, destroying files,</span>
+<span class="sd">    even if not necessary, seem to break .get()</span>
+
+<span class="sd">    loud: after the trilegal run, prints trilegal messages</span>
+
+<span class="sd">    to do:</span>
+<span class="sd">    add -a or any other flag options</span>
+<span class="sd">    possibly add the stream output to the end of the output file.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="kn">import</span> <span class="nn">subprocess</span>
+    <span class="n">here</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;TRILEGAL_ROOT&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">here</span> <span class="o">!=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd_input</span><span class="p">)[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s">&#39;cp </span><span class="si">%s</span><span class="s"> .&#39;</span> <span class="o">%</span> <span class="n">cmd_input</span><span class="p">)</span>
+    <span class="n">cmd_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd_input</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;running trilegal...&#39;</span><span class="p">)</span>
+
+    <span class="c"># trilegal 2.3 not working on my mac...</span>
+    <span class="k">if</span> <span class="s">&#39;Linux&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">uname</span><span class="p">():</span>
+        <span class="n">ver</span> <span class="o">=</span> <span class="mf">2.3</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ver</span> <span class="o">=</span> <span class="mf">2.2</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="s">&#39;code_</span><span class="si">%.1f</span><span class="s">/main -f </span><span class="si">%s</span><span class="s"> -a -l </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ver</span><span class="p">,</span> <span class="n">cmd_input</span><span class="p">,</span> <span class="n">galaxy_input</span><span class="p">,</span>
+                                                <span class="n">output</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dry_run</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">print</span> <span class="n">cmd</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">retcode</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">retcode</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">print</span> <span class="o">&gt;&gt;</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#39;TRILEGAL was terminated by signal&#39;</span><span class="p">,</span> <span class="o">-</span><span class="n">retcode</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">print</span> <span class="o">&gt;&gt;</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#39;TRILEGAL was terminated successfully&#39;</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">,</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">print</span> <span class="o">&gt;&gt;</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&#39;TRILEGAL failed:&#39;</span><span class="p">,</span> <span class="n">err</span>
+        <span class="c">#p = subprocess.Popen(cmd, shell=True, executable=&#39;/bin/bash&#39;,</span>
+        <span class="c">#                     stdout=subprocess.PIPE)</span>
+        <span class="c">#p.wait()</span>
+
+        <span class="c">#if loud is True:</span>
+        <span class="c">#    print &#39;\n&#39;.join([l.strip() for l in p.communicate()])</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&#39;done.&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">rmfiles</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">cmd_input</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">here</span><span class="p">)</span>
+    <span class="k">return</span>
+
+</div>
+<div class="viewcode-block" id="get_args"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.get_args">[docs]</a><span class="k">def</span> <span class="nf">get_args</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s">&#39;.dat&#39;</span><span class="p">):</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">ext</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;R1&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;isoch&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">a</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">c</span><span class="o">.</span><span class="n">isdigit</span><span class="p">())</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">a</span><span class="p">[:]</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">d</span><span class="p">[</span><span class="s">&#39;F&#39;</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="get_stage_label"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.get_stage_label">[docs]</a><span class="k">def</span> <span class="nf">get_stage_label</span><span class="p">(</span><span class="n">region</span><span class="p">):</span>
+    <span class="c"># see parametri.h</span>
+    <span class="n">regions</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;PMS&#39;</span><span class="p">,</span> <span class="s">&#39;MS&#39;</span><span class="p">,</span> <span class="s">&#39;SUBGIANT&#39;</span><span class="p">,</span> <span class="s">&#39;RGB&#39;</span><span class="p">,</span> <span class="s">&#39;HEB&#39;</span><span class="p">,</span> <span class="s">&#39;RHEB&#39;</span><span class="p">,</span> <span class="s">&#39;BHEB&#39;</span><span class="p">,</span> <span class="s">&#39;EAGB&#39;</span><span class="p">,</span>
+               <span class="s">&#39;TPAGB&#39;</span><span class="p">,</span> <span class="s">&#39;POSTAGB&#39;</span><span class="p">,</span> <span class="s">&#39;WD&#39;</span><span class="p">]</span>
+    <span class="n">stage_lab</span> <span class="o">=</span> <span class="n">regions</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">stage_lab</span>
+
+</div>
+<div class="viewcode-block" id="get_label_stage"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.get_label_stage">[docs]</a><span class="k">def</span> <span class="nf">get_label_stage</span><span class="p">(</span><span class="n">stage_lab</span><span class="p">):</span>
+    <span class="c"># see parametri.h</span>
+    <span class="n">regions</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;PMS&#39;</span><span class="p">,</span> <span class="s">&#39;MS&#39;</span><span class="p">,</span> <span class="s">&#39;SUBGIANT&#39;</span><span class="p">,</span> <span class="s">&#39;RGB&#39;</span><span class="p">,</span> <span class="s">&#39;HEB&#39;</span><span class="p">,</span> <span class="s">&#39;RHEB&#39;</span><span class="p">,</span> <span class="s">&#39;BHEB&#39;</span><span class="p">,</span> <span class="s">&#39;EAGB&#39;</span><span class="p">,</span>
+               <span class="s">&#39;TPAGB&#39;</span><span class="p">,</span> <span class="s">&#39;POSTAGB&#39;</span><span class="p">,</span> <span class="s">&#39;WD&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">regions</span><span class="p">[</span><span class="n">stage_lab</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="get_loop_data"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.get_loop_data">[docs]</a><span class="k">def</span> <span class="nf">get_loop_data</span><span class="p">(</span><span class="n">cmd_input_file</span><span class="p">,</span> <span class="n">metallicity</span><span class="p">):</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">read_cmd_input_file</span><span class="p">(</span><span class="n">cmd_input_file</span><span class="p">)[</span><span class="s">&#39;file_isotrack&#39;</span><span class="p">]</span>
+    <span class="n">file_isotrack</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;ISOTRACK&#39;</span><span class="p">],</span>
+                                 <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;isotrack/&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">))</span>
+    <span class="n">z</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">mh</span><span class="p">,</span> <span class="n">files</span> <span class="o">=</span> <span class="n">read_isotrack_file</span><span class="p">(</span><span class="n">file_isotrack</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">metallicity</span> <span class="ow">in</span> <span class="n">z</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">: metallicity not found.&#39;</span> <span class="o">%</span> <span class="n">get_loop_data</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+
+    <span class="n">ptcri</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">metallicity</span><span class="p">)</span> <span class="ow">in</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span>
+             <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;INT2&#39;</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;isotrack/&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+    <span class="n">ptcri_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;ISOTRACK&#39;</span><span class="p">],</span> <span class="n">ptcri</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">read_loop_from_ptrci</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="string_in_lines"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.string_in_lines">[docs]</a><span class="k">def</span> <span class="nf">string_in_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="n">strs</span> <span class="o">=</span> <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">l</span><span class="p">))</span> <span class="o">==</span> <span class="nb">str</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">strs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&#39; M=&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="k">print</span> <span class="n">line</span><span class="p">,</span> <span class="n">strs</span>
+
+</div>
+<div class="viewcode-block" id="IsoTrack2"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.IsoTrack2">[docs]</a><span class="k">class</span> <span class="nc">IsoTrack2</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">read_ptcri2</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IsoTrack2.read_ptcri2"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.IsoTrack2.read_ptcri2">[docs]</a>    <span class="k">def</span> <span class="nf">read_ptcri2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        header fmt:</span>
+<span class="sd">        2 # number of isochrones sets with same eeps. in this case 2 (could be has 1st TP vs only C_BUR)</span>
+<span class="sd">        1 18 # which isochrones have first eep set</span>
+<span class="sd">        19 26 # which isochrones have the second eep set</span>
+<span class="sd">        26 # number of isochrones</span>
+<span class="sd">        384 398 395 397 392 ... number of age steps in each isochrone</span>
+<span class="sd">        1.750000 1.800000 1.850000 ... masses of each isochrone</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()]</span>
+        <span class="c"># file made to be read by C, going line by line for header info.</span>
+        <span class="n">eep_sets</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">set_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eep_sets</span><span class="p">)])</span>
+        <span class="n">set_inds</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="n">nsets</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">eep_sets</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">len_tracks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">eep_sets</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">masses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">eep_sets</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">start_ind</span> <span class="o">=</span> <span class="n">eep_sets</span> <span class="o">+</span> <span class="mi">4</span>
+
+        <span class="n">start_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">len_tracks</span><span class="p">)</span> <span class="o">+</span> <span class="n">start_ind</span>
+        <span class="n">start_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">start_inds</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">start_ind</span><span class="p">)</span>
+        <span class="n">end_inds</span> <span class="o">=</span> <span class="n">start_inds</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="c"># each one is too long</span>
+        <span class="n">end_inds</span> <span class="o">=</span> <span class="n">end_inds</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">start_inds</span> <span class="o">=</span> <span class="n">start_inds</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">eep_sets</span> <span class="o">=</span> <span class="n">eep_sets</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nsets</span> <span class="o">=</span> <span class="n">nsets</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">masses</span> <span class="o">=</span> <span class="n">masses</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">eep_sets</span><span class="p">):</span>
+            <span class="n">set_start</span><span class="p">,</span> <span class="n">set_end</span> <span class="o">=</span> <span class="n">set_inds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">isoc_strs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lines</span><span class="p">[</span><span class="n">start_inds</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span> <span class="n">end_inds</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="n">set_inds</span><span class="p">[</span><span class="n">i</span><span class="p">])]</span>
+            <span class="n">isoc_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">isoc_strs</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">isoc_strs</span><span class="p">[</span><span class="n">j</span><span class="p">]))],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">isoc_strs</span><span class="p">))])</span>
+            <span class="n">isoc_masses</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;</span><span class="si">%.4f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">masses</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="n">set_inds</span><span class="p">[</span><span class="n">i</span><span class="p">])]]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;iso_str</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="p">{</span><span class="n">isoc_masses</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span> <span class="n">isoc_strs</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">isoc_masses</span><span class="p">))})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;iso_data</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="p">{</span><span class="n">isoc_masses</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span> <span class="n">isoc_data</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">isoc_masses</span><span class="p">))})</span>
+<span class="c"># get the EEPS too?? I donno what you need the data for besides plotting...</span>
+
+</div></div>
+<div class="viewcode-block" id="read_ptcri"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.read_ptcri">[docs]</a><span class="k">def</span> <span class="nf">read_ptcri</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">):</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s">&#39;kind&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">age</span><span class="p">,</span> <span class="n">logL</span><span class="p">,</span> <span class="n">logTe</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">cript</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">kind</span> <span class="o">=</span> \
+                <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">cript</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">mass</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">cript</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">cript</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">cript</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;age&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">age</span><span class="p">),</span>
+                                  <span class="s">&#39;logTe&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">logTe</span><span class="p">),</span>
+                                  <span class="s">&#39;logL&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">logL</span><span class="p">),</span>
+                                  <span class="s">&#39;model&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">model</span><span class="p">),</span>
+                                  <span class="s">&#39;mod&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">mod</span><span class="p">)}</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="read_ptcri2"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.read_ptcri2">[docs]</a><span class="k">def</span> <span class="nf">read_ptcri2</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    after .revisegrid</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="n">mline</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s">&#39;M=&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="n">mline</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">continue</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mline</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">mass</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">mline</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;M=&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;PMS&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mline</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">mline</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">lines</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">age</span><span class="p">,</span> <span class="n">logL</span><span class="p">,</span> <span class="n">logTe</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+                <span class="n">cript</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">cript</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">cript</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">cript</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;age&#39;</span><span class="p">:</span> <span class="n">age</span><span class="p">,</span> <span class="s">&#39;logTe&#39;</span><span class="p">:</span> <span class="n">logTe</span><span class="p">,</span> <span class="s">&#39;logL&#39;</span><span class="p">:</span> <span class="n">logL</span><span class="p">,</span>
+                                  <span class="s">&#39;model&#39;</span><span class="p">:</span> <span class="n">model</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">mass</span> <span class="o">==</span> <span class="mi">12</span><span class="p">:</span>
+            <span class="k">break</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="read_loop_from_ptrci"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.read_loop_from_ptrci">[docs]</a><span class="k">def</span> <span class="nf">read_loop_from_ptrci</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">):</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ptcri_file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="c"># Get starting points for each track</span>
+    <span class="n">line_nums</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">lines</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+    <span class="c"># don&#39;t forget the first</span>
+    <span class="n">line_nums</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="c"># they actually start at line 7, that is 6 if you start counting with 0.</span>
+    <span class="n">line_nums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">line_nums</span><span class="p">)</span> <span class="o">+</span> <span class="mi">6</span>
+    <span class="c">#ax = plt.axes()</span>
+    <span class="c">#col = {&#39;Loop_A&#39;: &#39;red&#39;, &#39;Loop_B&#39;: &#39;blue&#39;, &#39;Loop_C&#39;: &#39;green&#39;}</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s">&#39;Loop&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s">&#39;M=&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="s">&#39;M=&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="n">mass</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;M=&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;P&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s">&#39;Loop&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">age</span><span class="p">,</span> <span class="n">logL</span><span class="p">,</span> <span class="n">logTe</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+            <span class="c">#ax.plot(logTe, logL, &#39;o&#39;, color = col[loop])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">loop</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">loop</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">mass</span><span class="p">][</span><span class="n">loop</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;age&#39;</span><span class="p">:</span> <span class="n">age</span><span class="p">,</span> <span class="s">&#39;logTe&#39;</span><span class="p">:</span> <span class="n">logTe</span><span class="p">,</span> <span class="s">&#39;logL&#39;</span><span class="p">:</span> <span class="n">logL</span><span class="p">,</span>
+                             <span class="s">&#39;model&#39;</span><span class="p">:</span> <span class="n">model</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">d</span>
+
+</div>
+<div class="viewcode-block" id="read_isotrack_file"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.read_isotrack_file">[docs]</a><span class="k">def</span> <span class="nf">read_isotrack_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;cmd_input&#39;</span><span class="p">):</span>
+        <span class="n">file_isotrack</span> <span class="o">=</span> <span class="n">read_cmd_input_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="s">&#39;file_isotrack&#39;</span><span class="p">]</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;ISOTRACK&#39;</span><span class="p">],</span>
+                                <span class="n">file_isotrack</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;isotrack/&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">isotf</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&#39;ISOTRACK&#39;</span><span class="p">],</span> <span class="s">&#39;parsec&#39;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="n">isotf</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="n">nmets</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">isotf</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nmets</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nmets</span><span class="p">)</span>
+    <span class="n">mh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nmets</span><span class="p">)</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">met_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">isotf</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">isotf</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">met_count</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">met_count</span><span class="p">],</span> <span class="n">mh</span><span class="p">[</span><span class="n">met_count</span><span class="p">]</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+            <span class="n">met_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">z</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">mh</span><span class="p">,</span> <span class="n">files</span>
+
+</div>
+<div class="viewcode-block" id="read_cmd_input_file"><a class="viewcode-back" href="../../../resolvedstellarpops.trilegal.html#resolvedstellarpops.trilegal.utils.read_cmd_input_file">[docs]</a><span class="k">def</span> <span class="nf">read_cmd_input_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;##&#39;</span><span class="p">):</span>
+            <span class="k">break</span>
+        <span class="n">data_line</span><span class="p">,</span> <span class="n">comment_line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;#&#39;</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data_line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">comment</span> <span class="o">=</span> <span class="n">comment_line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;DA &#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;, &#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">dat</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">comment</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)]</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">(</span><span class="n">dat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">d</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

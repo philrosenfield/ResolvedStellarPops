@@ -1,0 +1,417 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.angst_tables.angst_tables &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.angst_tables.angst_tables</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.angst_tables.angst_tables</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">difflib</span>
+
+<span class="kn">from</span> <span class="nn">.helpers</span> <span class="kn">import</span> <span class="n">deprecated</span><span class="p">,</span> <span class="n">flatten_dict</span>
+
+<span class="c">#config</span>
+<span class="n">TABLE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">__file__</span><span class="p">))[</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;tables&#39;</span><span class="p">)</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;AngstTables&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="AngstTables"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables">[docs]</a><span class="k">class</span> <span class="nc">AngstTables</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table5</span> <span class="o">=</span> <span class="n">read_angst_tab5</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table4</span> <span class="o">=</span> <span class="n">read_angst_tab4</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;snap_tab</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">i</span><span class="p">,</span> <span class="n">read_snap</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="s">&#39;table</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">i</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">table4</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">],</span>
+                                                 <span class="bp">self</span><span class="o">.</span><span class="n">table5</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">])))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+
+<div class="viewcode-block" id="AngstTables.get_item"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.get_item">[docs]</a>    <span class="k">def</span> <span class="nf">get_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">extra_key</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        The problem with writing basic necessity code before I got the hang</span>
+<span class="sd">        of python is that I need to write shitty wrappers now...</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">correct_target</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+        <span class="n">table_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__getattribute__</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">table_row</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">table_row</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+
+        <span class="n">flat_table_row</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">table_row</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">flat_table_row</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">flat_table_row</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">case</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="p">[</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">flat_table_row</span> <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">k</span> <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="p">[</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">flat_table_row</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="p">]</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">match</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">extra_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">case</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">match</span> <span class="o">=</span> <span class="p">[</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">match</span> <span class="k">if</span> <span class="n">extra_key</span> <span class="ow">in</span> <span class="n">k</span> <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">match</span> <span class="o">=</span> <span class="p">[</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">match</span> <span class="k">if</span> <span class="n">extra_key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">match</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="p">[</span> <span class="n">flat_table_row</span><span class="p">[</span><span class="n">mk</span><span class="p">]</span> <span class="k">for</span> <span class="n">mk</span> <span class="ow">in</span> <span class="n">match</span> <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="n">flat_table_row</span><span class="p">[</span><span class="n">match</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">val</span><span class="p">,</span> <span class="n">match</span>
+</div>
+<div class="viewcode-block" id="AngstTables.load_data"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        loads table 5 and table 4 with target names as attributes</span>
+<span class="sd">        and filter-specific data in a dictionary.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c"># angst table 4:</span>
+        <span class="n">subdict_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;exposure_time&#39;</span><span class="p">,</span> <span class="s">&#39;50_completeness_mag&#39;</span><span class="p">]</span>
+        <span class="n">replace_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;50_completeness_mag&#39;</span><span class="p">:</span> <span class="s">&#39;50_completeness&#39;</span><span class="p">}</span>
+        <span class="n">break_key</span> <span class="o">=</span> <span class="s">&#39;filter&#39;</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">table4</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
+            <span class="n">row_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">,</span> <span class="n">row</span><span class="p">))</span>
+            <span class="nb">filter</span> <span class="o">=</span> <span class="n">row_dict</span><span class="p">[</span><span class="s">&#39;filter&#39;</span><span class="p">]</span>
+            <span class="n">target_dict</span> <span class="o">=</span> <span class="n">split_dictionary</span><span class="p">(</span><span class="n">row_dict</span><span class="p">,</span> <span class="n">break_key</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="o">*</span><span class="n">subdict_keys</span><span class="p">,</span> <span class="o">**</span><span class="n">replace_keys</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">target</span><span class="p">,</span> <span class="n">target_dict</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">target_dict</span><span class="p">)</span>
+
+        <span class="c"># angst table 5</span>
+        <span class="n">subdict_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;Av&#39;</span><span class="p">,</span> <span class="s">&#39;mean_color&#39;</span><span class="p">,</span> <span class="s">&#39;mTRGB_raw&#39;</span><span class="p">,</span> <span class="s">&#39;mTRGB&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;mTRGB_err&#39;</span><span class="p">,</span> <span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;dist_Mpc&#39;</span><span class="p">,</span> <span class="s">&#39;dist_Mpc_err&#39;</span><span class="p">]</span>
+        <span class="n">break_key</span> <span class="o">=</span> <span class="s">&#39;filters&#39;</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">table5</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
+            <span class="n">row_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">,</span> <span class="n">row</span><span class="p">))</span>
+            <span class="n">filters</span> <span class="o">=</span> <span class="n">row_dict</span><span class="p">[</span><span class="s">&#39;filters&#39;</span><span class="p">]</span>
+            <span class="n">target_dict</span> <span class="o">=</span> <span class="n">split_dictionary</span><span class="p">(</span><span class="n">row_dict</span><span class="p">,</span> <span class="n">break_key</span><span class="p">,</span> <span class="n">filters</span><span class="p">,</span> <span class="o">*</span><span class="n">subdict_keys</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__setattr__</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">target</span><span class="p">,</span> <span class="n">target_dict</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">target_dict</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="AngstTables.correct_target"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.correct_target">[docs]</a>    <span class="k">def</span> <span class="nf">correct_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        NOT FINISHED</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;404&#39;</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="s">&#39;NGC404_DEEP&#39;</span>
+        <span class="k">return</span> <span class="n">target</span>
+</div>
+    <span class="nd">@deprecated</span>
+<div class="viewcode-block" id="AngstTables.get_tab5_trgb_av_dmod"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.get_tab5_trgb_av_dmod">[docs]</a>    <span class="k">def</span> <span class="nf">get_tab5_trgb_av_dmod</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        backward compatibility to my old codes.</span>
+<span class="sd">        it&#39;s a bit crap.</span>
+
+<span class="sd">        since trgb is F814W, Av is V, the exact field doesn&#39;t matter</span>
+<span class="sd">        for my batch use.</span>
+
+<span class="sd">        If the target isn&#39;t in table 5, I find the closest match to</span>
+<span class="sd">        the target string and grab those filters. All that is stored</span>
+<span class="sd">        locally.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;F160W&#39;</span> <span class="ow">in</span> <span class="n">filters</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_snap_trgb_av_dmod</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">datum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="p">][</span><span class="n">filters</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">otarget</span> <span class="o">=</span> <span class="n">target</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">,</span> <span class="s">&#39;-&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;WIDE&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table5</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> using </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">otarget</span><span class="p">,</span> <span class="n">target</span><span class="p">))</span>
+            <span class="n">filters</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span>
+                       <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                       <span class="k">if</span> <span class="s">&#39;,&#39;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">datum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)][</span><span class="n">filters</span><span class="p">]</span>
+
+        <span class="n">trgb</span> <span class="o">=</span> <span class="n">datum</span><span class="p">[</span><span class="s">&#39;mTRGB&#39;</span><span class="p">]</span>
+        <span class="n">av</span> <span class="o">=</span> <span class="n">datum</span><span class="p">[</span><span class="s">&#39;Av&#39;</span><span class="p">]</span>
+        <span class="n">dmod</span> <span class="o">=</span> <span class="n">datum</span><span class="p">[</span><span class="s">&#39;dmod&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">trgb</span><span class="p">,</span> <span class="n">av</span><span class="p">,</span> <span class="n">dmod</span>
+</div>
+    <span class="nd">@deprecated</span>
+<div class="viewcode-block" id="AngstTables.get_50compmag"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.get_50compmag">[docs]</a>    <span class="k">def</span> <span class="nf">get_50compmag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        backward compatibility to my old codes.</span>
+<span class="sd">        input target,filter: get 50% comp.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;C_&#39;</span><span class="p">,</span> <span class="s">&#39;C&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s">&#39;F160W&#39;</span> <span class="ow">in</span> <span class="nb">filter</span> <span class="ow">or</span> <span class="s">&#39;F110W&#39;</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_snap_50compmag</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">filter</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">datum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="p">][</span><span class="nb">filter</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table5</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">datum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="n">target</span><span class="p">][</span><span class="nb">filter</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">datum</span><span class="p">[</span><span class="s">&#39;50_completeness&#39;</span><span class="p">]</span>
+</div>
+<div class="viewcode-block" id="AngstTables.get_snap_trgb_av_dmod"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.get_snap_trgb_av_dmod">[docs]</a>    <span class="k">def</span> <span class="nf">get_snap_trgb_av_dmod</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab3</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ind</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">snap_tab3</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">target</span><span class="p">)</span>
+        <span class="n">mTRGB</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab3</span><span class="p">[</span><span class="s">&#39;mTRGB_raw&#39;</span><span class="p">][</span><span class="n">ind</span><span class="p">]</span>
+        <span class="n">dmod</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab3</span><span class="p">[</span><span class="s">&#39;dmod&#39;</span><span class="p">][</span><span class="n">ind</span><span class="p">]</span>
+        <span class="n">Av</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab3</span><span class="p">[</span><span class="s">&#39;Av&#39;</span><span class="p">][</span><span class="n">ind</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">mTRGB</span><span class="p">,</span> <span class="n">Av</span><span class="p">,</span> <span class="n">dmod</span>
+</div>
+<div class="viewcode-block" id="AngstTables.get_snap_50compmag"><a class="viewcode-back" href="../../../resolvedstellarpops.angst_tables.html#resolvedstellarpops.angst_tables.angst_tables.AngstTables.get_snap_50compmag">[docs]</a>    <span class="k">def</span> <span class="nf">get_snap_50compmag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab2</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ind</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">snap_tab2</span><span class="p">[</span><span class="s">&#39;target&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">target</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">snap_tab2</span><span class="p">[</span><span class="s">&#39;50_completeness_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">filter</span><span class="p">][</span><span class="n">ind</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+</div></div>
+<span class="k">def</span> <span class="nf">split_dictionary</span><span class="p">(</span><span class="n">rawdict</span><span class="p">,</span> <span class="n">break_key</span><span class="p">,</span> <span class="n">subdictname</span><span class="p">,</span>
+                     <span class="o">*</span><span class="n">subdict_keys</span><span class="p">,</span> <span class="o">**</span><span class="n">replace_keys</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    splits dictionary into two based on a key. The sub dictionary takes on</span>
+<span class="sd">    values from the main dictionary. Also allows to replace keys in sub</span>
+<span class="sd">    dictionary.</span>
+<span class="sd">    INPUT</span>
+<span class="sd">    rawdict: entire dictionary</span>
+<span class="sd">    break_key: key of rawdict to make subdict (and then remove)</span>
+<span class="sd">    subdictname: val of newdict that will be key for subdict</span>
+<span class="sd">    subdict_keys: *keys of rawdict to put in subdict</span>
+<span class="sd">    replace_keys: **{old key:new key} keys of new subdict to change</span>
+<span class="sd">    OUTPUT</span>
+<span class="sd">    newdict</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">maindict</span> <span class="o">=</span> <span class="n">rawdict</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">tempdict</span> <span class="o">=</span> <span class="n">rawdict</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="p">[</span><span class="n">maindict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subdict_keys</span><span class="p">]</span>
+    <span class="p">[</span><span class="n">tempdict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">rawdict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subdict_keys</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">break_key</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">(</span><span class="n">maindict</span><span class="p">,</span> <span class="n">tempdict</span><span class="p">)]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="n">subdict</span> <span class="o">=</span> <span class="n">tempdict</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">kold</span><span class="p">,</span> <span class="n">knew</span> <span class="ow">in</span> <span class="n">replace_keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">subdict</span><span class="p">[</span><span class="n">knew</span><span class="p">]</span> <span class="o">=</span> <span class="n">tempdict</span><span class="p">[</span><span class="n">kold</span><span class="p">]</span>
+        <span class="n">subdict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">kold</span><span class="p">)</span>
+
+    <span class="n">newdict</span> <span class="o">=</span> <span class="n">maindict</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">newdict</span><span class="p">[</span><span class="n">subdictname</span><span class="p">]</span> <span class="o">=</span> <span class="n">subdict</span>
+    <span class="k">return</span> <span class="n">newdict</span>
+
+
+<span class="k">def</span> <span class="nf">read_snap</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">table</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;table1&#39;</span><span class="p">,</span> <span class="s">&#39;table2&#39;</span><span class="p">,</span> <span class="s">&#39;table3&#39;</span><span class="p">],</span> \
+        <span class="s">&#39;table must be table1, table2 or table3&#39;</span>
+
+    <span class="k">if</span> <span class="n">table</span> <span class="o">==</span> <span class="s">&#39;table1&#39;</span><span class="p">:</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;Galaxy&#39;</span><span class="p">,</span> <span class="s">&#39;|U9&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;AltNames&#39;</span><span class="p">,</span> <span class="s">&#39;|U18&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;ra&#39;</span><span class="p">,</span> <span class="s">&#39;|U12&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;dec&#39;</span><span class="p">,</span> <span class="s">&#39;|U12&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;diam&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Bt&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Av&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;T&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;W50&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Group&#39;</span><span class="p">,</span> <span class="s">&#39;|U8&#39;</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="n">table</span> <span class="o">==</span> <span class="s">&#39;table2&#39;</span><span class="p">:</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;catalog name&#39;</span><span class="p">,</span> <span class="s">&#39;|U8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;target&#39;</span><span class="p">,</span> <span class="s">&#39;|U18&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;ObsDate&#39;</span><span class="p">,</span> <span class="s">&#39;|U21&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Uigma_max &#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;Uigma_min&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;.50_completeness_F110W&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;.50_completeness_F160W&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;opt propid&#39;</span><span class="p">,</span> <span class="s">&#39;|U10&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;opt filters &#39;</span><span class="p">,</span> <span class="s">&#39;|U19&#39;</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="n">table</span> <span class="o">==</span> <span class="s">&#39;table3&#39;</span><span class="p">:</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;catalog name&#39;</span><span class="p">,</span> <span class="s">&#39;|U10&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;target&#39;</span><span class="p">,</span> <span class="s">&#39;|U17&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;Av&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;mean_color&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;mTRGB_raw&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;mTRGB_F160W&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;mTRGB_F160W_err&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;MTRGB_F160W&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s">&#39;MTRGB_F160W_err&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TABLE_DIR</span><span class="p">,</span> <span class="s">&#39;snap_</span><span class="si">%s</span><span class="s">.tex&#39;</span> <span class="o">%</span> <span class="n">table</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;&amp;&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">autostrip</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">read_angst_tab5</span><span class="p">():</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;catalog name&#39;</span><span class="p">,</span> <span class="s">&#39;|U10&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;target&#39;</span><span class="p">,</span> <span class="s">&#39;|U23&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;filters&#39;</span><span class="p">,</span> <span class="s">&#39;|U11&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Av&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;mean_color&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;MTRGB_F814W&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;mTRGB_raw&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;mTRGB&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;mTRGB_err&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;dist_Mpc&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;dist_Mpc_err&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TABLE_DIR</span><span class="p">,</span> <span class="s">&#39;angst_tab5.tex&#39;</span><span class="p">)</span>
+    <span class="n">tab5</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;&amp;&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">autostrip</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tab5</span>
+
+
+<span class="k">def</span> <span class="nf">read_angst_tab4</span><span class="p">():</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;catalog name&#39;</span><span class="p">,</span> <span class="s">&#39;|U14&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;propid&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;target&#39;</span><span class="p">,</span> <span class="s">&#39;|U19&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;camera&#39;</span><span class="p">,</span> <span class="s">&#39;|U5&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;filter&#39;</span><span class="p">,</span> <span class="s">&#39;U5&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;exposure time&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span>
+             <span class="p">(</span><span class="s">&#39;Nstars&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;50_completeness_mag&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TABLE_DIR</span><span class="p">,</span> <span class="s">&#39;angst_tab4.tex&#39;</span><span class="p">)</span>
+    <span class="n">tab4</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;&amp;&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">autostrip</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tab4</span>
+
+
+<span class="k">def</span> <span class="nf">cleanup_target</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    table 4 and table 5 call galaxies different things.</span>
+<span class="sd">    table 5 is only to get dmod, av, and trgb (in 814) so it&#39;s</span>
+<span class="sd">    not a problem to use another field in the same galaxy to grab the data</span>
+<span class="sd">    it will be the same within errors.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="s">&#39;wide&#39;</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s">&#39;field&#39;</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="s">&#39;-&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="s">&#39;c-&#39;</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;c-&#39;</span><span class="p">,</span> <span class="s">&#39;c&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s">&#39;c0&#39;</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;c0&#39;</span><span class="p">,</span> <span class="s">&#39;c&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">target</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>
