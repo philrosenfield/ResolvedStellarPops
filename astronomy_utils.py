@@ -145,7 +145,7 @@ def parse_mag_tab(photsys, filter, bcdir=None):
         except KeyError:
             logger.error('need bcdir environmental variable, or to pass it to parse_mag_tab')
 
-    photsys = photsys.lower()
+    #photsys = photsys.lower()
 
     tab_mag_dir = os.path.join(bcdir, 'tab_mag_odfnew/')
     tab_mag, = fileIO.get_files(tab_mag_dir, 'tab_mag_%s.dat' % photsys)
