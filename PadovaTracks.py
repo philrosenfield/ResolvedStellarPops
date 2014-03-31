@@ -39,9 +39,8 @@ def add_comments_to_header(tracks_base, prefix, search_term):
         with open(oname, 'w') as t:
             t.writelines(lines)
 
-
 def quick_color_em(tracks_base, prefix, photsys='UVbright',
-                   search_term='*F7_*PMS', fromHR2mags=None):
+                   search_term='*F7_*PMS', ):
     '''
     This goes quickly through each directory and adds a [search_term].dat file
     that has # in the header and a [search_term].dat.[photsys]] file that is
@@ -56,23 +55,29 @@ def quick_color_em(tracks_base, prefix, photsys='UVbright',
     quick_color_em(tracks_base, prefix)
     '''
 
-    def color_tracks(tracks_base, prefix, cmd):
-        tracks = os.path.join(tracks_base, prefix)
-        track_names = fileIO.get_files(tracks, search_term)
+    tracks = os.path.join(tracks_base, prefix)
+    track_names = fileIO.get_files(tracks, search_term)
 
-        for name in track_names:
-            z = float(name.split('Z')[1].split('_Y')[0])
-            os.system(cmd % (name, z))
-            print cmd % (name, z)
+    for name in track_names:
+        # this is set for .PMS and .PMS.HB tracks
+        z = float(name.replace('.dat','').upper().split('Z')[1].split('_Y')[0])
+        color_tracks(track_names, comments=True, z=z, photsys=photsys)
 
+
+def color_tracks(filename, fromHR2mags=None, logl=5, logte=6, mass=2, z=None,
+                 comments=True, photsys='UVbright'):
     if fromHR2mags is None:
-        fromHR2mags = '~/research/padova_apps/fromHR2mags'
+        fromHR2mags = '~/research/padova_apps/fromHR2mags/fromHR2mags'
+
     cmd = '%s %s ' % (fromHR2mags, photsys)
-    # this is set for .PMS and .PMS.HB tracks
-    cmd += '%s 5 6 2 %.4f'
-    add_comments_to_header(tracks_base, prefix, search_term)
-    search_term += '.dat'
-    color_tracks(tracks_base, prefix, cmd)
+    cmd += '%s %i %i %i %.4f'
+
+    if comments is True:
+        add_comments_to_header(tracks_base, prefix, search_term)
+        filename +=  '.dat'
+
+    os.system(cmd % (filename, logl, logte, mass, z))
+
 
 
 class Track(object):

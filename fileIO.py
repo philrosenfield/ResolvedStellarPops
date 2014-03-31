@@ -155,11 +155,19 @@ def readfile(filename, col_key_line=0, comment_char='#', string_column=None):
     if col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
+            line2 = f.readline()
         col_keys = line.replace(comment_char, '').strip().split()
     else:
         with open(filename, 'r') as f:
             lines = f.readlines()
+            line2 = lines[col_key_line + 1]
         col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
+
+    # when coloring, lines are added to header with "more information ..."
+    if 'information' in line2:
+        new_cols = line2.split(':')[1].strip().split()
+        col_keys = list(np.concatenate((col_keys, new_cols)))
+        col_key_line += 1
 
     dtype = [(c, '<f8') for c in col_keys]
     if string_column is not None:
