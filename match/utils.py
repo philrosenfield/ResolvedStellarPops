@@ -348,7 +348,7 @@ def read_match_sfh(filename, bgfile=False):
 
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
-                      sarah_sim=False, footer=2):
+                      sarah_sim=False, footer=2, header=2):
     '''
     turn a match sfh output file into a sfr-z table for trilegal.
 
@@ -359,9 +359,15 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
         footer += 2
 
     fmt = '%.6g %.6g %.4g \n'
-    to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=2,
-                                                     skip_footer=footer,
-                                                     unpack=True)
+    #to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=header,
+    #                                                 skip_footer=footer,
+    #                                                 unpack=True)
+    data = read_binned_sfh(sfhfile)
+    to = data['lagei']
+    tf = data['lagef']
+    sfr = data['sfr']
+    from ResolvedStellarPops.convertz import convertz
+    dlogz = convertz(mh=data['mh'])[1]  # values of zero could be bad, but sfr == 0 skips below.
 
     half_bin = np.diff(dlogz[0: 2])[0] / 2.
     # correct age for trilegal isochrones.
