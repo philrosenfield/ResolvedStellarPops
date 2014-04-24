@@ -134,9 +134,13 @@ class Galaxy(StarPop):
             self.stage = self.data['stage']
 
         elif filetype == 'match_phot':
-            self.data = np.genfromtxt(fname, names=['mag1', 'mag2'])
-            self.mag1 = self.data['mag1']
-            self.mag2 = self.data['mag2']
+            if None in [filter1, filter2]:
+                names = ['mag1', 'mag2']
+            else:
+                names = [filter1, filter2]
+            self.data = np.genfromtxt(fname, names=names)
+            self.mag1 = self.data[names[0]]
+            self.mag2 = self.data[names[1]]
 
         elif filetype == 'm31brick':
             if band is None:

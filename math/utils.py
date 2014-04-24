@@ -7,7 +7,17 @@ from matplotlib.path import Path
 __all__ = ['between', 'bin_up', 'brighter', 'closest_match', 'closest_match2d',
            'double_gaussian', 'extrap1d', 'find_peaks', 'gaussian',
            'get_verts', 'hist_it_up', 'inside', 'is_numeric', 'min_dist2d',
-           'mp_double_gauss', 'points_inside_poly', 'smooth', 'spread_bins']
+           'mp_double_gauss', 'points_inside_poly', 'smooth', 'spread_bins',
+           'count_uncert_ratio']
+
+
+def count_uncert_ratio(numerator, denominator):
+    '''
+    combining poisson error for taking a ratio
+    '''
+    n = float(numerator)
+    d = float(denominator)
+    return (n / d) * (1./np.sqrt(n) + 1./np.sqrt(d))
 
 
 def points_inside_poly(points, all_verts):

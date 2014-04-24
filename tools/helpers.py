@@ -3,8 +3,17 @@ import collections
 import warnings
 
 
-__all__ = ['deprecated', 'flatten_dict']
+__all__ = ['deprecated', 'flatten_dict', 'combine_list_of_dictionaries']
 
+def combine_list_of_dictionaries(dlist):
+    result_dict = {}
+    for dic in dlist:
+        for key in dic.keys():
+            if not key in result_dict.keys():
+                result_dict[key] = []
+            result_dict[key].append(dic[key])
+
+    return result_dict
 
 def deprecated(func):
     '''This is a decorator which can be used to mark functions

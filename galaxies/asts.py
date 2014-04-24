@@ -241,7 +241,7 @@ class ASTs(object):
         return rands
 
     def ast_correction(self, obs_mag1, obs_mag2, binsize=0.2, bins=None,
-                       not_rec_val=np.nan):
+                       not_rec_val=np.nan, missing_data1=0., missing_data2=0.):
         '''
         apply ast correction to input mags.
 
@@ -250,7 +250,9 @@ class ASTs(object):
 
         KWARGS:
         binsize, bins: for bin_asts if not already run.
-
+        not_rec_val: value for not recovered ast
+        missing_data1: value for data outside ast limits (include=0)
+        missing_data2: value for data outside ast limits (include=0)
         RETURNS:
         cor_mag1, cor_mag2: ast corrected magnitudes
 
@@ -297,6 +299,7 @@ class ASTs(object):
             # the obs and artificial stars in each bin
             obsbin, = np.nonzero(om1_inds == i)
             astbin, = np.nonzero(self.am1_inds == i)
+
             nobs = len(obsbin)
             nast = len(astbin)
             if nobs == 0:
@@ -309,9 +312,9 @@ class ASTs(object):
                     continue
                 else:
                     # model is producing stars where there was no data.
-                    # assign no corrections.
-                    cor1 = 0.
-                    cor2 = 0.
+                    # assign correction for missing data
+                    cor1 = missing_data1
+                    cor2 = missing_data2
             else:
                 # randomly select the appropriate ast correction for obs stars
                 # in this bin

@@ -421,6 +421,25 @@ class SimGalaxy(StarPop):
 
         return hist, bins
 
+    def all_stages(self, *stages):
+        '''
+        adds the indices of some stage as an attribute.
+        '''
+        if stages is ():
+            stages = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB',
+                      'EAGB', 'TPAGB', 'POSTAGB', 'WD']
+        for stage in stages:
+            i = self.stage_inds(stage)
+            self.__setattr__('i%s' % stage.lower(), i)
+        return
+
+    def stage_inds(self, stage_name):
+        '''
+        not so useful on its own, use all_stages to add the inds as attribues.
+        '''
+        assert hasattr(self, 'stage'), 'no stages marked in this file'
+        inds, = np.nonzero(self.stage == trilegal.utils.get_stage_label(stage_name))
+        return inds
 
 class SimAndGal(object):
     def __init__(self, galaxy, simgalaxy):
