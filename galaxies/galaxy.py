@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import numpy as np
 
-from .. import io
+from .. import fileio
 from .starpop import StarPop
 from ..tools import hla_galaxy_info, bens_fmt_galaxy_info
 

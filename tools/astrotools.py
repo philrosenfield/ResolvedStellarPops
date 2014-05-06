@@ -2,9 +2,9 @@ from __future__ import print_function
 import os
 import numpy as np
 
-from .. import io
-from ..bc_config import BCDIR
-from ..angst_tables import angst_data
+import fileio
+from bc_config import BCDIR
+from angst_tables import angst_data
 
 __all__ = ['Av2Alambda', 'Mag2mag', 'bens_fmt_galaxy_info', 'get_dmodAv',
            'hla_galaxy_info', 'mag2Mag', 'parse_mag_tab', ]

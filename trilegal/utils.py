@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger()
 
 from .. import math
-from .. import io
+from .. import fileio
 from .. import graphics
 
 

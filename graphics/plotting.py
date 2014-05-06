@@ -7,7 +7,7 @@ from matplotlib.colors import LogNorm
 from matplotlib.patches import FancyArrow
 from matplotlib.colors import LinearSegmentedColormap
 
-from ..tools import parse_mag_tab
+from tools import parse_mag_tab
 
 __all__ = ['colorify', 'colorplot_by_stage', 'crazy_histogram2d',
            'discrete_colors', 'latex_float', 'make_hess',

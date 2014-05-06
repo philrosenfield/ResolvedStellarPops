@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 from subprocess import PIPE, Popen
 
 from .. import trilegal
-from .. import io
+from .. import fileio
 from .. import astronomy_utils
 __all__ = ['ast_correct_trilegal_sim', 'ASTs']
 

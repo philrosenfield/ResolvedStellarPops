@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 logger = logging.getLogger()
 
-from .. import io
+from .. import fileio
 from ..galaxies import Galaxy
 from .. import match_config as config
 #from .. import graphics

@@ -5,7 +5,7 @@ import numpy as np
 import pylab as plt
 from matplotlib.ticker import NullFormatter, MaxNLocator, MultipleLocator
 
-from .. import io
+from .. import fileio
 from .. import match
 from .. import trilegal
 from .. import graphics
@@ -48,7 +48,11 @@ class SimGalaxy(StarPop):
 
         absmag = False
 
-        if self.data.get_col('m-M0')[0] == 0.:
+        try:
+            dmod = self.data.get_col('m-M0')[0]
+        except KeyError:
+            dmod = np.nan
+        if dmod == 0.:
             absmag = True
         if absmag is True:
             self.Mag1 = self.data.get_col(self.filter1)
