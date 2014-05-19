@@ -1,20 +1,22 @@
-import fileIO
+from fileio import fileIO
 import numpy as np
 import matplotlib.pylab as plt
 from graphics.GraphicsUtils import discrete_colors
 import os
-from define_eep import DefineEeps
+from eep.define_eep import DefineEeps
+from eep.define_eep import eep
 from tracks.track_set import TrackSet
 from scipy.interpolate import splev
 from tracks.track_diag import TrackDiag
 
-class MatchTracks(object):
+
+class MatchTracks(eep):
     '''
     a simple check of the output from TracksForMatch. I want it to run on the
     same input file as TracksForMatch.
     '''
     def __init__(self, inputs):
-
+        eep.__init__(self)
         self.tracks_base = inputs.outfile_dir
         self.prefix = inputs.prefix
         # hard coding where the match files are kept tracks_base/match/
@@ -24,10 +26,6 @@ class MatchTracks(object):
         self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
         self.track_names = [t for t in all_track_names
                             if t not in self.hbtrack_names]
-
-        self.eep_list = inputs.eep_list
-        self.eep_lengths = inputs.eep_lengths
-        self.eep_list_hb = inputs.eep_list_hb
 
         self.load_tracks()
 

@@ -1,12 +1,43 @@
 from __future__ import print_function
 import numpy as np
 import pprint
-import math
+import utils
 import os
 import matplotlib.pylab as plt
 from scipy.interpolate import splev, splprep
-from eep.critical_point import critical_point, inds_between_ptcris
-from mass_config import low_mass
+from critical_point import critical_point, inds_between_ptcris
+from ..mass_config import low_mass
+
+
+class eep(object):
+    '''
+    a simple class to hold eep data. Gets added as an attribute to
+    critical_point class.
+    '''
+    def __init__(self, eep_list=None, eep_lengths=None, eep_list_hb=None,
+                 eep_lengths_hb=None):
+        if eep_list is None:
+            eep_list =  ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
+                         'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
+                         'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
+                         'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
+                         'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
+                         'YCEN_0.000', 'TPAGB']
+        if eep_lengths is None:
+            eep_lengths = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
+                           10, 150, 100, 80, 100, 80, 80, 80, 100]
+        if eep_list_hb is None:
+            eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
+                           'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
+                           'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
+                           'AGB_LY2']
+        if eep_lengths_hb is None:
+            eep_lengths_hb = [150, 100, 80, 100, 80, 80, 80, 100, 100]
+
+        self.eep_list = eep_list
+        self.nticks = eep_lengths
+        self.eep_list_hb = eep_list_hb
+        self.nticks_hb = eep_lengths_hb
 
 
 class DefineEeps(object):
@@ -57,31 +88,8 @@ class DefineEeps(object):
     def __init__(self):
         pass
 
-    def validate_eeps(self, hb=False):
-        '''
-        If there isn't an eep that I've made a function for, this should die.
-        The order also can be important. This messes up the whole idea of
-        being able to set the ycen values from an input file...
-        '''
-        if hb is True:
-            default_list = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
-                            'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                            'YCEN_0.000', 'AGB_LY1', 'AGB_LY2']
-
-            eep_list = self.ptcri.please_define_hb
-        else:
-            default_list = ['MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL', 'HE_BEG',
-                            'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
-                            'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                            'YCEN_0.000']
-            eep_list = self.ptcri.please_define
-
-        assert default_list == eep_list, \
-            ('Can not define all EEPs. Please check lists', eep_list)
-
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True, debug=False):
-        self.validate_eeps(hb=hb)
 
         if hb is True:
             print('\n\n       HB Current Mass: %.3f' % track.mass)
@@ -215,7 +223,7 @@ class DefineEeps(object):
         cens = [float(cen.split('_')[-1]) for cen in cens]
         icens = []
         for cen in cens:
-            ind, dif = math.utils.closest_match(cen, track.data.YCEN[inds])
+            ind, dif = utils.closest_match(cen, track.data.YCEN[inds])
             icen = inds[ind]
             # some tolerance for a good match.
             if dif > tol:
@@ -257,7 +265,7 @@ class DefineEeps(object):
         ex_inds, = np.nonzero(track.data.YCEN == 0.00)
 
         diff_L = np.abs(ly[ex_inds] - lx[ex_inds])
-        peak_dict = math.utils.find_peaks(diff_L)
+        peak_dict = utils.find_peaks(diff_L)
 
         # there are probably thermal pulses in the track, taking the first 6
         # mins to try and avoid them. Yeah, I checked by hand, 6 usually works.
@@ -386,7 +394,7 @@ class DefineEeps(object):
                 ddyddx = ddynew/ddxnew
                 # not just argmin, but must be actual min...
                 aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
-                tmin_ind, dif = math.utils.closest_match2d(aind, mode,
+                tmin_ind, dif = utils.closest_match2d(aind, mode,
                                                            xdata, xnew, ynew)
                 print('found tmin by interp M=%.4f' % track.mass)
             ms_tmin = inds[tmin_ind]
@@ -433,7 +441,7 @@ class DefineEeps(object):
                 ddyddx = ddynew/ddxnew
                 # not just argmin, but must be actual min...
                 aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
-                tmin_ind, dif = math.utils.closest_match2d(aind, mode,
+                tmin_ind, dif = utils.closest_match2d(aind, mode,
                                                            xdata, xnew, ynew)
                 ms_to = inds[tmin_ind]
 
@@ -643,9 +651,9 @@ class DefineEeps(object):
                 m = (intp_col[-1] - intp_col[0]) / (axnew[-1] - axnew[0])
                 b = axnew[0]
             # subtract linear fit, find peaks
-            peak_dict = math.utils.find_peaks(intp_col - (m * axnew + b))
+            peak_dict = utils.find_peaks(intp_col - (m * axnew + b))
         else:
-            peak_dict = math.utils.find_peaks(intp_col)
+            peak_dict = utils.find_peaks(intp_col)
 
         if max is True:
             if peak_dict['maxima_number'] > 0:
@@ -683,13 +691,13 @@ class DefineEeps(object):
 
         if parametric_interp is True:
             # closest point in interpolation to data
-            ind, dif = math.utils.closest_match2d(almost_ind,
+            ind, dif = utils.closest_match2d(almost_ind,
                                                   track.data[col][inds][non_dupes],
                                                   np.log10(track.data.AGE[inds][non_dupes]),
                                                   intp_col, agenew)
         else:
             # closest point in interpolation to data
-            ind, dif = math.utils.closest_match2d(almost_ind, xdata, ydata,
+            ind, dif = utils.closest_match2d(almost_ind, xdata, ydata,
                                                   xnew, ynew)
 
         if ind == -1:

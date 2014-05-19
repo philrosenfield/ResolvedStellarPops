@@ -3,13 +3,13 @@ a container of track
 '''
 from __future__ import print_function
 import os
-import fileIO
+from fileio import fileIO
 import numpy as np
 from track import Track
 import matplotlib.pylab as plt
 from graphics.GraphicsUtils import discrete_colors
-from eep.critical_point import critical_point
-from eep.critical_point import eep
+from ..eep.critical_point import critical_point
+from ..eep.define_eep import eep
 
 
 class TrackSet(object):
@@ -53,12 +53,13 @@ class TrackSet(object):
                 search_term = 'pt*%s*dat' % self.prefix
                 self.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc,
                                                     search_term)
-
-        if inputs.eep_list is not None:
-            eep_kw = {'eep_lengths': inputs.eep_lengths,
+        eep_kw = {}
+        if hasattr(inputs, 'eep_list'):
+            eep_kw = {'eep_list': inputs.eep_list,
+                      'eep_lengths': inputs.eep_lengths,
                       'eep_list_hb': inputs.eep_list_hb,
                       'eep_lengths_hb': inputs.eep_lengths_hb}
-            self.eep = eep(inputs.eep_list, **eep_kw)
+        self.eep = eep(**eep_kw)
 
         self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
 
@@ -104,7 +105,7 @@ class TrackSet(object):
         self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
         self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri,
-                                                   min_lage=0., cut_long=0)
+                                                   min_lage=0.)
                                              for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
