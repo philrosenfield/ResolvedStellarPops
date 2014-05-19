@@ -563,7 +563,11 @@ def get_stage_label(region):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
                'TPAGB', 'POSTAGB', 'WD']
-    stage_lab = regions.index(region.upper())
+    try:
+        stage_lab = regions.index(region.upper())
+    except ValueError:
+        print 'region: %s not defined' % region
+        stage_lab = -1
     return stage_lab
 
 

@@ -346,7 +346,8 @@ class star_pop(object):
                       'EAGB', 'TPAGB', 'POSTAGB', 'WD']
         for stage in stages:
             i = self.stage_inds(stage)
-            self.__setattr__('i%s' % stage.lower(), i)
+            if len(i) > 0:
+                self.__setattr__('i%s' % stage.lower(), i)
         return
 
     def stage_inds(self, stage_name):
@@ -784,7 +785,7 @@ class star_pop(object):
         for i, sinds in enumerate(sindss):
             if stage_inds is not None:
                 s_inds = stage_inds
-            
+
             s_inds = np.intersect1d(inds, sinds)
             imag = mag[s_inds]
             if len(imag) < 2:
