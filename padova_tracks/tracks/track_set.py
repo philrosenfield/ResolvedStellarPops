@@ -6,18 +6,26 @@ import os
 from fileio import fileIO
 import numpy as np
 from track import Track
+from track_diag import TrackDiag
 import matplotlib.pylab as plt
 from graphics.GraphicsUtils import discrete_colors
 from ..eep.critical_point import critical_point
 from ..eep.define_eep import eep
+#here = os.getcwd()
+#os.chdir('/home/rosenfield/research/python/ResolvedStellarPops/graphics/')
+#from GraphicsUtils import discrete_colors
+#os.chdir(here)
 
+td = TrackDiag()
 
 class TrackSet(object):
     '''
 
     '''
-    def __init__(self, inputs):
-
+    def __init__(self, inputs=None):
+        if inputs is None:
+            self.prefix = ''
+            return
         if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
             self.load_ptcri_eep(inputs)
         else:
@@ -104,8 +112,7 @@ class TrackSet(object):
             mass_str = 'hb%s' % mass_str
         self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
-        self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri,
-                                                   min_lage=0.)
+        self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri)
                                              for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
@@ -147,7 +154,8 @@ class TrackSet(object):
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
                         convert_mag_kw={}, hb=False, plot_dir=None,
-                        zoomin=True, one_plot=False):
+                        zoomin=True, one_plot=False, cols=None,
+                        td_kw={}):
         '''
         It would be much easier to discern breaks in the sequences if you did
         three separate plots: PMS_BEG to MS_BEG,
@@ -159,17 +167,17 @@ class TrackSet(object):
         I see a sharp break in the RGB bump and RGB tip sequences.
         Are those visible in the isochrones?
         '''
+
         line_pltkw = {'color': 'black', 'alpha': 0.1}
 
-        if one_plot is True:
-            for t in tracks:
-                import TrackDiag
-                td = TrackDiag()
-                all_inds, = np.nonzero(t.data.AGE > 0.2)
-                ax = td.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
-                                     plt_kw=line_pltkw, cmd=cmd,
-                                     convert_mag_kw=convert_mag_kw, hb=hb)
-            return ax
+        #if one_plot is True:
+        #    for t in tracks:
+        #        all_inds, = np.nonzero(t.data.AGE > 0.2)
+        #        ax = td.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
+        #                          annotate=annotate,
+        #                             plt_kw=line_pltkw, cmd=cmd, sandro=sandro,
+        #                             convert_mag_kw=convert_mag_kw, hb=hb)
+        #    return ax
 
         ptcri_kw = {'sandro': sandro, 'hb': hb}
 
@@ -198,6 +206,10 @@ class TrackSet(object):
         assert len(fig_extra) == len(plots), \
             'need correct plot name extensions.'
 
+        if one_plot is True:
+            fig_extra = 'one'
+            plots = [list(np.unique(np.concatenate(np.array(plots))))]
+
         xlims = np.array([])
         ylims = np.array([])
         for j in range(len(plots)):
@@ -220,16 +232,16 @@ class TrackSet(object):
                 ainds = [i for i in ainds if i < len(ptcri)]
 
                 inds = ptcri[ainds]
-
+                inds = np.squeeze(inds)
 
                 if np.sum(inds) == 0:
                     continue
 
                 some_inds = np.arange(inds[0], inds[-1])
 
-                ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
-                                     plt_kw=line_pltkw, cmd=cmd, clean=False,
-                                     convert_mag_kw=convert_mag_kw)
+                ax = td.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
+                                   plt_kw=line_pltkw, cmd=cmd, clean=False,
+                                   convert_mag_kw=convert_mag_kw, **td_kw)
 
                 #line_pltkw['alpha'] = 1.
                 #ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
@@ -260,6 +272,8 @@ class TrackSet(object):
                         didit += 1
                         if didit == 1:
                             plines = pls
+                    if one_plot is True:
+                        plines = pls
 
             if zoomin is True:
                 ax.set_xlim(np.min(xlimi), np.max(xlimi))

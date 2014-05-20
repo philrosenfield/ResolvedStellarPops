@@ -66,7 +66,7 @@ class TrackDiag(object):
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=False,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
                    xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False,
-                   arrow_on_line=False):
+                   arrow_on_line=False, yscale='linear', xscale='linear'):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -142,6 +142,9 @@ class TrackDiag(object):
             indz = indz[indz>0]
             print(track.data.LOG_L[inds][np.array([indz])])
             arrow_on_line(ax, xdata, ydata, indz, plt_kw=plt_kw)
+
+        ax.set_xscale(xscale)
+        ax.set_yscale(yscale)
         return ax
 
     def annotate_plot(self, track, ax, xcol, ycol, inds=None, sandro=False,

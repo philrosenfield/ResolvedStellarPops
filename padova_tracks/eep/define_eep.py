@@ -6,8 +6,8 @@ import os
 import matplotlib.pylab as plt
 from scipy.interpolate import splev, splprep
 from critical_point import critical_point, inds_between_ptcris
-from ..mass_config import low_mass
-
+#from ..mass_config import low_mass
+low_mass = 1.25
 
 class eep(object):
     '''
@@ -43,12 +43,17 @@ class eep(object):
 class DefineEeps(object):
     '''
     Define the stages if not simply using Sandro's defaults.
-    * denotes stages defined here.
-
+    * denotes stages defined here, otherwise, taken from Sandro's defaults.
+    PMS_BEG    Beginning of Pre Main Sequence
+    PMS_MIN    Minimum of Pre Main Sequence
+    PMS_END    End of Pre-Main  Sequence
     1 MS_BEG   Starting of the central H-burning phase
-    2 MS_TMIN* First Minimum in Teff for high-mass or Xc=0.30 for low-mass
-                  stars (BaSTi)
+    2 MS_TMIN* First Minimum in Teff for high-mass
+               Xc=0.30 for low-mass stars (BaSTi)
+               For very low mass stars that do not reach Xc=0.30: AGE~=13.7 Gyr
     3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT (BaSTi)
+               For very low mass stars that do not reach the MSTO in 100 Gyr,
+               this is AGE~=100 Gyr
     4 SG_MAXL* Maximum in logL for high-mass or Xc=0.0 for low-mass stars
                   (BaSTi)
     5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
@@ -99,17 +104,22 @@ class DefineEeps(object):
             return
 
         print('\n\n          Current Mass: %.3f' % track.mass)
-
+        # set all to zero
+        [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         self.add_ms_eeps(track)
 
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
+        if ims_to == 0:
+            print('MS_TO and MS_TMIN found by AGE limits')
+            self.add_eep_with_age(track, 'MS_TMIN', 13.7e9)
+            self.add_eep_with_age(track, 'MS_TO', 100e9)
 
-        if ims_to == 0 or nsandro_pts <= 5:
-            # no MSTO or no post MS
-            # should now make sure all other eeps are 0.
-            [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[2:]]
+            # no found MSTO and track goes up to POINT_B (very low mass)
+            if track.mass > 1.25:
+                print('major problem with finding MS and ptcri file!')
         else:
+            # go on defining eeps.
             imin_l = self.add_min_l_eep(track)
             if imin_l == -1:
                 imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
@@ -144,6 +154,7 @@ class DefineEeps(object):
             print('EEPs are not monotonically increasing. M=%.3f' %
                          track.mass)
             print(pprint.pprint(track.iptcri))
+
     def remove_dupes(self, x, y, z, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
@@ -186,14 +197,14 @@ class DefineEeps(object):
         min = np.argmin(track.data.LY[inds])
         # Sometimes there is a huge peak in LY before the min, find it...
         npts = inds[-1] - inds[0] + 1
-        subset = npts/3
+        subset = npts / 3
         max = np.argmax(track.data.LY[inds[:subset]])
         # Peak isn't as important as the ratio between the start and end
         rat = track.data.LY[inds[max]]/track.data.LY[inds[0]]
         # If the min is at the point next to the TRGB, or the ratio is huge,
         # get the min after the peak.
         if min == 0 or rat > 10:
-            amin = np.argmin(track.data.LY[inds[max+1:]])
+            amin = np.argmin(track.data.LY[inds[max + 1:]])
             min = max + 1 + amin
         he_beg = inds[min]
         self.add_eep(track, eep_name, he_beg)
@@ -383,6 +394,7 @@ class DefineEeps(object):
                 tmin_ind = np.argmin(dte)
                 # not used... but a quality control:
                 dif = dte[tmin_ind]
+                print('MS_TMIN found by XCEN')
             elif delta_te < .1:  # why set to this value?
                 # find the te min by interpolation.
                 mode = inds
@@ -397,6 +409,8 @@ class DefineEeps(object):
                 tmin_ind, dif = utils.closest_match2d(aind, mode,
                                                            xdata, xnew, ynew)
                 print('found tmin by interp M=%.4f' % track.mass)
+            else:
+                print('found MS_TMIN the easy way, np.argmin(LOG_TE)')
             ms_tmin = inds[tmin_ind]
         self.add_eep(track, 'MS_TMIN', ms_tmin)
 
@@ -567,6 +581,13 @@ class DefineEeps(object):
         ax.set_title(self.mass)
         ax.legend(loc=0)
 
+    def add_eep_with_age(self, track, eep_name, age):
+        iage = np.argmin(np.abs(track.data.AGE - age))
+        age_diff = np.min(np.abs(track.data.AGE - age))
+        print('%g' % (age_diff/age), track.mass, eep_name)
+        self.add_eep(track, eep_name, iage)
+
+
     def add_eep(self, track, eep_name, ind, hb=False):
         '''
         Will add or replace the index of Track.data to track.iptcri
@@ -577,7 +598,8 @@ class DefineEeps(object):
             key_dict = self.ptcri.key_dict
 
         track.iptcri[key_dict[eep_name]] = ind
-        print('%s, %i' % (eep_name, ind))
+        if ind != 0:
+            print('%s, %i' % (eep_name, ind))
 
     def peak_finder(self, track, col, eep1, eep2, max=False, diff_err=None,
                     sandro=True, more_than_one='max of max', mess_err=None,
@@ -772,14 +794,10 @@ class DefineEeps(object):
                 # and if sandro cut the track before it reached this point,
                 # no index error!
                 track.iptcri[track.iptcri > len(track.data.MODE)] = 0
-                # BAD.
-                #track.ptcri = deepcopy(self.ptcri)
 
                 # define the eeps
                 self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
                                        diag_plot=diag_plot, debug=debug)
-                # SUPER BAD.
-                #track.ptcri = deepcopy(self.ptcri)
 
             else:
                 # copy sandros dict.

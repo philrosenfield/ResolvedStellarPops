@@ -11,11 +11,11 @@ class Track(object):
     '''
     Padova stellar evolutoin track object.
     '''
-    def __init__(self, filename, ptcri=None, min_lage=0.1, loud=False):
+    def __init__(self, filename, ptcri=None, loud=False):
         (self.base, self.name) = os.path.split(filename)
         if loud is True:
             print(filename)
-        self.load_track(filename, min_lage=min_lage)
+        self.load_track(filename)
         self.filename_info()
         self.mass = self.data.MASS[0]
         if self.mass >= 12:
@@ -76,7 +76,7 @@ class Track(object):
         self.Y = float(Ymore[:i])
         return
 
-    def load_track(self, filename, min_lage=0.1):
+    def load_track(self, filename):
         '''
         reads PMS file into a record array. Stores header as string self.header
 
@@ -92,7 +92,7 @@ class Track(object):
         begin_track_skip = 2
         skip_footer = len([i for i, l in enumerate(lines)
                            if 'Comp Time' in l or 'AGE EXCEEDS' in l
-                           or 'carbon burning' in l])
+                           or 'carbon burning' in l or 'REACHED' in l])
         # Hack to read tracks that have been "colored"
         if 'information' in lines[begin_track + 2]:
             col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])
@@ -115,4 +115,3 @@ class Track(object):
         new_cols = additional_col_line.split(':')[1].strip().split()
         col_keys = list(np.concatenate((col_keys, new_cols)))
         return col_keys
-
