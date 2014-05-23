@@ -304,7 +304,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                cmap=plt.cm.Spectral)
                     ax.set_xscale('log')
                 fig.suptitle('$%s$' % track.name.replace('_', r'\! '))
-                plt.show()
+                plt.savefig(os.path.join(os.getcwd(), track.name + '_bad.png'))
+                plt.close('all')
+                #plt.show()
         #  This was to make Leo's isochrones files... incomplete...
         #print new_eep_dict
         #track.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)

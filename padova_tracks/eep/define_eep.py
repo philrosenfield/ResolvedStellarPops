@@ -106,9 +106,11 @@ class DefineEeps(object):
         print('\n\n          Current Mass: %.3f' % track.mass)
         # set all to zero
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
+        nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
+        
         self.add_ms_eeps(track)
 
-        nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
+        
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if ims_to == 0:
             print('MS_TO and MS_TMIN found by AGE limits')
@@ -147,27 +149,24 @@ class DefineEeps(object):
             if ihe_beg == 0 or nsandro_pts <= 10:
                 # No He EEPs
                 # should now make sure all other eeps are 0.
-                [self.add_eep(track, cp, 0)
-                 for cp in self.ptcri.please_define[5:]]
+                [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[5:]]
 
         if False in (np.diff(track.iptcri[np.nonzero(track.iptcri > 0)]) > 0):
-            print('EEPs are not monotonically increasing. M=%.3f' %
-                         track.mass)
+            print('EEPs are not monotonically increasing. M=%.3f' % track.mass)
             print(pprint.pprint(track.iptcri))
 
-    def remove_dupes(self, x, y, z, just_two=False):
+    def remove_dupes(self, inds1, inds2, inds3, just_two=False):
         '''
         Duplicates will make the interpolation fail, and thus delay graduation
         dates. Here is where they die.
         '''
-
-        inds = np.arange(len(x))
+        inds = np.arange(len(inds1))
         if not just_two:
-            mask, = np.nonzero(((np.diff(x) == 0) &
-                                (np.diff(y) == 0) &
-                                (np.diff(z) == 0)))
+            mask, = np.nonzero(((np.diff(inds1) == 0) &
+                                (np.diff(inds2) == 0) &
+                                (np.diff(inds3) == 0)))
         else:
-            mask, = np.nonzero(((np.diff(x) == 0) & (np.diff(y) == 0)))
+            mask, = np.nonzero(((np.diff(inds1) == 0) & (np.diff(inds2) == 0)))
 
         non_dupes = [i for i in inds if i not in mask]
 
@@ -356,9 +355,9 @@ class DefineEeps(object):
         '''
         Adds  MS_TMIN and MS_TO.
 
-        MS_TMIN is either:
-        a) previously found by hand
-        b) XCEN=0.3 if low mass (low mass is set by hand)
+        MS_TMIN found in this function is either:
+        a) np.argmin(LOG_TE) between Sandro's MS_BEG and POINT_C
+        b) XCEN=0.3 if low mass (low mass value is hard coded and global)
         c) the log te min on the MS found by the second derivative of
             d^2 log_te / d model^2 where model is just the inds between
             MS_BEG and POINT_C (that is, model as in model number from the
@@ -366,52 +365,64 @@ class DefineEeps(object):
         d) zero
 
         MS_TO is either:
-        a) the max log te on the MS found either simply by the peak, or by
-            subtracting off a linear fit in log_te vs model number
+        a) the max log te on the MS found by
+           i) by the peak log Te; or
+           ii) subtracting off a linear fit in log_te vs model number
             (see c. above)
         b) zero
 
-        if there is an error, of course either can also be -1.
+        if there is an error, either MS_TO or MS_TMIN will -1
 
-        more information: why inds for interpolation, not log l?
+        more information: 
+        '''
+        def second_derivative(xdata, inds):
+            '''
+            The second derivative of d^2 xdata / d inds^2 
+            
+            why inds for interpolation, not log l?
             if not using something like model number instead of log l,
             the tmin will get hidden by data with t < tmin but different
             log l. This is only a problem for very low Z.
             If I find the arg min of teff to be very close to MS_BEG it
             probably means the MS_BEG is at a lower Teff than Tmin.
-        '''
+            '''
+            tckp, _ = splprep([inds, xdata], s=0, k=3, nest=-1)
+            arb_arr = np.arange(0, 1, 1e-2)
+            xnew, ynew = splev(arb_arr, tckp)
+            # second derivative, bitches.
+            ddxnew, ddynew = splev(arb_arr, tckp, der=2)
+            ddyddx = ddynew/ddxnew
+            # not just argmin, but must be actual min...
+            aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
+            tmin_ind, _ = utils.closest_match2d(aind, inds, xdata, xnew, ynew)
+            return inds[tmin_ind]
+
+        def delta_te_eeps(track, ms_to, ms_tmin):
+            xdata = track.data.LOG_L
+            return np.abs(np.diff((xdata[ms_to], xdata[ms_tmin])))
+        
         inds = inds_between_ptcris(track, 'MS_BEG', 'POINT_C', sandro=True)
+
         if len(inds) == 0:
             ms_tmin = 0
         else:
             xdata = track.data.LOG_TE[inds]
-            tmin_ind = np.argmin(xdata)
-            delta_te = np.abs(np.diff((track.data.LOG_L[inds[tmin_ind]],
-                                       track.data.LOG_L[inds[0]])))
+            ms_tmin = inds[np.argmin(xdata)]
+            delta_te = delta_te_eeps(track, ms_tmin, inds[0])
+
             if track.mass <= low_mass:
-                # use XCEN == 0.3
-                dte = np.abs(track.data.XCEN[inds] - 0.3)
-                tmin_ind = np.argmin(dte)
-                # not used... but a quality control:
-                dif = dte[tmin_ind]
-                print('MS_TMIN found by XCEN')
-            elif delta_te < .1:  # why set to this value?
+                # BaSTi uses XCEN == 0.3, could put this as a keyword
+                xcen = 0.3
+                dte = np.abs(track.data.XCEN[inds] - xcen)
+                ms_tmin = inds[np.argmin(dte)]
+                print('MS_TMIN found by XCEN=%.1f M=%.4f' % (xcen, track.mass))
+            elif delta_te < .1:  # value to use interp instead
                 # find the te min by interpolation.
-                mode = inds
-                tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
-                arb_arr = np.arange(0, 1, 1e-2)
-                xnew, ynew = splev(arb_arr, tckp)
-                # second derivative, bitches.
-                ddxnew, ddynew = splev(arb_arr, tckp, der=2)
-                ddyddx = ddynew/ddxnew
-                # not just argmin, but must be actual min...
-                aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
-                tmin_ind, dif = utils.closest_match2d(aind, mode,
-                                                           xdata, xnew, ynew)
-                print('found tmin by interp M=%.4f' % track.mass)
+                ms_tmin = second_derivative(xdata, inds)
+                print('MS_TMIN found by interp M=%.4f' % track.mass)
             else:
                 print('found MS_TMIN the easy way, np.argmin(LOG_TE)')
-            ms_tmin = inds[tmin_ind]
+
         self.add_eep(track, 'MS_TMIN', ms_tmin)
 
         if ms_tmin == 0:
@@ -420,14 +431,15 @@ class DefineEeps(object):
             inds = inds_between_ptcris(track, 'MS_TMIN', 'RG_BMP1',
                                        sandro=False)
             if len(inds) == 0:
-                # No RGB_BM1?
+                # No RGB_BMP1?
                 inds = np.arange(ms_tmin, len(track.data.LOG_TE - 1))
 
             ms_to = inds[np.argmax(track.data.LOG_TE[inds])]
 
-            delta_te_ms_to = np.abs(np.diff((track.data.LOG_L[ms_to],
-                                             track.data.LOG_L[ms_tmin])))
-            if track.mass <= low_mass or delta_te_ms_to < 0.01:
+            delta_te = delta_te_eeps(track, ms_to, ms_tmin)
+            
+            if track.mass <= low_mass or delta_te < 0.01:
+                # first try with parametric interpolation
                 pf_kw = {'max': True, 'sandro': False,
                          'more_than_one': 'max of max',
                          'parametric_interp': False}
@@ -435,33 +447,20 @@ class DefineEeps(object):
                 ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
                                          **pf_kw)
 
-                delta_te_ms_to = np.abs(np.diff((track.data.LOG_L[ms_to],
-                                        track.data.LOG_L[ms_tmin])))
-                if ms_to == -1 or delta_te_ms_to < 0.01:
+                delta_te = delta_te_eeps(track, ms_to, ms_tmin)
+                # if the points are too cluse try with less linear fit
+                if ms_to == -1 or delta_te < 0.01:
                     pf_kw['less_linear_fit'] = True
-                    #pf_kw['mess_err'] = \
-                    #    'still a problem with ms_to %.3f' % track.mass
                     ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN',
                                              'RG_BMP1', **pf_kw)
             if ms_to == -1:
                 # do the same as for tmin... take second deriviative
-                mode = inds
                 xdata = track.data.LOG_L[inds]
-                tckp, u = splprep([mode, xdata], s=0, k=3, nest=-1)
-                arb_arr = np.arange(0, 1, 1e-2)
-                xnew, ynew = splev(arb_arr, tckp)
-                # second derivative, bitches.
-                ddxnew, ddynew = splev(arb_arr, tckp, der=2)
-                ddyddx = ddynew/ddxnew
-                # not just argmin, but must be actual min...
-                aind = [a for a in np.argsort(ddyddx) if ddyddx[a-1] > 0][0]
-                tmin_ind, dif = utils.closest_match2d(aind, mode,
-                                                           xdata, xnew, ynew)
-                ms_to = inds[tmin_ind]
+                ms_to = second_derivative(xdata, inds)
 
             if ms_to == -1:
                 # tried four ways!?!!
-                print('no ms to? M=%.4f Z=%.4f' % (track.mass, track.Z))
+                print('No MS_TO? M=%.4f Z=%.4f' % (track.mass, track.Z))
                 ms_to = 0
         self.add_eep(track, 'MS_TO', ms_to)
         return ms_tmin, ms_to
@@ -480,22 +479,22 @@ class DefineEeps(object):
         pf_kw = {'sandro': False, 'more_than_one': 'last'}
         min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
-        if min_l == -1 or track.mass < 1.2:
+        if min_l == -1 or track.mass < low_mass:
             pf_kw = {'parametric_interp': False,
                      'more_than_one': 'min of min',
                      'sandro': False}
 
             pf_kw['less_linear_fit'] = True
-            print('min_l with less lin %s %.3f %.4f' %
+            print('RG_MINL found with less linear fit %s %.3f %.4f' %
                          (eep1, track.mass, track.Z))
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
         if min_l == -1:
             pf_kw['less_linear_fit'] = False
-            print('try min_l without parametric')
+            print('RG_MINL without parametric')
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
-        if np.round(track.data.XCEN[min_l], 4) > 0:
+        if np.round(track.data.XCEN[min_l], 4) > 0 and min_l > 0:
             print('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
                          (track.mass, track.data.XCEN[min_l]))
         self.add_eep(track, 'RG_MINL', min_l)
@@ -507,15 +506,15 @@ class DefineEeps(object):
         '''
         if track.Z < 0.001 and track.mass > 8:
             extreme = 'first'
-            if track.Z == 0.0005:
-                if track.mass == 11.:
-                    print('%.4f doing it sg-maxl by hand bitches.' % track.mass)
-                    self.add_eep(track, 'SG_MAXL', 1540)
-                    return 1540
-                elif track.mass == 12.:
-                    print('%.4f doing it sg-maxl by hand bitches.' % track.mass)
-                    self.add_eep(track, 'SG_MAXL', 1535)
-                    return 1515
+            #if track.Z == 0.0005:
+            #    if track.mass == 11.:
+            #        print('%.4f doing it sg-maxl by hand bitches.' % track.mass)
+            #        self.add_eep(track, 'SG_MAXL', 1540)
+            #        return 1540
+            #    elif track.mass == 12.:
+            #        print('%.4f doing it sg-maxl by hand bitches.' % track.mass)
+            #        self.add_eep(track, 'SG_MAXL', 1535)
+            #        return 1515
         else:
             extreme = 'max of max'
         pf_kw = {'max': True, 'sandro': False, 'more_than_one': extreme,
@@ -528,7 +527,7 @@ class DefineEeps(object):
 
         if max_l == -1:
             pf_kw['less_linear_fit'] = bool(np.abs(pf_kw['less_linear_fit']-1))
-            print('max l flipping less_linear_fit to %s (was %i with eep2: %s)' % (pf_kw['less_linear_fit'], max_l, eep2))
+            print('SG_MAXL flipping less_linear_fit to %s (was %i with eep2: %s)' % (pf_kw['less_linear_fit'], max_l, eep2))
             max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
             print('%i %.4f' % (max_l, track.mass))
 
@@ -598,8 +597,8 @@ class DefineEeps(object):
             key_dict = self.ptcri.key_dict
 
         track.iptcri[key_dict[eep_name]] = ind
-        if ind != 0:
-            print('%s, %i' % (eep_name, ind))
+        #if ind != 0:
+        #    print('%s, %i' % (eep_name, ind))
 
     def peak_finder(self, track, col, eep1, eep2, max=False, diff_err=None,
                     sandro=True, more_than_one='max of max', mess_err=None,
