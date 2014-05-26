@@ -4,7 +4,7 @@ plotting and diagnostics track is always track object.
 from __future__ import print_function
 import matplotlib.pylab as plt
 import numpy as np
-import math
+import utils
 from copy import deepcopy
 import os
 from graphics.GraphicsUtils import arrow_on_line
@@ -47,18 +47,18 @@ class TrackDiag(object):
                 inds, = np.nonzero(track.data.AGE > 0.2)
                 axs[i].plot(xdata[inds], track.data[y][inds], **plt_kws[0])
 
-            axs[i].set_xlabel('$%s$' % x.replace('_', '\ '))
-            axs[i].set_ylabel('$%s$' % y.replace('_', '\ '))
+            axs[i].set_xlabel('$%s$' % x.replace('_', r'\ '))
+            axs[i].set_ylabel('$%s$' % y.replace('_', r'\ '))
 
             if annotate is True:
-                self.annotate_plot(axs[i], xdata, y)
+                self.annotate_plot(track, axs[i], xdata, y)
 
             if xr is True:
                 axs[i].set_xlim(axs[i].get_xlim()[::-1])
             if yr is True:
                 axs[i].set_ylim(axs[i].get_ylim()[::-1])
             axs[i].set_title('$%s$' %
-                             self.name.replace('_', '\ ').replace('.PMS', ''))
+                             track.name.replace('_', r'\ ').replace('.PMS', ''))
 
         return fig, axs
 
@@ -132,14 +132,16 @@ class TrackDiag(object):
                                     sandro=sandro, hb=hb, cmd=cmd)
         if arrow_on_line is True:
             # hard coded to be 10 equally spaced points...
-            ages = np.linspace(np.min(track.data.AGE[inds]), np.max(track.data.AGE[inds]), 10)
-            indz, difs = zip(*[math.utils.closest_match(i, track.data.AGE[inds]) for i in ages])
+            ages = np.linspace(np.min(track.data.AGE[inds]),
+                               np.max(track.data.AGE[inds]), 10)
+            indz, _ = zip(*[utils.closest_match(i, track.data.AGE[inds])
+                            for i in ages])
             # I LOVE IT arrow on line... AOL BUHSHAHAHAHAHA
             aol_kw = deepcopy(plt_kw)
             if 'color' in aol_kw:
                 aol_kw['fc'] = aol_kw['color']
                 del aol_kw['color']
-            indz = indz[indz>0]
+            indz = indz[indz > 0]
             print(track.data.LOG_L[inds][np.array([indz])])
             arrow_on_line(ax, xdata, ydata, indz, plt_kw=plt_kw)
 
@@ -199,18 +201,6 @@ class TrackDiag(object):
                         bbox=bbox, arrowprops=arrowprops)
         return ax
 
-    def maxmin(self, track, col, inds=None):
-        '''
-        returns the max and min of a column in Track.data. use inds to index.
-        WHY IS THIS HERE NOT SOMEWHERE NICER? PRETTIER, WITH A VIEW?
-        '''
-        arr = track.data[col]
-        if inds is not None:
-            arr = arr[inds]
-        ma = np.max(arr)
-        mi = np.min(arr)
-        return (ma, mi)
-
     def check_ptcris(self, track, hb=False, plot_dir=None, sandro_plot=False,
                     xcol='LOG_TE', ycol='LOG_L'):
         '''
@@ -220,7 +210,7 @@ class TrackDiag(object):
 
         iptcri, = np.nonzero(track.iptcri > 0)
         ptcri_kw = {'sandro': False, 'hb': hb}
-        last = self.ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
+        last = track.ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
 
         if hb is False:
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
@@ -247,7 +237,7 @@ class TrackDiag(object):
         for i, ax in enumerate(np.ravel(axs)):
             if i == len(plots):
                 continue
-            inds = [self.ptcri.get_ptcri_name(cp, **ptcri_kw)
+            inds = [track.ptcri.get_ptcri_name(cp, **ptcri_kw)
                     for cp in plots[i]]
             inds = track.iptcri[inds][np.nonzero(track.iptcri[inds])[0]]
             if np.sum(inds) == 0:
@@ -277,8 +267,8 @@ class TrackDiag(object):
 
                 ax.plot(x, y, lw=2, color='green')
 
-            xmax, xmin = self.maxmin(track, xcol, inds=inds)
-            ymax, ymin = self.maxmin(track, ycol, inds=inds)
+            xmax, xmin = track.maxmin(xcol, inds=inds)
+            ymax, ymin = track.maxmin(ycol, inds=inds)
 
             if np.diff((xmin, xmax)) == 0:
                 xmin -= 0.1
@@ -304,8 +294,8 @@ class TrackDiag(object):
             extra = '_HB'
         else:
             extra = ''
-        if xcol != 'LOG_TE':
-            extra += '_%s' % xcol
+        
+        extra += '_%s' % xcol
 
         figname = 'ptcri_Z%g_Y%g_M%.3f%s.png' % (track.Z, track.Y, track.mass,
                                                  extra)

@@ -163,6 +163,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     self.check_ptcris(track, plot_dir=inputs.plot_dir)
                     self.check_ptcris(track, plot_dir=inputs.plot_dir,
                                       xcol='AGE')
+                    self.plot_sandro_ptcri(track, plot_dir=inputs.plot_dir)
 
             if inputs.diag_plot is True:
                 # make summary diagnostic plots

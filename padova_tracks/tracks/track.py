@@ -9,20 +9,25 @@ import numpy as np
 
 class Track(object):
     '''
-    Padova stellar evolutoin track object.
+    Padova stellar evolution track object.
     '''
-    def __init__(self, filename, ptcri=None, loud=False):
+    def __init__(self, filename, ptcri=None):
+        '''
+        filename is the PMS or PMS.HB file
+        ptcri is optional but necessary if making tracks for MATCH.
+        '''
         (self.base, self.name) = os.path.split(filename)
-        if loud is True:
-            print(filename)
         self.load_track(filename)
         self.filename_info()
         self.mass = self.data.MASS[0]
+        fmass = float(self.name.split('_M')[1].split('.PMS')[0])
         if self.mass >= 12:
             # for high mass tracks, the mass starts much larger than it is
             # for (age<0.2). The mass only correct at the beginning of the MS.
             # Rather than forcing a ptcri load, we read the mass from the title.
-            self.mass = float(self.name.split('_M')[1].split('.PMS')[0])
+            self.mass = fmass
+        elif self.mass != fmass:
+            print('filename has M=%.4f track has M=%.4f' % (fmass, self.mass))
         self.ptcri = ptcri
         test = np.diff(self.data.AGE) >= 0
         if False in test:
@@ -115,3 +120,14 @@ class Track(object):
         new_cols = additional_col_line.split(':')[1].strip().split()
         col_keys = list(np.concatenate((col_keys, new_cols)))
         return col_keys
+
+    def maxmin(self, col, inds=None):
+        '''
+        returns the max and min of a column in self.data. use inds to index.
+        '''
+        arr = self.data[col]
+        if inds is not None:
+            arr = arr[inds]
+        ma = np.max(arr)
+        mi = np.min(arr)
+        return (ma, mi)
