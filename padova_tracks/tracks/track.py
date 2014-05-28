@@ -58,15 +58,15 @@ class Track(object):
         ai = np.array([1., 4., 12., 16.])
         # fully ionized
         qi = ai/2.
-        self.MUc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
+        self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
                                  for i in range(len(xi))))
-        return self.Muc
+        return self.muc
 
     def filename_info(self):
         '''
         I wish I knew regex...
         '''
-        (pref, __, smass) = self.name.split('.PMS')[0].split('_')
+        #(pref, __, smass) = self.name.split('.PMS')[0].split('_')
         #self.__setattr__[]
         #get that into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
         Z, Ymore = self.name.split('Z')[1].split('Y')
@@ -75,10 +75,11 @@ class Track(object):
                 continue
             try:
                 float(y)
-            except:
+            except ValueError:
                 break
+            num = i
         self.Z = float(Z)
-        self.Y = float(Ymore[:i])
+        self.Y = float(Ymore[:num])
         return
 
     def load_track(self, filename):

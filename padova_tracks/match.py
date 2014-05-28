@@ -1,14 +1,15 @@
-from fileio import fileIO
+from ..fileio import fileIO
 import numpy as np
 import matplotlib.pylab as plt
-from graphics.GraphicsUtils import discrete_colors
+from ..graphics.GraphicsUtils import discrete_colors
 import os
-from eep.define_eep import DefineEeps
-from eep.define_eep import eep
-from tracks.track_set import TrackSet
+from eep import DefineEeps
+from eep import eep
+from tracks import TrackSet
 from scipy.interpolate import splev
-from tracks.track_diag import TrackDiag
+from tracks import TrackDiag
 
+max_mass = 120.
 
 class MatchTracks(eep):
     '''
@@ -30,7 +31,8 @@ class MatchTracks(eep):
         self.load_tracks()
 
     def load_tracks(self):
-        self.tracks = [self._load_track(t) for t in self.track_names]
+        tracks = [self._load_track(t) for t in self.track_names]
+        self.tracks = [t for t in tracks if t.MASS[0] <= max_mass]
         self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
 
     def check_tracks(self):

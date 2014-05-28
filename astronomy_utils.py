@@ -1,8 +1,7 @@
 import fileIO
 import os
 import numpy as np
-import angst_tables
-angst_data = angst_tables.AngstTables()
+from .angst_tables import angst_data
 import graphics.GraphicsUtils as rspgraph
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt

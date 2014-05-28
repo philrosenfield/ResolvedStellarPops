@@ -1,13 +1,16 @@
 from __future__ import print_function
 import numpy as np
 import pprint
-import utils
+from ResolvedStellarPops import utils
 import os
 import matplotlib.pylab as plt
 from scipy.interpolate import splev, splprep
 from critical_point import critical_point, inds_between_ptcris
 #from ..mass_config import low_mass
+# from low mass and below XCEN = 0.3 for MS_TMIN
 low_mass = 1.25
+# from high mass and above find MS_BEG in this code
+high_mass = 20.
 
 class eep(object):
     '''
@@ -108,9 +111,11 @@ class DefineEeps(object):
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
         
+        if track.mass >= high_mass:
+            return self.add_high_mass_eeps(track)
+            
         self.add_ms_eeps(track)
 
-        
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if ims_to == 0:
             print('MS_TO and MS_TMIN found by AGE limits')
@@ -172,6 +177,54 @@ class DefineEeps(object):
 
         return non_dupes
 
+    def add_high_mass_eeps(self, track):
+        pf_kw = {'max': False, 'sandro': True,
+                 'more_than_one': 'min of min',
+                 'parametric_interp': False}
+
+        ms_beg = self.peak_finder(track, 'LOG_L', 'PMS_END', 'POINT_B',
+                                  **pf_kw)
+        self.add_eep(track, 'MS_BEG', ms_beg)
+        
+        ms_to = np.nonzero(track.data.XCEN == 0)[0][0]
+        self.add_eep(track, 'MS_TO', ms_to)
+            
+        inds = np.arange(ms_beg, ms_to)
+        xdata = track.data.LOG_TE[inds]
+        ms_tmin = inds[np.argmin(xdata)]
+        self.add_eep(track, 'MS_TMIN', ms_tmin)
+        
+        # there is a switch for high mass tracks in the add_cen_eeps and
+        # add_quiesscent_he_eep functions. If the mass is higher than
+        # high_mass the functions use MS_TO as the initial EEP for peak_finder.
+        cens = self.add_cen_eeps(track, istart=ms_to)
+        heb_beg  = self.add_quiesscent_he_eep(track, 'YCEN_0.550')
+        
+        # there are instabilities in massive tracks that are on the verge or
+        # returning to the hot side (Teff>10,000) of the HRD before C_BUR.
+        # The following is designed to cut the tracks before the instability.
+        # If the star is M>55. and the last model doesn't reach Teff = 10**4,
+        # The track is cut at the max LOG_L after the MS_TO, otherwise, that
+        # value is the TPAGB (not actually TP-AGB, but end of the track).
+        fin = len(track.data.LOG_L) - 1
+        inds = np.arange(ms_to, fin)
+        tpagb = inds[np.argmax(track.data.LOG_L[inds])]
+        if track.mass >= 55. and track.data.LOG_TE[fin] < 4.:
+            fin = tpagb
+        self.add_eep(track, 'TPAGB', tpagb)
+        inds = np.arange(ms_to, fin)
+        
+        # between ms_to and heb_beg need:
+        #sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip
+        
+        #rg_minl = inds[np.argmax(track.data.CONV[inds])]
+        #rg_minl = self.peak_finder(track, 'CONV', ms_to, fin, **pf_kw)
+        #self.add_eep(track, 'RG_MINL', rg_minl)
+        
+        
+        return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens))
+    
+
     def add_quiesscent_he_eep(self, track, ycen1):
         '''
         He fusion starts after the RGB, but where? It was tempting to simply
@@ -184,44 +237,49 @@ class DefineEeps(object):
         where there is a min after the TRGB in LY, that is it dips as the
         star contracts, and then ramps up.
         '''
-        inds = inds_between_ptcris(track, 'RG_TIP', ycen1, sandro=False)
+        start = 'RG_TIP'
+        if track.mass >= high_mass:
+            start = 'MS_TO'
+
+        inds = inds_between_ptcris(track, start, ycen1, sandro=False)
         eep_name = 'HE_BEG'
 
         if len(inds) == 0:
-            print('no start HEB!!!! M=%.4f Z=%.4f' %
-                         (track.mass, track.Z))
+            print('No HE_BEG M=%.4f Z=%.4f' % (track.mass, track.Z))
             self.add_eep(track, eep_name, 0)
             return 0
 
-        min = np.argmin(track.data.LY[inds])
+        he_min = np.argmin(track.data.LY[inds])
         # Sometimes there is a huge peak in LY before the min, find it...
         npts = inds[-1] - inds[0] + 1
         subset = npts / 3
-        max = np.argmax(track.data.LY[inds[:subset]])
+        he_max = np.argmax(track.data.LY[inds[:subset]])
         # Peak isn't as important as the ratio between the start and end
-        rat = track.data.LY[inds[max]]/track.data.LY[inds[0]]
-        # If the min is at the point next to the TRGB, or the ratio is huge,
+        rat = track.data.LY[inds[he_max]] / track.data.LY[inds[0]]
+        # If the min is at the point next to the RG_TIP, or the ratio is huge,
         # get the min after the peak.
-        if min == 0 or rat > 10:
-            amin = np.argmin(track.data.LY[inds[max + 1:]])
-            min = max + 1 + amin
-        he_beg = inds[min]
+        if he_min == 0 or rat > 10:
+            amin = np.argmin(track.data.LY[inds[he_max + 1:]])
+            he_min = he_max + 1 + amin
+        he_beg = inds[he_min]
         self.add_eep(track, eep_name, he_beg)
         return he_beg
 
-    def add_cen_eeps(self, track, hb=False, tol=0.01):
+    def add_cen_eeps(self, track, hb=False, tol=0.01, istart=None):
         '''
         Add YCEN_%.3f eeps, if YCEN=fraction not found to tol, will add 0 as
         the iptrcri, equivalent to not found.
         '''
+        if istart is None:
+            start = 'RG_BMP2'
+            # if high mass start after ms_to
+            pstart = self.ptcri.get_ptcri_name(start, sandro=False)
+            istart = track.iptcri[pstart]
 
         if hb is False:
             # not Horizontal branch, start before rgb tip
-            irgbmp2 = self.ptcri.get_ptcri_name('RG_BMP2', sandro=False)
-            istart = track.iptcri[irgbmp2]
             please_define = self.ptcri.please_define
         else:
-            # Horizontal branch tracks, start at 0.
             istart = 0
             please_define = self.ptcri.please_define_hb
 
@@ -249,7 +307,7 @@ class DefineEeps(object):
     def add_hb_beg(self, track):
         # this is just the first line of the track with age > 0.2 yr.
         # it could be placed in the load_track method. However, because
-        # it's unphysical, I'm keeping it here to be clear.
+        # it is an not physically meaningful eep, I'm keeping it here.
         ainds, = np.nonzero(track.data['AGE'] > 0.2)
         hb_beg = ainds[0]
         eep_name = 'HB_BEG'
@@ -373,7 +431,6 @@ class DefineEeps(object):
 
         if there is an error, either MS_TO or MS_TMIN will -1
 
-        more information: 
         '''
         def second_derivative(xdata, inds):
             '''
@@ -400,7 +457,7 @@ class DefineEeps(object):
         def delta_te_eeps(track, ms_to, ms_tmin):
             xdata = track.data.LOG_L
             return np.abs(np.diff((xdata[ms_to], xdata[ms_tmin])))
-        
+
         inds = inds_between_ptcris(track, 'MS_BEG', 'POINT_C', sandro=True)
 
         if len(inds) == 0:
@@ -586,7 +643,6 @@ class DefineEeps(object):
         print('%g' % (age_diff/age), track.mass, eep_name)
         self.add_eep(track, eep_name, iage)
 
-
     def add_eep(self, track, eep_name, ind, hb=False):
         '''
         Will add or replace the index of Track.data to track.iptcri
@@ -597,8 +653,6 @@ class DefineEeps(object):
             key_dict = self.ptcri.key_dict
 
         track.iptcri[key_dict[eep_name]] = ind
-        #if ind != 0:
-        #    print('%s, %i' % (eep_name, ind))
 
     def peak_finder(self, track, col, eep1, eep2, max=False, diff_err=None,
                     sandro=True, more_than_one='max of max', mess_err=None,
@@ -609,9 +663,10 @@ class DefineEeps(object):
         though some higher order derivs of the interpolation are sometimes used.
         '''
         # slice the array
-        inds = inds_between_ptcris(track, eep1, eep2, sandro=sandro)
-        # burn in
-        #inds = inds[5:]
+        if type(eep1) != str:
+            inds = np.arange(eep1, eep2)
+        else:
+            inds = inds_between_ptcris(track, eep1, eep2, sandro=sandro)
 
         if len(inds) < ind_tol:
             # sometimes there are not enough inds to interpolate
@@ -690,7 +745,6 @@ class DefineEeps(object):
                 if mess_err is not None:
                     print(mess_err)
                 return -1
-
         else:
             if peak_dict['minima_number'] > 0:
                 imin = peak_dict['minima_locations']
@@ -754,10 +808,12 @@ class DefineEeps(object):
         self.ptcri = ptcri
 
         assert ptcri.Z == track.Z, \
-            'Zs do not match between track and ptcri file'
+            'Zs do not match between track and ptcri file %f != %f' % (ptcri.Z,
+                                                                       track.Z)
 
-        assert ptcri.Y == track.Y, \
-            'Ys do not match between track and ptcri file'
+        assert np.round(ptcri.Y, 2) == track.Y, \
+            'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
+                                                                       track.Y)
 
         if hasattr(self.ptcri, 'eep'):
             # already loaded eep

@@ -5,7 +5,7 @@ import glob
 import sys
 from pprint import pprint
 import difflib
-from utils import is_numeric
+from ..utils import is_numeric
 
 
 __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',

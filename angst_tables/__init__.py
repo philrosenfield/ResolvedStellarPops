@@ -1,3 +1,4 @@
-from . angst_tables import AngstTables
+from . import angst_tables
 
-angst_data = AngstTables()
+
+angst_data = angst_tables.AngstTables()

@@ -3,19 +3,18 @@ a container of track
 '''
 from __future__ import print_function
 import os
-from fileio import fileIO
-import numpy as np
-from track import Track
-from track_diag import TrackDiag
 import matplotlib.pylab as plt
-from graphics.GraphicsUtils import discrete_colors
-from ..eep.critical_point import critical_point
-from ..eep.define_eep import eep
-#here = os.getcwd()
-#os.chdir('/home/rosenfield/research/python/ResolvedStellarPops/graphics/')
-#from GraphicsUtils import discrete_colors
-#os.chdir(here)
+import numpy as np
 
+from ResolvedStellarPops.graphics.GraphicsUtils import discrete_colors
+from ResolvedStellarPops.fileio import fileIO
+
+from .track import Track
+from .track_diag import TrackDiag
+from ..eep.critical_point import critical_point
+from ..eep import eep
+
+max_mass = 120.
 td = TrackDiag()
 
 class TrackSet(object):
@@ -83,8 +82,9 @@ class TrackSet(object):
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
         mass = np.array([os.path.split(t)[1].split('_M')[1].split('.P')[0]
                          for t in track_names], dtype=float)
-        track_names = track_names[np.argsort(mass)]
-        mass = mass[np.argsort(mass)]
+        cut_mass, = np.nonzero(mass <= max_mass)
+        track_names = track_names[cut_mass][np.argsort(mass[cut_mass])]
+        mass = mass[cut_mass][np.argsort(mass[cut_mass])]
 
         # only do a subset of masses
         if masses is not None:
@@ -103,8 +103,7 @@ class TrackSet(object):
                 track_masses = np.array(track_masses)
         else:
             track_masses = np.argsort(mass)
-
-
+        
         track_str = 'track'
         mass_str = 'masses'
         if hb is True:

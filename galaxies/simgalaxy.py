@@ -9,7 +9,7 @@ from .. import fileio
 from .. import match
 from .. import trilegal
 from .. import graphics
-from .. import math
+from .. import utils
 from .starpop import StarPop
 
 __all__ = ['SimGalaxy', 'SimAndGal', 'get_mix_modelname']
@@ -249,7 +249,7 @@ class SimGalaxy(StarPop):
         # cmd space cut
         if verts is not None:
             points = np.column_stack((scolor, smag))
-            reg_inds, = np.nonzero(math.points_inside_poly(points, verts))
+            reg_inds, = np.nonzero(utils.points_inside_poly(points, verts))
 
         # combine all inds.
         sinds = list(set(ibright) & set(st_inds) & set(reg_inds) &
@@ -389,7 +389,7 @@ class SimGalaxy(StarPop):
                 text_offset = 0.02
                 xpos = xlim[0] + 2 * text_offset
                 ypos = trgb - text_offset
-                num = math.brighter(mag2, trgb - self.count_offset, inds=ind).size
+                num = utils.brighter(mag2, trgb - self.count_offset, inds=ind).size
                 graphics.plot_numbs(ax, num, xpos, ypos, **kwargs)
 
         if xlim is not None and ylim is not None:
@@ -492,8 +492,8 @@ class SimAndGal(object):
         spoints = np.column_stack((scolor, smag))
         if agb_verts is not None:
             points = np.column_stack((color, mag))
-            ginds, = np.nonzero(math.points_inside_poly(points, agb_verts))
-            sinds, = np.nonzero(math.points_inside_poly(spoints, agb_verts))
+            ginds, = np.nonzero(utils.points_inside_poly(points, agb_verts))
+            sinds, = np.nonzero(utils.points_inside_poly(spoints, agb_verts))
         else:
             sinds = None
             ginds = None
@@ -509,7 +509,7 @@ class SimAndGal(object):
         self.gal.nbrighter.append(len(ginds))
 
         # the number of sim stars in the rgb box set by data verts
-        srgb_norm, = np.nonzero(math.points_inside_poly(spoints, self.gal.norm_verts))
+        srgb_norm, = np.nonzero(utils.points_inside_poly(spoints, self.gal.norm_verts))
 
         self.sgal.nbrighter.append(len(srgb_norm))
 

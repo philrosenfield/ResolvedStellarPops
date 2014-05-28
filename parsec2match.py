@@ -3,9 +3,9 @@ from copy import deepcopy
 import sys
 import os
 import matplotlib.pyplot as plt
-from fileio import fileIO
-from padova_tracks.match import TracksForMatch
-from padova_tracks.match import MatchTracks
+from ResolvedStellarPops.fileio import fileIO
+from ResolvedStellarPops.padova_tracks.match import TracksForMatch
+from ResolvedStellarPops.padova_tracks.match import MatchTracks
 
 def do_entire_set(input_obj):
     '''

@@ -7,7 +7,7 @@ from scipy import integrate
 from ..graphics import scatter_contour, colorify, make_hess, plot_hess, plot_cmd_redding_vector
 from ..tools import get_dmodAv, mag2Mag, Mag2mag
 from ..angst_tables import angst_data
-from .. import math
+from .. import utils
 
 
 __all__ = ['StarPop', 'plot_cmd', 'color_by_arg']
@@ -313,7 +313,7 @@ class StarPop(object):
                 Mag2 = self.mag2
 
         points = np.column_stack((Color, Mag2))
-        all_inds, = np.nonzero(math.points_inside_poly(points, all_verts))
+        all_inds, = np.nonzero(utils.points_inside_poly(points, all_verts))
 
         if len(all_inds) <= thresh:
             print('not enough points found within verts')
@@ -341,7 +341,7 @@ class StarPop(object):
         p0 = [np.nanmax(hist) / 2., np.mean(col_bins[1:]) - np.mean(col_bins[1:]) / 2., dcol,
               np.nanmax(hist) / 2., np.mean(col_bins[1:]) + np.mean(col_bins[1:]) / 2., dcol]
 
-        mp_dg = math.mpfit(math.mp_double_gauss, p0, functkw=hist_in, quiet=True)
+        mp_dg = utils.mpfit(utils.mp_double_gauss, p0, functkw=hist_in, quiet=True)
         if mp_dg.covar is None:
             print('not double gaussian')
             return 0., 0., poission_noise, float(len(all_inds)), color_sep
@@ -354,13 +354,13 @@ class StarPop(object):
         color_array = np.linspace(col_bins[0], col_bins[-1], 1000)
         g_p1 = mp_dg.params[0: 3]
         g_p2 = mp_dg.params[3:]
-        gauss1 = math.gaussian(color_array, g_p1)
-        gauss2 = math.gaussian(color_array, g_p2)
+        gauss1 = utils.gaussian(color_array, g_p1)
+        gauss2 = utils.gaussian(color_array, g_p2)
         print(g_p1[1], g_p2[1])
         # color separatrion is the intersection of the two gaussians..
         #double_gauss = gauss1 + gauss2
         #between_peaks = np.arange(
-        min_locs = math.find_peaks(gauss1 + gauss2)['minima_locations']
+        min_locs = utils.find_peaks(gauss1 + gauss2)['minima_locations']
         g1, g2 = np.sort([g_p1[1], g_p2[2]])
         ginds, = np.nonzero( (color_array > g1) & (color_array < g2))
         #ginds2, = np.nonzero(gauss2)
@@ -378,18 +378,18 @@ class StarPop(object):
             print('you want color_sep to be %.4f, I found it at %.4f' % (color_sep, auto_color_sep))
 
         # find contamination past the color sep...
-        g12_Integral = integrate.quad(math.double_gaussian, -np.inf, np.inf, mp_dg.params)[0]
+        g12_Integral = integrate.quad(utils.double_gaussian, -np.inf, np.inf, mp_dg.params)[0]
 
         try:
             norm = float(len(all_inds)) / g12_Integral
         except ZeroDivisionError:
             norm = 0.
 
-        g1_Integral = integrate.quad(math.gaussian, -np.inf, np.inf, g_p1)[0]
-        g2_Integral = integrate.quad(math.gaussian, -np.inf, np.inf, g_p2)[0]
+        g1_Integral = integrate.quad(utils.gaussian, -np.inf, np.inf, g_p1)[0]
+        g2_Integral = integrate.quad(utils.gaussian, -np.inf, np.inf, g_p2)[0]
 
-        g1_Int_colsep = integrate.quad(math.gaussian, -np.inf, color_sep, g_p1)[0]
-        g2_Int_colsep = integrate.quad(math.gaussian, color_sep, np.inf, g_p2)[0]
+        g1_Int_colsep = integrate.quad(utils.gaussian, -np.inf, color_sep, g_p1)[0]
+        g2_Int_colsep = integrate.quad(utils.gaussian, color_sep, np.inf, g_p2)[0]
 
         left_in_right = (g1_Integral - g1_Int_colsep) * norm
         right_in_left = (g2_Integral - g2_Int_colsep) * norm
@@ -399,7 +399,7 @@ class StarPop(object):
             fig1, ax1 = plt.subplots()
             ax1.plot(col_bins[1:], hist, ls='steps', lw=2)
             ax1.plot(col_bins[1:], hist, 'o')
-            ax1.plot(color_array, math.double_gaussian(color_array, mp_dg.params))
+            ax1.plot(color_array, utils.double_gaussian(color_array, mp_dg.params))
             ax1.plot(color_array, gauss1)
             ax1.plot(color_array, gauss2)
             #ax1.set_ylim((0, 100))
@@ -434,7 +434,7 @@ class StarPop(object):
         '''
         if verts is None:
             if col_min is None:
-                inds = math.between(mag2, mag_dim, mag_bright)
+                inds = utils.between(mag2, mag_dim, mag_bright)
             else:
                 verts = np.array([[col_min, mag_dim],
                                   [col_min, mag_bright],
@@ -443,7 +443,7 @@ class StarPop(object):
                                   [col_min, mag_dim]])
 
                 points = np.column_stack((mag1 - mag2, mag2))
-                inds, = np.nonzero(math.points_inside_poly(points, verts))
+                inds, = np.nonzero(utils.points_inside_poly(points, verts))
         return inds
 
     def make_lf(self, mag, bins=None, stages=None, inds=None, bin_width=0.1,
@@ -501,7 +501,7 @@ class StarPop(object):
                 bins = (np.max(imag) - np.min(imag)) / bin_width
 
             if hist_it_up is True:
-                hist, bins = math.hist_it_up(imag, threash=5)
+                hist, bins = utils.hist_it_up(imag, threash=5)
             else:
                 if type(bins) == np.float64 and bins < 1:
                     continue

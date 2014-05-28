@@ -5,7 +5,7 @@ import numpy as np
 import logging
 logger = logging.getLogger()
 
-from .. import math
+from .. import utils
 from .. import fileio
 from .. import graphics
 
@@ -623,8 +623,8 @@ def get_loop_data(cmd_input_file, metallicity):
 
 def string_in_lines(lines):
     for line in lines:
-        strs = [math.is_numeric(l) for l in line.strip().split()
-                if type(math.is_numeric(l)) == str]
+        strs = [utils.is_numeric(l) for l in line.strip().split()
+                if type(utils.is_numeric(l)) == str]
         if len(strs) != 0:
             if ' M=' in line:
                 print line, strs
@@ -804,5 +804,5 @@ def read_cmd_input_file(filename):
         data = data_line.split()
         comment = comment_line.strip().split('DA ')[0].split(', ')
         for c, dat in zip(comment, data):
-            d[c.strip().replace(' ', '_')] = math.is_numeric(dat)
+            d[c.strip().replace(' ', '_')] = utils.is_numeric(dat)
     return d
