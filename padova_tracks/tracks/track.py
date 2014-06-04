@@ -70,16 +70,14 @@ class Track(object):
         #self.__setattr__[]
         #get that into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
         Z, Ymore = self.name.split('Z')[1].split('Y')
-        for i, y in enumerate(Ymore):
-            if y == '.':
-                continue
-            try:
-                float(y)
-            except ValueError:
+        Y = ''
+        for y in Ymore:
+            if y == '.' or y.isdigit() is True:
+                Y += y
+            else:
                 break
-            num = i
         self.Z = float(Z)
-        self.Y = float(Ymore[:num])
+        self.Y = float(Y)
         return
 
     def load_track(self, filename):

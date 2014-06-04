@@ -73,12 +73,14 @@ if __name__ == '__main__':
     if hasattr(inp_obj, 'prefix'):
         inp_obj = set_outdirs(inp_obj, inp_obj.prefix)
 
-    #import pdb
-    #pdb.set_trace()
+    if inp_obj.debug is True:
+        import pdb
+        pdb.set_trace()
 
     if hasattr(inp_obj, 'prefixs'):
         do_entire_set(inp_obj)
     else:
         tfm = TracksForMatch(inp_obj)
         tfm.save_ptcri(hb=inp_obj.hb)
-        MatchTracks(inp_obj)
+        mt = MatchTracks(inp_obj)
+        mt.diag_plots()

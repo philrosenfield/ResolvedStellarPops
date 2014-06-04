@@ -316,7 +316,7 @@ class TrackDiag(object):
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname)
         plt.close()
-        print('wrote %s' % figname)
+        #print('wrote %s' % figname)
 
         if hb is False and sandro_plot is True:
             self.plot_sandro_ptcri(track, plot_dir=plot_dir)

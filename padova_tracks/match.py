@@ -58,27 +58,54 @@ class MatchTracks(eep):
             else:
                 print 'no issues found.'
 
-    def diag_plots(self):
-        pat_kw = {'eep_list': self.eep_list,
-                  'eep_lengths': self.eep_lengths,
-                  'plot_dir': self.outfile_dir}
+    def diag_plots(self, pat_kw=None, xcols=['LOG_TE', 'logAge'],
+                   mass_split=[3, 12, 50],
+                   extras = ['low', 'inte', 'high', 'very_high']):
+        '''
+        pat_kw go to plot all tracks default is
+            'eep_list': self.eep_list,
+            'eep_lengths': self.nticks,
+            'plot_dir': self.tracks_base
+        xcols are the xcolumns to make individual plots
+        mass_split is a list to split masses length must be 3 (lazy)
+        extras is the filename extra associated with each mass split length
+        mass_split + 1
+        '''
+        pat_kw = pat_kw or {}
+        default = {'eep_list': self.eep_list,
+                   'eep_lengths': self.nticks,
+                   'plot_dir': self.tracks_base}
 
-        self._plot_all_tracks(self.tracks, **pat_kw)
+        pat_kw = dict(default.items() + pat_kw.items())
+        # could be done a lot better:
+        tracks_split = [[t for t in self.tracks if t.MASS[0] <= mass_split[0]],
+                        [t for t in self.tracks if t.MASS[0] >= mass_split[0]
+                         and t.MASS[0] <= mass_split[1]],
+                        [t for t in self.tracks if t.MASS[0] >= mass_split[1]
+                         and t.MASS[0] <= mass_split[2]],
+                        [t for t in self.tracks if t.MASS[0] >= mass_split[2]]]
 
-        pat_kw['xcol'] = 'logAge'
-        self._plot_all_tracks(self.tracks, **pat_kw)
+        for i, tracks in enumerate(tracks_split):
+            pat_kw['extra'] = '_' + extras[i]
+            for xcol in xcols:
+                pat_kw['xcol'] = xcol
+                self._plot_all_tracks(tracks, **pat_kw)
 
-        if self.eep_list_hb is not None:
+        if len(self.hbtrack_names) > 0:
             pat_kw['extra'] = '_HB'
-            self._plot_all_tracks(self.hbtracks, **pat_kw)
-            del pat_kw['xcol']
-            self._plot_all_tracks(self.hbtracks, **pat_kw)
+            pat_kw['eep_lengths'] = self.nticks_hb
+            for xcol in xcols:
+                pat_kw['xcol'] = xcol
+                self._plot_all_tracks(self.hbtracks, **pat_kw)
 
 
     def _load_track(self, filename):
         '''
+        load the match interpolated tracks into a record array.
+        the file contains Mbol, but it is converted to LOG_L on read.
+        LOG_L = (4.77 - Mbol) / 2.5
+        names = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
         '''
-        # the filename actually contains Mbol, but I convert it in genfromtxt.
         names = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
         data = np.genfromtxt(filename, names=names,
                              converters={3: lambda m: (4.77 - float(m)) / 2.5})
@@ -86,7 +113,8 @@ class MatchTracks(eep):
         return data
 
     def _plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
-                         plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L'):
+                         plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L',
+                         ax=None):
         if extra == '':
             extra = '_%s' % xcol
         else:
@@ -98,15 +126,21 @@ class MatchTracks(eep):
         point_pltkw = {'marker': '.', 'ls': '', 'alpha': 0.5}
         cols = discrete_colors(len(eep_list), colormap='spectral')
         labs = [p.replace('_', '\_') for p in eep_list]
-
-        fig, ax = plt.subplots(figsize=(16, 9))
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(16, 9))
         # fake lengend
         [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
          for i in range(len(eep_list))]
-
+    
+        
         [ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks]
+        # instead, plot the tracks with alternating alpha for clarity
+        #[ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks[::2]]
+        #line_pltkw['alpha'] = 0.8
+        #[ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks[1::2]]
         xlims = np.array([])
         ylims = np.array([])
+        
         for t in tracks:
             for i in range(len(eep_lengths)):
                 x = t[xcol]
@@ -118,11 +152,13 @@ class MatchTracks(eep):
                 ax.plot(x[ind], y[ind], color=cols[i], **point_pltkw)
                 xlims = np.append(xlims, (np.min(x[ind]), np.max(x[ind])))
                 ylims = np.append(ylims, (np.min(y[ind]), np.max(y[ind])))
+                if i == 5:
+                    ax.annotate('%g' % t.MASS[0], (x[ind], y[ind]), fontsize=8)
         ax.set_title('$%s$' % self.prefix.replace('_', '\ '))
         ax.set_xlim(np.max(xlims), np.min(xlims))
         ax.set_ylim(np.min(ylims), np.max(ylims))
         ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
-        ax.set_ylabel('$%s$' % ycol, fontsize=20)
+        ax.set_ylabel('$%s$' % ycol.replace('_', '\! '), fontsize=20)
         ax.legend(loc=0, numpoints=1, frameon=0)
         figname = 'match_%s%s.png' % (self.prefix, extra)
         if plot_dir is not None:
@@ -284,32 +320,46 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             if False in test:
                 print track.base, track.name
-                print '\n AGE NOT MONOTONICALLY INCREASING', track.mass
-                print 10**agenew[bads]
+                print 'AGE NOT MONOTONICALLY INCREASING', track.mass
+                print '%f: %f' % (10**agenew[bads[0]], 10**agenew[bads[-1]])
+
                 print mess
                 fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10))
                 for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):
+
                     ax.scatter(track.data[xcol][track.iptcri],
                                track.data.LOG_L[track.iptcri],
-                               s=60, c='k')
+                               s=60, c='k', label='crit pts')
+                    [ax.annotate('%i' % i, (track.data[xcol][i],
+                                            track.data.LOG_L[i]))
+                     for i in track.iptcri]
+                    
+                               
                     xlim = ax.get_xlim()
                     ylim = ax.get_ylim()
                     ax.plot(track.data[xcol], track.data.LOG_L, color='k')
                     ax.plot(track.data[xcol], track.data.LOG_L, ',', color='k')
+                    if hasattr(track, 'data_orig'):
+                        ax.plot(track.data_orig[xcol], track.data_orig.LOG_L,
+                                color='k', alpha=0.3, label='original track')
+                        ax.plot(track.data_orig[xcol], track.data_orig.LOG_L,
+                                ',', color='k', alpha=0.3)
+
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
+                    ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '), fontsize=20)
+                    ax.set_ylabel('$LOG\! L$', fontsize=20)
                 for ax, xcol in zip(axs, [10 ** agenew, tenew]):
-                    ax.plot(xcol, lnew, lw=2, alpha=0.4)
-                    ax.scatter(xcol, lnew, s=15, c=np.arange(len(xcol)),
-                               cmap=plt.cm.Spectral)
-                    ax.scatter(xcol[bads], lnew[bads], s=40,
-                               c=np.arange(len(bads)),
-                               cmap=plt.cm.Spectral)
-                    ax.set_xscale('log')
+                    ax.plot(xcol, lnew, lw=2, alpha=0.4, color='r')
+                    ax.plot(xcol, lnew, '.', color='r', label='match intp')
+                    ax.plot(xcol[bads], lnew[bads], 'o', color='b', label='bads')
+                    [ax.annotate('%i' % i, (xcol[i], lnew[i])) for i in bads]
+                #axs[0].set_xscale('log')
                 fig.suptitle('$%s$' % track.name.replace('_', r'\! '))
+                plt.legend(loc=0)
                 plt.savefig(os.path.join(os.getcwd(), track.name + '_bad.png'))
-                plt.close('all')
-                #plt.show()
+                #plt.close('all')
+        plt.show()
         #  This was to make Leo's isochrones files... incomplete...
         #print new_eep_dict
         #track.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)
@@ -328,5 +378,5 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         with open(outfile, 'w') as f:
             f.write(header)
             np.savetxt(f, to_write, fmt='%.8f')
-        print('wrote %s' % outfile)
+        #print('wrote %s' % outfile)
         self.match_data = to_write

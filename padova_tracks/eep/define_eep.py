@@ -6,6 +6,7 @@ import os
 import matplotlib.pylab as plt
 from scipy.interpolate import splev, splprep
 from critical_point import critical_point, inds_between_ptcris
+import copy
 #from ..mass_config import low_mass
 # from low mass and below XCEN = 0.3 for MS_TMIN
 low_mass = 1.25
@@ -100,18 +101,20 @@ class DefineEeps(object):
                           diag_plot=True, debug=False):
 
         if hb is True:
-            print('\n\n       HB Current Mass: %.3f' % track.mass)
+            print('HB Mass: %.3f' % track.mass)
             self.add_hb_beg(track)
             self.add_cen_eeps(track, hb=hb)
             self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
-        print('\n\n          Current Mass: %.3f' % track.mass)
+        print('Mass: %.3f' % track.mass)
         # set all to zero
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
         
-        if track.mass >= high_mass:
+        # if this is high mass or if Sandro's MS_BEG is wrong:
+        if track.mass >= high_mass or track.data.XCEN[track.sptcri[4]] < .6:
+            print('M=%.4f is high mass' % track.mass)
             return self.add_high_mass_eeps(track)
             
         self.add_ms_eeps(track)
@@ -190,6 +193,11 @@ class DefineEeps(object):
         self.add_eep(track, 'MS_TO', ms_to)
             
         inds = np.arange(ms_beg, ms_to)
+        peak_dict = utils.find_peaks(track.data.LOG_L[inds])
+        if peak_dict['minima_number'] > 2. or peak_dict['maxima_number'] > 2.:
+            print('MS_BEG-MS_TO minima_number', peak_dict['minima_number'])
+            print('MS_BEG-MS_TO maxima_number', peak_dict['maxima_number'])
+            track = self.strip_instablities(track, inds)
         xdata = track.data.LOG_TE[inds]
         ms_tmin = inds[np.argmin(xdata)]
         self.add_eep(track, 'MS_TMIN', ms_tmin)
@@ -198,7 +206,7 @@ class DefineEeps(object):
         # add_quiesscent_he_eep functions. If the mass is higher than
         # high_mass the functions use MS_TO as the initial EEP for peak_finder.
         cens = self.add_cen_eeps(track, istart=ms_to)
-        heb_beg  = self.add_quiesscent_he_eep(track, 'YCEN_0.550')
+        heb_beg  = self.add_quiesscent_he_eep(track, cens[0], start=ms_to)
         
         # there are instabilities in massive tracks that are on the verge or
         # returning to the hot side (Teff>10,000) of the HRD before C_BUR.
@@ -208,24 +216,35 @@ class DefineEeps(object):
         # value is the TPAGB (not actually TP-AGB, but end of the track).
         fin = len(track.data.LOG_L) - 1
         inds = np.arange(ms_to, fin)
-        tpagb = inds[np.argmax(track.data.LOG_L[inds])]
-        if track.mass >= 55. and track.data.LOG_TE[fin] < 4.:
-            fin = tpagb
-        self.add_eep(track, 'TPAGB', tpagb)
-        inds = np.arange(ms_to, fin)
-        
-        # between ms_to and heb_beg need:
-        #sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip
-        
-        #rg_minl = inds[np.argmax(track.data.CONV[inds])]
-        #rg_minl = self.peak_finder(track, 'CONV', ms_to, fin, **pf_kw)
-        #self.add_eep(track, 'RG_MINL', rg_minl)
-        
-        
-        return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens))
-    
+        peak_dict = utils.find_peaks(track.data.LOG_L[inds])
+        max_frac = peak_dict['maxima_number'] / float(len(inds))
+        min_frac = peak_dict['minima_number'] / float(len(inds))
+        if min_frac > 0.15 or max_frac > 0.15:
+            print('MS_TO+ %i inds. Fracs: max %.2f, min %.2f' %
+                  (len(inds), max_frac, min_frac))
+            print('MS_TO+ minima_number', peak_dict['minima_number'])
+            print('MS_TO+ maxima_number', peak_dict['maxima_number'])
+            track = self.strip_instablities(track, inds)
 
-    def add_quiesscent_he_eep(self, track, ycen1):
+        #tpagb = inds[np.argmax(track.data.LOG_L[inds])]
+        #if track.mass >= 55. and track.data.LOG_TE[fin] < 4.:
+        #    fin = tpagb
+        self.add_eep(track, 'TPAGB', fin)
+        if cens[-1] > fin:
+            print('final point on track is cut before final ycen %.4f' % track.mass)
+        # between ms_to and heb_beg need eeps that are meaningless at high mass:
+        _, sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip, _  = \
+            map(int, np.round(np.linspace(ms_to, heb_beg, 7)))
+        
+        self.add_eep(track, 'SG_MAXL', sg_maxl)
+        self.add_eep(track, 'RG_MINL', rg_minl)
+        self.add_eep(track, 'RG_BMP1', rg_bmp1)
+        self.add_eep(track, 'RG_BMP2', rg_bmp2)
+        self.add_eep(track, 'RG_TIP', rg_tip)
+
+        return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens, [fin]))
+    
+    def add_quiesscent_he_eep(self, track, ycen1, start='RG_TIP'):
         '''
         He fusion starts after the RGB, but where? It was tempting to simply
         choose the min L on the HeB, but that could come after 1/2 the YCEN
@@ -237,11 +256,10 @@ class DefineEeps(object):
         where there is a min after the TRGB in LY, that is it dips as the
         star contracts, and then ramps up.
         '''
-        start = 'RG_TIP'
-        if track.mass >= high_mass:
-            start = 'MS_TO'
-
-        inds = inds_between_ptcris(track, start, ycen1, sandro=False)
+        if type(ycen1) != str:
+            inds = np.arange(start, ycen1)
+        else:
+            inds = inds_between_ptcris(track, start, ycen1, sandro=False)
         eep_name = 'HE_BEG'
 
         if len(inds) == 0:
@@ -406,7 +424,7 @@ class DefineEeps(object):
             #if i == 4:
             #    plt.close()
             plt.close()
-            print('wrote %s' % figname)
+            #print('wrote %s' % figname)
         return agb_ly1, agb_ly2
 
     def add_ms_eeps(self, track):
@@ -663,6 +681,7 @@ class DefineEeps(object):
         though some higher order derivs of the interpolation are sometimes used.
         '''
         # slice the array
+        # either take inds or the EEP names
         if type(eep1) != str:
             inds = np.arange(eep1, eep2)
         else:
@@ -674,10 +693,11 @@ class DefineEeps(object):
                          % (eep1, eep2, track.mass, ind_tol, len(inds)))
             return 0
 
+        # use age, so logl(age), logte(age) for parametric interpolation
+        tckp, step_size, non_dupes = self.interpolate_te_l_age(track, inds,
+                                                               parametric_interp=parametric_interp)
+        arb_arr = np.arange(0, 1, step_size)
         if parametric_interp is True:
-            # use age, so logl(age), logte(age) for parametric interpolation
-            tckp, step_size, non_dupes = self.interpolate_te_l_age(track, inds)
-            arb_arr = np.arange(0, 1, step_size)
             agenew, xnew, ynew = splev(arb_arr, tckp)
             dxnew, dynew, dagenew = splev(arb_arr, tckp, der=1)
             intp_col = ynew
@@ -687,38 +707,20 @@ class DefineEeps(object):
                 dydx = dynew / dxnew
         else:
             # interpolate logl, logte.
-            xdata = track.data['LOG_TE'][inds]
-            ydata = track.data['LOG_L'][inds]
+            xnew, ynew = splev(arb_arr, tckp)
 
-            non_dupes = self.remove_dupes(xdata, ydata, 'lixo', just_two=True)
-            xdata = xdata[non_dupes]
-            ydata = ydata[non_dupes]
-            k = 3
-            if len(non_dupes) <= k:
-                k = 1
-                print('only %i indices to fit... %s-%s' %
-                               (len(non_dupes), eep1, eep2))
-                print('new spline_level %i' % k)
-
-            tckp, u = splprep([xdata, ydata], s=0, k=k, nest=-1)
-
-            ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
-            min_step = 1e-2
-            step_size = np.max([ave_data_step, min_step])
-            xnew, ynew = splev(np.arange(0, 1, 1e-2), tckp)
-            #dxnew, dynew = splev(np.arange(0, 1, step_size), tckp, der=1)
         if col == 'LOG_L':
             intp_col = ynew
             nintp_col = xnew
         else:
             intp_col = xnew
             nintp_col = ynew
-            #dydx = dynew / dxnew
 
         # find the peaks!
         if less_linear_fit is True:
             if track.mass < 5.:
                 axnew = xnew
+                # calculate slope using polyfit
                 p = np.polyfit(nintp_col, intp_col, 1)
                 m = p[0]
                 b = p[1]
@@ -732,48 +734,41 @@ class DefineEeps(object):
             peak_dict = utils.find_peaks(intp_col)
 
         if max is True:
-            if peak_dict['maxima_number'] > 0:
-                imax = peak_dict['maxima_locations']
-                if more_than_one == 'max of max':
-                    almost_ind = imax[np.argmax(intp_col[imax])]
-                elif more_than_one == 'last':
-                    almost_ind = imax[-1]
-                elif more_than_one == 'first':
-                    almost_ind = imax[0]
-            else:
-                # no maxs found.
-                if mess_err is not None:
-                    print(mess_err)
-                return -1
+            mstr = 'max'
         else:
-            if peak_dict['minima_number'] > 0:
-                imin = peak_dict['minima_locations']
-                if more_than_one == 'min of min':
-                    if parametric_interp is True:
-                        almost_ind = np.argmax(dydx)
-                    else:
-                        almost_ind = imin[np.argmin(intp_col[imin])]
-                elif more_than_one == 'last':
-                    almost_ind = imin[-1]
-                elif more_than_one == 'first':
-                    almost_ind = imin[0]
-
-            else:
-                # no mins found
-                if mess_err is not None:
-                    print(mess_err)
-                return -1
-
+            mstr = 'min'
+            
+        if peak_dict['%sima_number' % mstr] > 0:
+            iextr = peak_dict['%sima_locations' % mstr]
+            if more_than_one == 'max of max':
+                almost_ind = iextr[np.argmax(intp_col[iextr])]
+            elif more_than_one == 'min of min':
+                if parametric_interp is True:
+                    almost_ind = np.argmax(dydx)
+                else:
+                    almost_ind = iextr[np.argmin(intp_col[iextr])]
+            elif more_than_one == 'last':
+                almost_ind = iextr[-1]
+            elif more_than_one == 'first':
+                almost_ind = iextr[0]
+        else:
+            # no maxs found.
+            if mess_err is not None:
+                print(mess_err)
+            return -1
+        
         if parametric_interp is True:
             # closest point in interpolation to data
             ind, dif = utils.closest_match2d(almost_ind,
-                                                  track.data[col][inds][non_dupes],
-                                                  np.log10(track.data.AGE[inds][non_dupes]),
-                                                  intp_col, agenew)
+                                             track.data[col][inds][non_dupes],
+                                             np.log10(track.data.AGE[inds][non_dupes]),
+                                             intp_col, agenew)
         else:
             # closest point in interpolation to data
-            ind, dif = utils.closest_match2d(almost_ind, xdata, ydata,
-                                                  xnew, ynew)
+            ind, dif = utils.closest_match2d(almost_ind,
+                                             track.data.LOG_TE[inds][non_dupes],
+                                             track.data.LOG_L[inds][non_dupes],
+                                             xnew, ynew)
 
         if ind == -1:
             # didn't find anything.
@@ -784,8 +779,7 @@ class DefineEeps(object):
             if diff_err is not None:
                 print(diff_err)
             else:
-                print('bad match %s-%s M=%.3f' % (eep1, eep2,
-                                                         track.mass))
+                print('bad match %s-%s M=%.3f' % (eep1, eep2, track.mass))
             return -1
         return inds[non_dupes][ind]
 
@@ -811,7 +805,7 @@ class DefineEeps(object):
             'Zs do not match between track and ptcri file %f != %f' % (ptcri.Z,
                                                                        track.Z)
 
-        assert np.round(ptcri.Y, 2) == track.Y, \
+        assert np.round(ptcri.Y, 2) == np.round(track.Y, 2),  \
             'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
                                                                        track.Y)
 
@@ -879,7 +873,8 @@ class DefineEeps(object):
         return tckp
 
     def interpolate_te_l_age(self, track, inds, k=3, nest=-1, s=0.,
-                             min_step=1e-4):
+                             min_step=1e-4, parametric_interp=True,
+                             linear=False):
         '''
         a caller for scipy.optimize.splprep. Will also rid the array
         of duplicate values. Returns tckp, an input to splev.
@@ -893,13 +888,78 @@ class DefineEeps(object):
             print('only %i indices to fit...' % (len(non_dupes)))
             print('new spline_level %i' % k)
 
-        tckp, u = splprep([np.log10(track.data.AGE[inds][non_dupes]),
-                           track.data.LOG_TE[inds][non_dupes],
-                           track.data.LOG_L[inds][non_dupes]],
-                           s=s, k=k, nest=nest)
+        if parametric_interp is True:
+            arr = [track.data.AGE[inds][non_dupes],
+                   track.data.LOG_TE[inds][non_dupes],
+                   track.data.LOG_L[inds][non_dupes]]
+            if linear is False:
+                arr[0] = np.log10(arr[0])
+        else:
+            arr = [track.data.LOG_TE[inds][non_dupes],
+                   track.data.LOG_L[inds][non_dupes]]
+        tckp, u = splprep(arr, s=s, k=k, nest=nest)
 
         xdata = track.data.LOG_TE[inds][non_dupes]
         ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
         step_size = np.max([ave_data_step, min_step])
 
         return tckp, step_size, non_dupes
+    
+    def strip_instablities(self, track, inds):
+        peak_dict = utils.find_peaks(track.data.LOG_L[inds])
+        extrema = np.sort(np.concatenate([peak_dict['maxima_locations'],
+                                          peak_dict['minima_locations']]))
+        # divide into jumps that are at least 50 models apart
+        jumps, = np.nonzero(np.diff(extrema) > 50)
+        if len(jumps) == 0:
+            print('no istabilities found')
+            return track
+        if not hasattr(track, 'data_orig'):
+            track.data_orig = copy.copy(track.data)
+        # add the final point
+        jumps = np.append(jumps, len(extrema) - 1)
+        # instability is defined by having more than 20 extrema
+        jumps = jumps[np.diff(np.append(jumps, extrema[-1])) > 20]
+        # np.diff is off by one in the way I am about to use it
+        # burn back some model points to blend better with the old curve...
+        starts = jumps[:-1] + 1
+        ends = jumps[1:]
+        # the inds to smooth.
+        for i in range(len(jumps)-1):
+            moffset = (inds[extrema[ends[i]]] - inds[extrema[starts[i]]]) / 10
+            poffset = moffset
+            if i == len(jumps)-2:
+                poffset = 0
+            finds = np.arange(inds[extrema[starts[i]]] - moffset,
+                              inds[extrema[ends[i]]] + poffset)
+            tckp, step_size, non_dupes = self.interpolate_te_l_age(track, finds, s=0.2,
+                                                                   linear=True)
+            arb_arr = np.arange(0, 1, step_size)
+            if len(arb_arr) > len(finds):
+                arb_arr = np.linspace(0, 1, len(finds))
+            else:
+                print(len(finds), len(xnew))
+            agenew, xnew, ynew = splev(arb_arr, tckp)
+            #ax.plot(xnew, ynew)
+            track.data['LOG_L'][finds] = ynew
+            track.data['LOG_TE'][finds] = xnew
+            track.data['AGE'][finds] = agenew
+            print('LOG_L, LOG_TE, AGE interpolated from inds %i:%i' %
+                  (finds[0], finds[-1]))
+            track.header.append('LOG_L, LOG_TE, AGE interpolated from MODE %i:%i \n' % (track.data.MODE[finds][0], track.data.MODE[finds][-1]))
+            
+            self.check_strip_instablities(track)
+        return track
+
+    def check_strip_instablities(self, track):
+        fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10))
+        for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):
+            for data, alpha in zip([track.data_orig, track.data], [0.3, 1]):
+                ax.plot(data[xcol], data.LOG_L, color='k', alpha=alpha)
+                ax.plot(data[xcol], data.LOG_L, ',', color='k')
+
+            ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '), fontsize=20)
+            ax.set_ylabel('$LOG\! L$', fontsize=20)
+        plt.show()
+        
+
