@@ -5,44 +5,13 @@ from ResolvedStellarPops import utils
 import os
 import matplotlib.pylab as plt
 from scipy.interpolate import splev, splprep
-from critical_point import critical_point, inds_between_ptcris
+from critical_point import critical_point
 import copy
 #from ..mass_config import low_mass
 # from low mass and below XCEN = 0.3 for MS_TMIN
 low_mass = 1.25
 # from high mass and above find MS_BEG in this code
 high_mass = 20.
-
-class eep(object):
-    '''
-    a simple class to hold eep data. Gets added as an attribute to
-    critical_point class.
-    '''
-    def __init__(self, eep_list=None, eep_lengths=None, eep_list_hb=None,
-                 eep_lengths_hb=None):
-        if eep_list is None:
-            eep_list =  ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
-                         'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
-                         'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
-                         'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
-                         'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                         'YCEN_0.000', 'TPAGB']
-        if eep_lengths is None:
-            eep_lengths = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
-                           10, 150, 100, 80, 100, 80, 80, 80, 100]
-        if eep_list_hb is None:
-            eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
-                           'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
-                           'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
-                           'AGB_LY2']
-        if eep_lengths_hb is None:
-            eep_lengths_hb = [150, 100, 80, 100, 80, 80, 80, 100, 100]
-
-        self.eep_list = eep_list
-        self.nticks = eep_lengths
-        self.eep_list_hb = eep_list_hb
-        self.nticks_hb = eep_lengths_hb
-
 
 class DefineEeps(object):
     '''
@@ -94,7 +63,7 @@ class DefineEeps(object):
     x The maximum luminosity before the first Thermal Pulse
     x The AGB termination
     '''
-    def __init__(self):
+    def __init__(self, input_obj=None):
         pass
 
     def define_eep_stages(self, track, hb=False, plot_dir=None,
@@ -114,7 +83,7 @@ class DefineEeps(object):
         
         # if this is high mass or if Sandro's MS_BEG is wrong:
         if track.mass >= high_mass or track.data.XCEN[track.sptcri[4]] < .6:
-            print('M=%.4f is high mass' % track.mass)
+            #print('M=%.4f is high mass' % track.mass)
             return self.add_high_mass_eeps(track)
             
         self.add_ms_eeps(track)
@@ -183,7 +152,7 @@ class DefineEeps(object):
     def add_high_mass_eeps(self, track):
         pf_kw = {'max': False, 'sandro': True,
                  'more_than_one': 'min of min',
-                 'parametric_interp': False}
+                 'parametric_interp': True}
 
         ms_beg = self.peak_finder(track, 'LOG_L', 'PMS_END', 'POINT_B',
                                   **pf_kw)
@@ -259,7 +228,7 @@ class DefineEeps(object):
         if type(ycen1) != str:
             inds = np.arange(start, ycen1)
         else:
-            inds = inds_between_ptcris(track, start, ycen1, sandro=False)
+            inds = self.ptcri.inds_between_ptcris(track, start, ycen1, sandro=False)
         eep_name = 'HE_BEG'
 
         if len(inds) == 0:
@@ -476,7 +445,7 @@ class DefineEeps(object):
             xdata = track.data.LOG_L
             return np.abs(np.diff((xdata[ms_to], xdata[ms_tmin])))
 
-        inds = inds_between_ptcris(track, 'MS_BEG', 'POINT_C', sandro=True)
+        inds = self.ptcri.inds_between_ptcris(track, 'MS_BEG', 'POINT_C', sandro=True)
 
         if len(inds) == 0:
             ms_tmin = 0
@@ -503,7 +472,7 @@ class DefineEeps(object):
         if ms_tmin == 0:
             ms_to = 0
         else:
-            inds = inds_between_ptcris(track, 'MS_TMIN', 'RG_BMP1',
+            inds = self.ptcri.inds_between_ptcris(track, 'MS_TMIN', 'RG_BMP1',
                                        sandro=False)
             if len(inds) == 0:
                 # No RGB_BMP1?
@@ -628,7 +597,7 @@ class DefineEeps(object):
                   if t > 0 and t < len(track.data.LOG_L)]
         iorigs = [np.nonzero(track.data.MODE == m)[0][0] for m in morigs]
         try:
-            inds = inds_between_ptcris(track, 'MS_BEG', 'POINT_B',
+            inds = self.ptcri.inds_between_ptcris(track, 'MS_BEG', 'POINT_B',
                                                   sandro=True)
         except IndexError:
             inds, = np.nonzero(age > 0.2)
@@ -685,7 +654,7 @@ class DefineEeps(object):
         if type(eep1) != str:
             inds = np.arange(eep1, eep2)
         else:
-            inds = inds_between_ptcris(track, eep1, eep2, sandro=sandro)
+            inds = self.ptcri.inds_between_ptcris(track, eep1, eep2, sandro=sandro)
 
         if len(inds) < ind_tol:
             # sometimes there are not enough inds to interpolate
@@ -694,8 +663,8 @@ class DefineEeps(object):
             return 0
 
         # use age, so logl(age), logte(age) for parametric interpolation
-        tckp, step_size, non_dupes = self.interpolate_te_l_age(track, inds,
-                                                               parametric_interp=parametric_interp)
+        tckp, step_size, non_dupes = self._interpolate(track, inds,
+                                                       parametric=parametric_interp)
         arb_arr = np.arange(0, 1, step_size)
         if parametric_interp is True:
             agenew, xnew, ynew = splev(arb_arr, tckp)
@@ -783,8 +752,7 @@ class DefineEeps(object):
             return -1
         return inds[non_dupes][ind]
 
-    def load_critical_points(self, track, filename=None, ptcri=None,
-                             eep_obj=None, hb=False, plot_dir=None,
+    def load_critical_points(self, track, ptcri, hb=False, plot_dir=None,
                              diag_plot=True, debug=False):
         '''
         calls define_eep_stages
@@ -794,12 +762,13 @@ class DefineEeps(object):
         there is a major confusion here... ptcri is a super class or should be
         track specific? right now it's being copied everywhere. stupido.
         '''
-        assert filename is not None or ptcri is not None, \
+        assert ptcri is not None, \
             'Must supply either a ptcri file or object'
 
-        if ptcri is None:
-            ptcri = critical_point(filename, eep_obj=eep_obj)
+        if type(ptcri) is str:
+            ptcri = critical_point(ptcri)
         self.ptcri = ptcri
+        eep_obj = self.ptcri.eep
 
         assert ptcri.Z == track.Z, \
             'Zs do not match between track and ptcri file %f != %f' % (ptcri.Z,
@@ -808,10 +777,6 @@ class DefineEeps(object):
         assert np.round(ptcri.Y, 2) == np.round(track.Y, 2),  \
             'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
                                                                        track.Y)
-
-        if hasattr(self.ptcri, 'eep'):
-            # already loaded eep
-            eep_obj = self.ptcri.eep
 
         if hb is True and len(ptcri.please_define_hb) > 0:
             # Initialize iptcri for HB
@@ -830,11 +795,11 @@ class DefineEeps(object):
                 track.iptcri = np.zeros(len(eep_obj.eep_list), dtype=int)
 
                 # Get the values that we won't be replacing.
-                pinds = np.array([i for i, a in enumerate(self.ptcri.eep.eep_list)
+                pinds = np.array([i for i, a in enumerate(eep_obj.eep_list)
                                   if a in self.ptcri.sandro_eeps])
 
                 sinds = np.array([i for i, a in enumerate(self.ptcri.sandro_eeps)
-                                  if a in self.ptcri.eep.eep_list])
+                                  if a in eep_obj.eep_list])
                 track.iptcri[pinds] = mptcri[sinds] - 2
 
                 # but if the track did not actually make it to that EEP, no -2!
@@ -853,59 +818,45 @@ class DefineEeps(object):
                 track.iptcri = ptcri.data_dict['M%.3f' % track.mass]
         return track
 
-    def interpolate_vs_age(self, track, col, inds, k=3, nest=-1, s=0.):
-        '''
-        a caller for scipy.optimize.splprep. Will also rid the array
-        of duplicate values. Returns tckp, an input to splev.
-        '''
-        non_dupes = self.remove_dupes(track.data[col][inds],
-                                      track.data.AGE[inds], 'lixo',
-                                      just_two=True)
-
-        if len(non_dupes) <= k:
-            k = len(non_dupes) - 1
-            print('only %i indices to fit... %s-%s' % (len(non_dupes)))
-            print('new spline_level %i' % k)
-
-        tckp, u = splprep([track.data[col][inds][non_dupes],
-                           np.log10(track.data.AGE[inds][non_dupes])],
-                          s=s, k=k, nest=nest)
-        return tckp
-
-    def interpolate_te_l_age(self, track, inds, k=3, nest=-1, s=0.,
-                             min_step=1e-4, parametric_interp=True,
+    def _interpolate(self, track, inds, k=3, nest=-1, s=0.,
+                             min_step=1e-4, parametric=True,
                              linear=False):
         '''
         a caller for scipy.optimize.splprep. Will also rid the array
         of duplicate values. Returns tckp, an input to splev.
+        if parametric_interp is True use AGE with LOG_TE and LOG_L
+           if linear is also False use log10 Age
+        
+        note the dimensionality of tckp will change if using parametric_interp
         '''
         non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
                                       track.data.LOG_L[inds],
                                       track.data.AGE[inds])
-
+        
         if len(non_dupes) <= k:
             k = 1
             print('only %i indices to fit...' % (len(non_dupes)))
             print('new spline_level %i' % k)
-
-        if parametric_interp is True:
-            arr = [track.data.AGE[inds][non_dupes],
-                   track.data.LOG_TE[inds][non_dupes],
-                   track.data.LOG_L[inds][non_dupes]]
+        
+        xdata = track.data.LOG_TE[inds][non_dupes]
+        ydata = track.data.LOG_L[inds][non_dupes]
+        
+        if parametric is True:
+            arr = [track.data.AGE[inds][non_dupes], xdata, ydata]
             if linear is False:
                 arr[0] = np.log10(arr[0])
         else:
-            arr = [track.data.LOG_TE[inds][non_dupes],
-                   track.data.LOG_L[inds][non_dupes]]
+            arr = [xdata, ydata]
+        
         tckp, u = splprep(arr, s=s, k=k, nest=nest)
 
-        xdata = track.data.LOG_TE[inds][non_dupes]
         ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
         step_size = np.max([ave_data_step, min_step])
 
         return tckp, step_size, non_dupes
     
     def strip_instablities(self, track, inds):
+        return track
         peak_dict = utils.find_peaks(track.data.LOG_L[inds])
         extrema = np.sort(np.concatenate([peak_dict['maxima_locations'],
                                           peak_dict['minima_locations']]))
@@ -932,7 +883,7 @@ class DefineEeps(object):
                 poffset = 0
             finds = np.arange(inds[extrema[starts[i]]] - moffset,
                               inds[extrema[ends[i]]] + poffset)
-            tckp, step_size, non_dupes = self.interpolate_te_l_age(track, finds, s=0.2,
+            tckp, step_size, non_dupes = self._interpolate(track, finds, s=0.2,
                                                                    linear=True)
             arb_arr = np.arange(0, 1, step_size)
             if len(arb_arr) > len(finds):

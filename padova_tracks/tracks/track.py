@@ -5,30 +5,28 @@ from __future__ import print_function
 import os
 import numpy as np
 
-
-
 class Track(object):
     '''
     Padova stellar evolution track object.
     '''
-    def __init__(self, filename, ptcri=None):
+    def __init__(self, filename):
         '''
         filename is the PMS or PMS.HB file
-        ptcri is optional but necessary if making tracks for MATCH.
         '''
+        #print(filename)
         (self.base, self.name) = os.path.split(filename)
         self.load_track(filename)
         self.filename_info()
         self.mass = self.data.MASS[0]
+        self.flag = None
         fmass = float(self.name.split('_M')[1].split('.PMS')[0])
         if self.mass >= 12:
             # for high mass tracks, the mass starts much larger than it is
             # for (age<0.2). The mass only correct at the beginning of the MS.
-            # Rather than forcing a ptcri load, we read the mass from the title.
             self.mass = fmass
         elif self.mass != fmass:
             print('filename has M=%.4f track has M=%.4f' % (fmass, self.mass))
-        self.ptcri = ptcri
+            self.flag = 'inconsistent mass'
         test = np.diff(self.data.AGE) >= 0
         if False in test:
             print('Track has age decreasing!!', self.mass)
@@ -95,8 +93,9 @@ class Track(object):
         col_keys = lines[begin_track + 1].replace('#', '').strip().split()
         begin_track_skip = 2
         skip_footer = len([i for i, l in enumerate(lines)
-                           if 'Comp Time' in l or 'AGE EXCEEDS' in l
-                           or 'carbon burning' in l or 'REACHED' in l])
+                           if 'Comp Time' in l or 'EXCEED' in l
+                           or 'carbon burning' in l or 'REACHED' in l
+                           or 'STOP' in l])
         # Hack to read tracks that have been "colored"
         if 'information' in lines[begin_track + 2]:
             col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])

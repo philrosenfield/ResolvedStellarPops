@@ -1,28 +1,29 @@
+from __future__ import print_function
 from ..fileio import fileIO
 import numpy as np
 import matplotlib.pylab as plt
 from ..graphics.GraphicsUtils import discrete_colors
 import os
 from eep import DefineEeps
-from eep import eep
+from eep import critical_point
 from tracks import TrackSet
 from scipy.interpolate import splev
 from tracks import TrackDiag
 
 max_mass = 120.
 
-class MatchTracks(eep):
+class MatchTracks(critical_point.Eep):
     '''
     a simple check of the output from TracksForMatch. I want it to run on the
     same input file as TracksForMatch.
     '''
     def __init__(self, inputs):
-        eep.__init__(self)
+        critical_point.Eep.__init__(self)
         self.tracks_base = inputs.outfile_dir
         self.prefix = inputs.prefix
         # hard coding where the match files are kept tracks_base/match/
         all_track_names = fileIO.get_files(self.tracks_base,
-                                           inputs.track_search_term.replace('PMS', ''))
+                                    inputs.track_search_term.replace('PMS', ''))
 
         self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
         self.track_names = [t for t in all_track_names
@@ -31,6 +32,10 @@ class MatchTracks(eep):
         self.load_tracks()
 
     def load_tracks(self):
+        '''
+        these are just np.recarrays not a track.Track instance.
+        see _load_track
+        '''
         tracks = [self._load_track(t) for t in self.track_names]
         self.tracks = [t for t in tracks if t.MASS[0] <= max_mass]
         self.hbtracks = [self._load_track(t) for t in self.hbtrack_names]
@@ -42,34 +47,33 @@ class MatchTracks(eep):
                 bads, = np.nonzero(np.diff(t['logAge']) < 0)
                 bads1, = np.nonzero(np.diff(t['logAge']) == 0)
                 if len(bads) != 0:
-                    print 'Age not monotonicly increasing!'
-                    print 'Track Name, in phase or before), Lage of bad inds'
-                    #print self.track_names[i], bads, t['logAge'][bads]
-                    bad_inds = np.unique([np.nonzero(j - np.cumsum(self.eep_lengths) < 0)[0][0]
+                    print('Age not monotonicly increasing!')
+                    print('Track Name, in phase or before, lage of bad inds')
+                    #print(self.track_names[i], bads, t['logAge'][bads])
+                    bad_inds = np.unique([np.nonzero(j - np.cumsum(self.nticks) < 0)[0][0]
                                           for j in bads])
-                    print self.track_names[i], self.eep_list[bad_inds], t['logAge'][bads]
+                    print(self.track_names[i], self.eep_list[bad_inds],
+                          t['logAge'][bads])
 
                 if len(bads1) != 0:
-                    print '%i identical age values in %s' % (len(bads1),
-                                                             self.track_names[i])
-                    bad_inds = np.unique([np.nonzero(j - np.cumsum(self.eep_lengths) < 0)[0][0]
+                    print('%i identical age values in %s' % (len(bads1),
+                                                             self.track_names[i]))
+                    bad_inds = np.unique([np.nonzero(j - np.cumsum(self.nticks) < 0)[0][0]
                                           for j in bads1])
-                    print 'check out %s and the one before.' % self.eep_list[bad_inds]
-            else:
-                print 'no issues found.'
+                    print('check out', np.array(self.eep_list)[bad_inds], 'and the one before.')
 
     def diag_plots(self, pat_kw=None, xcols=['LOG_TE', 'logAge'],
                    mass_split=[3, 12, 50],
                    extras = ['low', 'inte', 'high', 'very_high']):
         '''
-        pat_kw go to plot all tracks default is
+        pat_kw go to plot all tracks default:
             'eep_list': self.eep_list,
             'eep_lengths': self.nticks,
             'plot_dir': self.tracks_base
         xcols are the xcolumns to make individual plots
-        mass_split is a list to split masses length must be 3 (lazy)
-        extras is the filename extra associated with each mass split length
-        mass_split + 1
+        mass_split is a list to split masses length == 3 (I'm lazy)
+        extras is the filename extra associated with each mass split
+           length == mass_split + 1
         '''
         pat_kw = pat_kw or {}
         default = {'eep_list': self.eep_list,
@@ -77,7 +81,7 @@ class MatchTracks(eep):
                    'plot_dir': self.tracks_base}
 
         pat_kw = dict(default.items() + pat_kw.items())
-        # could be done a lot better:
+        # could be done a lot better and faster:
         tracks_split = [[t for t in self.tracks if t.MASS[0] <= mass_split[0]],
                         [t for t in self.tracks if t.MASS[0] >= mass_split[0]
                          and t.MASS[0] <= mass_split[1]],
@@ -86,6 +90,8 @@ class MatchTracks(eep):
                         [t for t in self.tracks if t.MASS[0] >= mass_split[2]]]
 
         for i, tracks in enumerate(tracks_split):
+            if len(tracks) == 0:
+                continue
             pat_kw['extra'] = '_' + extras[i]
             for xcol in xcols:
                 pat_kw['xcol'] = xcol
@@ -184,14 +190,18 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     def match_interpolation(self, inputs):
         if inputs.hb_only is False:
             for track in self.tracks:
+                if track.flag == 'inconsistent mass':
+                    continue
                 # do the work! Assign eeps either from sandro, or eep_list and
                 # make some diagnostic plots.
+                self.ptcri = critical_point.critical_point(inputs.ptcri_file)
                 track = self.load_critical_points(track, ptcri=self.ptcri,
                                                   plot_dir=inputs.plot_dir,
                                                   diag_plot=inputs.diag_plot,
                                                   debug=inputs.debug)
                 if len(np.nonzero(track.iptcri>0)[0]) < 3:
-                    print 'skipping track because there is no ms_beg.', track.base, track.name
+                    print('skipping track because there is no ms_beg.',
+                          track.base, track.name)
                     continue
                 # make match output files.
                 self.prepare_track(track, outfile_dir=inputs.outfile_dir)
@@ -214,7 +224,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         # do the same as above but for HB.
         if inputs.hb is True:
-            #self.hbtracks = []
             self.hbtrack_names = fileIO.get_files(self.tracks_base,
                                                   inputs.hbtrack_search_term)
             for track in self.hbtracks:
@@ -222,9 +231,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                                   hb=inputs.hb,
                                                   plot_dir=inputs.plot_dir,
                                                   debug=inputs.debug)
-                #self.hbtracks.append(track)
                 self.prepare_track(track, outfile_dir=inputs.outfile_dir,
-                                   hb=inputs.hb)
+                                   hb=inputs.hb, diag_plot=inputs.diag_plot)
                 if inputs.diag_plot is True:
                     self.check_ptcris(track, hb=inputs.hb,
                                       plot_dir=inputs.plot_dir)
@@ -232,14 +240,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L',
                                      hb=inputs.hb, reverse_x=True,
                                      plot_dir=inputs.plot_dir, sandro=False)
-        try:
-            fh.close()
-            ch.close()
-        except:
-            pass
 
     def prepare_track(self, track, outfile='default', hb=False,
-                      outfile_dir=None):
+                      outfile_dir=None, diag_plot=False):
         if outfile == 'default':
             if outfile_dir is None or outfile_dir is 'default':
                 outfile_dir = track.base
@@ -261,12 +264,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         logTe = np.array([])
         logL = np.array([])
         Age = np.array([])
-        new_eep_dict = {}
         tot_pts = 0
         ptcri_kw = {'sandro': False, 'hb': hb}
         for i in range(len(np.nonzero(track.iptcri >= 0)[0]) - 1):
-            this_eep = track.ptcri.get_ptcri_name(i, **ptcri_kw)
-            next_eep = track.ptcri.get_ptcri_name(i+1, **ptcri_kw)
+            this_eep = self.ptcri.get_ptcri_name(i, **ptcri_kw)
+            next_eep = self.ptcri.get_ptcri_name(i+1, **ptcri_kw)
             ithis_eep = track.iptcri[i]
             inext_eep = track.iptcri[i+1]
             mess = '%.3f %s=%i %s=%i' % (track.mass,
@@ -276,57 +278,68 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             if i != 0 and track.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
                 # this is not an error, just the end of the track.
-                #logger.error(mess)
-                #logger.error('skipping %s-%s\ncause the second eep is zippo.'
-                #               % (this_eep, next_eep))
                 continue
 
             if ithis_eep == -1:
-                print mess
+                print(mess)
                 continue
-
+            tot_pts += nticks[i]
             inds = np.arange(ithis_eep, inext_eep + 1)
 
-            if len(inds) == 0:
+            if len(inds) <= 1:
                 print(mess)
-                print(
-                    'skipping %s-%s cause there are no inds between these crit pts.'
-                    % (this_eep, next_eep))
+                print('skipping %s-%s: there are %i inds between these crit pts.'
+                    % (this_eep, next_eep, len(inds)))
+                print(track.base, track.name)
                 continue
+            agenew, lnew, tenew = self.interpolate_along_track(track, inds,
+                                                          nticks[i], mess=mess,
+                                                          diag_plot=diag_plot)
+            logTe = np.append(logTe, tenew)
+            logL = np.append(logL, lnew)
+            Age = np.append(Age, agenew)
 
-            if len(inds) == 1:
-                # include the last ind.
-                #inds = np.arange(ithis_eep, inext_eep + 1)
-                print mess
-                print 'skipping %s-%s cause there are 1 ind between these crit pts.' \
-                      % (this_eep, next_eep)
-                print track.base, track.name
-                continue
+        if diag_plot is True:
+            plt.show()
 
-            tckp, _, _ = self.interpolate_te_l_age(track, inds)
-            agenew, tenew, lnew = splev(np.linspace(0, 1, nticks[i] + 1), tckp)
-            test = np.diff(agenew) > 0
-            bads, = np.nonzero(test==False)
-            if False in test:
-                tckp, _, _ = self.interpolate_te_l_age(track, inds, k=1)
-            agenew, tenew, lnew = splev(np.linspace(0, 1, nticks[i] + 1), tckp)
-            test = np.diff(agenew) > 0
-            bads, = np.nonzero(test==False)
-            new_eep_dict[this_eep] = tot_pts
-            tot_pts += nticks[i]
-            logTe = np.append(logTe, tenew[:-1])
-            logL = np.append(logL, lnew[:-1])
-            Age = np.append(Age, 10 ** agenew[:-1])
+        Mbol = 4.77 - 2.5 * logL
+        logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
+        logAge = np.log10(Age)
+        # CO place holder!
+        CO = np.zeros(len(logL))
+        mass_arr = np.repeat(track.mass, len(logL))
+        to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
 
-            if False in test:
-                print track.base, track.name
-                print 'AGE NOT MONOTONICALLY INCREASING', track.mass
-                print '%f: %f' % (10**agenew[bads[0]], 10**agenew[bads[-1]])
-
-                print mess
+        with open(outfile, 'w') as f:
+            f.write(header)
+            np.savetxt(f, to_write, fmt='%.8f')
+        #print('wrote %s' % outfile)
+        self.match_data = to_write
+    
+    def interpolate_along_track(self, track, inds, nticks, diag_plot=False,
+                                mess=None):
+        '''
+        interpolate along the track, check for age increasing.
+        '''
+        tckp = self._interpolate(track, inds)[0]
+        agenew, tenew, lnew = splev(np.linspace(0, 1, nticks + 1), tckp)
+        test = np.diff(agenew) > 0
+        bads, = np.nonzero(test==False)
+        # try again with lower spline level
+        if False in test:
+            tckp = self._interpolate(track, inds, k=1)[0]
+        agenew, tenew, lnew = splev(np.linspace(0, 1, nticks + 1), tckp)
+        test = np.diff(agenew) > 0
+        bads, = np.nonzero(test==False)
+        
+        if False in test:
+            print(track.base, track.name)
+            print('AGE NOT MONOTONICALLY INCREASING', track.mass)
+            print('%f: %f' % (10**agenew[bads[0]], 10**agenew[bads[-1]]))
+            print(mess)
+            if diag_plot is True:
                 fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10))
                 for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):
-
                     ax.scatter(track.data[xcol][track.iptcri],
                                track.data.LOG_L[track.iptcri],
                                s=60, c='k', label='crit pts')
@@ -344,10 +357,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                 color='k', alpha=0.3, label='original track')
                         ax.plot(track.data_orig[xcol], track.data_orig.LOG_L,
                                 ',', color='k', alpha=0.3)
-
+    
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
-                    ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '), fontsize=20)
+                    ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '),
+                                  fontsize=20)
                     ax.set_ylabel('$LOG\! L$', fontsize=20)
                 for ax, xcol in zip(axs, [10 ** agenew, tenew]):
                     ax.plot(xcol, lnew, lw=2, alpha=0.4, color='r')
@@ -359,24 +373,5 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 plt.legend(loc=0)
                 plt.savefig(os.path.join(os.getcwd(), track.name + '_bad.png'))
                 #plt.close('all')
-        plt.show()
-        #  This was to make Leo's isochrones files... incomplete...
-        #print new_eep_dict
-        #track.write_trilegal_isotrack_ptcri(Age, logL, logTe, new_eep_dict)
-        #line = ' '.join(map(str, np.sort(new_eep_dict.values())))
-        #line += '\t !M=%.6f' % track.mass
-        #print line
 
-        Mbol = 4.77 - 2.5 * logL
-        logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
-        logAge = np.log10(Age)
-        # CO place holder!
-        CO = np.zeros(len(logL))
-        mass_arr = np.repeat(track.mass, len(logL))
-        to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
-
-        with open(outfile, 'w') as f:
-            f.write(header)
-            np.savetxt(f, to_write, fmt='%.8f')
-        #print('wrote %s' % outfile)
-        self.match_data = to_write
+        return 10 ** agenew[:-1], lnew[:-1], tenew[:-1]

@@ -12,7 +12,6 @@ from ResolvedStellarPops.fileio import fileIO
 from .track import Track
 from .track_diag import TrackDiag
 from ..eep.critical_point import critical_point
-from ..eep import eep
 
 max_mass = 120.
 td = TrackDiag()
@@ -25,10 +24,6 @@ class TrackSet(object):
         if inputs is None:
             self.prefix = ''
             return
-        if inputs.ptcrifile_loc is not None or inputs.ptcri_file is not None:
-            self.load_ptcri_eep(inputs)
-        else:
-            self.ptcri = None
 
         self.tracks_base = os.path.join(inputs.tracks_dir, inputs.prefix)
         if inputs.hb_only is False:
@@ -36,39 +31,7 @@ class TrackSet(object):
                              masses=inputs.masses)
         if inputs.hb is True:
             self.load_tracks(track_search_term=inputs.hbtrack_search_term,
-                             hb=inputs.hb,
-                             masses=inputs.masses)
-
-    def load_ptcri_eep(self, inputs):
-        '''
-        load the ptcri and eeps, simple call to the objects.
-        way isn't this in eep?
-        '''
-        self.ptcri = None
-        self.eep = None
-        if hasattr(inputs, 'ptcri_file'):
-            self.ptcri_file = inputs.ptcri_file
-        else:
-            self.prefix = inputs.prefix
-            if inputs.from_p2m is True:
-                # this is the equivalent of Sandro's ptcri files, but mine.
-                search_term = 'p2m*%s*dat' % self.prefix
-                self.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc,
-                                                    search_term)
-                print('reading ptcri from saved p2m file.')
-            else:
-                search_term = 'pt*%s*dat' % self.prefix
-                self.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc,
-                                                    search_term)
-        eep_kw = {}
-        if hasattr(inputs, 'eep_list'):
-            eep_kw = {'eep_list': inputs.eep_list,
-                      'eep_lengths': inputs.eep_lengths,
-                      'eep_list_hb': inputs.eep_list_hb,
-                      'eep_lengths_hb': inputs.eep_lengths_hb}
-        self.eep = eep(**eep_kw)
-
-        self.ptcri = critical_point(self.ptcri_file, eep_obj=self.eep)
+                             hb=inputs.hb, masses=inputs.masses)
 
     def load_tracks(self, track_search_term='*F7_*PMS', hb=False, masses=None):
         '''
@@ -111,44 +74,13 @@ class TrackSet(object):
             mass_str = 'hb%s' % mass_str
         self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
-        self.__setattr__('%ss' % track_str, [Track(track, ptcri=self.ptcri)
+        self.__setattr__('%ss' % track_str, [Track(track)
                                              for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
                          np.round([t.mass for t in
                                    self.__getattribute__('%ss' % track_str)], 3))
 
-    def save_ptcri(self, filename=None, hb=False):
-        #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
-        if hb is True:
-            tracks = self.hbtracks
-        else:
-            tracks = self.tracks
-
-        if filename is None:
-            base, name = os.path.split(self.ptcri_file)
-            filename = os.path.join(base, 'p2m_%s' % name)
-            if hb is True:
-                filename = filename.replace('p2m', 'p2m_hb')
-
-        sorted_keys, inds = zip(*sorted(self.ptcri.key_dict.items(),
-                                        key=lambda (k, v): (v, k)))
-
-        header = '# critical points in F7 files defined by sandro, basti, and phil \n'
-        header += '# i mass lixo %s fname \n' % (' '.join(sorted_keys))
-        with open(filename, 'w') as f:
-            f.write(header)
-            linefmt = '%2i %.3f 0.0 %s %s \n'
-            for i, track in enumerate(tracks):
-                self.ptcri.please_define = []
-                # this line should just slow everything down, why is it here?
-                self.load_critical_points(track, eep_obj=self.eep, hb=hb,
-                                          ptcri=self.ptcri, diag_plot=False)
-                ptcri_str = ' '.join(['%5d' % p for p in track.iptcri])
-                f.write(linefmt % (i+1, track.mass, ptcri_str,
-                                   os.path.join(track.base, track.name)))
-
-        print('wrote %s' % filename)
 
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
@@ -304,61 +236,18 @@ class TrackSet(object):
             #plt.close()
         return
 
-    def squish(self, *attrs, **kwargs):
-        '''
-        bad coder: I took this from Galaxies.galaxy. Some day I can make
-        it all great, but first I need to have the same data fmts for all these
-        things...
-
-        concatenates an attribute or many attributes and adds them to galaxies
-        instance -- with an 's' at the end to pluralize them... that might
-        be stupid.
-        ex
-        for gal in gals:
-            gal.ra = gal.data['ra']
-            gal.dec = gal.data['dec']
-        gs =  Galaxies.galaxies(gals)
-        gs.squish('color', 'mag2', 'ra', 'dec')
-        gs.ras ...
-
-        kwargs: inds choose which tracks to include (all by default)
-        new_attrs: if you don't like the attributes set.
-        '''
-        inds = kwargs.get('inds', np.arange(len(self.tracks)))
-        new_attrs = kwargs.get('new_attrs', None)
-
-        if new_attrs is not None:
-            assert len(new_attrs) == len(attrs), \
-                'new attribute titles must be list same length as given attributes.'
-
-        for i, attr in enumerate(attrs):
-            # do we have a name for the new attribute?
-            if new_attrs is not None:
-                new_attr = new_attrs[i]
-            else:
-                new_attr = '%ss' % attr
-
-            new_list = [self.tracks[j].data[attr] for j in inds]
-            # is attr an array of arrays, or is it now an array?
-            try:
-                new_val = np.concatenate(new_list)
-            except ValueError:
-                new_val = np.array(new_list)
-
-            self.__setattr__(new_attr, new_val)
-
-    def all_inds_of_eep(self, eep_name):
+    def all_inds_of_eep(self, ptcri, eep_name):
         '''
         get all the ind for all tracks of some eep name, for example
         want ms_to of the track set? set eep_name = point_c if sandro==True.
         '''
         inds = []
         for track in self.tracks:
-            check = track.ptcri.load_sandro_eeps(track)
+            check = ptcri.load_sandro_eeps(track)
             if check == -1:
                 inds.append(-1)
                 continue
-            eep_ind = track.ptcri.get_ptcri_name(eep_name)
+            eep_ind = ptcri.get_ptcri_name(eep_name)
             if len(track.sptcri) <= eep_ind:
                 inds.append(-1)
                 continue

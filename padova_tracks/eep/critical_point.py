@@ -1,31 +1,35 @@
 import os
 import numpy as np
 
-
-def inds_between_ptcris(track, name1, name2, sandro=True):
+class Eep(object):
     '''
-    returns the indices from [name1, name2)
-    this is iptcri, not mptcri
-    they will be the same inds that can be used in Track.data
+    a simple class to hold eep data. Gets added as an attribute to
+    critical_point class.
     '''
-    if sandro is True:
-        # this must be added in Tracks.load_critical_points!
-        inds = track.sptcri
-    else:
-        inds = track.iptcri
+    def __init__(self, eep_list=None, eep_lengths=None, eep_list_hb=None,
+                 eep_lengths_hb=None):
+        if eep_list is None:
+            eep_list =  ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
+                         'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
+                         'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
+                         'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
+                         'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
+                         'YCEN_0.000', 'TPAGB']
+        if eep_lengths is None:
+            eep_lengths = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
+                           10, 150, 100, 80, 100, 80, 80, 80, 100]
+        if eep_list_hb is None:
+            eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
+                           'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
+                           'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
+                           'AGB_LY2']
+        if eep_lengths_hb is None:
+            eep_lengths_hb = [150, 100, 80, 100, 80, 80, 80, 100, 100]
 
-    try:
-        first = inds[track.ptcri.get_ptcri_name(name1, sandro=sandro)]
-    except IndexError:
-        first = 0
-
-    try:
-        second = inds[track.ptcri.get_ptcri_name(name2, sandro=sandro)]
-    except IndexError:
-        second = 0
-
-    inds = np.arange(first, second)
-    return inds
+        self.eep_list = eep_list
+        self.nticks = eep_lengths
+        self.eep_list_hb = eep_list_hb
+        self.nticks_hb = eep_lengths_hb
 
 
 class critical_point(object):
@@ -34,8 +38,8 @@ class critical_point(object):
     which tells which critical points of Sandro's to ignore and which new
     ones to define. Definitions of new eeps are in the Track class.
     '''
-    def __init__(self, filename, eep_obj=None):
-        self.load_ptcri(filename, eep_obj=eep_obj)
+    def __init__(self, filename):
+        self.load_ptcri(filename)
         self.base, self.name = os.path.split(filename)
         self.get_args_from_name(filename)
 
@@ -49,6 +53,31 @@ class critical_point(object):
         if ystr.endswith('.'):
             ystr = ystr[:-1]
         self.Y = float(ystr)
+
+    def inds_between_ptcris(self, track, name1, name2, sandro=True):
+        '''
+        returns the indices from [name1, name2)
+        this is iptcri, not mptcri
+        they will be the same inds that can be used in Track.data
+        '''
+        if sandro is True:
+            # this must be added in Tracks.load_critical_points!
+            inds = track.sptcri
+        else:
+            inds = track.iptcri
+    
+        try:
+            first = inds[self.get_ptcri_name(name1, sandro=sandro)]
+        except IndexError:
+            first = 0
+    
+        try:
+            second = inds[self.get_ptcri_name(name2, sandro=sandro)]
+        except IndexError:
+            second = 0
+    
+        inds = np.arange(first, second)
+        return inds
 
     def get_ptcri_name(self, val, sandro=True, hb=False):
         if sandro is True:
@@ -65,7 +94,7 @@ class critical_point(object):
             return [pval for name, pval in search_dict.items()
                     if name == val][0]
 
-    def load_ptcri(self, filename, eep_obj=None):
+    def load_ptcri(self, filename):
         '''
         reads the ptcri*dat file. If there is an eep_obj, it will flag the
         missing eeps in the ptcri file and only read the eeps that match both
@@ -105,23 +134,20 @@ class critical_point(object):
         self.please_define = []
         self.please_define_hb = []
 
-        if eep_obj is not None:
-            self.key_dict = dict(zip(eep_obj.eep_list,
-                                     range(len(eep_obj.eep_list))))
-            self.please_define = [c for c in eep_obj.eep_list
-                                  if c not in col_keys]
+        eep_obj = Eep()
+        self.key_dict = dict(zip(eep_obj.eep_list,
+                                 range(len(eep_obj.eep_list))))
+        self.please_define = [c for c in eep_obj.eep_list
+                              if c not in col_keys]
 
-            if eep_obj.eep_list_hb is not None:
-                self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
-                                        range(len(eep_obj.eep_list_hb))))
-                # there is no mixture between Sandro's HB eeps since there
-                # are no HB eeps in the ptcri files. Define them all here.
-                self.please_define_hb = eep_obj.eep_list_hb
+        if eep_obj.eep_list_hb is not None:
+            self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
+                                    range(len(eep_obj.eep_list_hb))))
+            # there is no mixture between Sandro's HB eeps since there
+            # are no HB eeps in the ptcri files. Define them all here.
+            self.please_define_hb = eep_obj.eep_list_hb
 
-            self.eep = eep_obj
-        else:
-            self.please_define = []
-            self.key_dict = self.sandros_dict
+        self.eep = eep_obj
 
     def load_sandro_eeps(self, track):
         try:
@@ -132,3 +158,35 @@ class critical_point(object):
         track.sptcri = \
             np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                     for m in mptcri])
+    
+    def save_ptcri(self, filename=None, hb=False):
+        #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
+        if hb is True:
+            tracks = self.hbtracks
+        else:
+            tracks = self.tracks
+
+        if filename is None:
+            base, name = os.path.split(self.ptcri_file)
+            filename = os.path.join(base, 'p2m_%s' % name)
+            if hb is True:
+                filename = filename.replace('p2m', 'p2m_hb')
+
+        sorted_keys, inds = zip(*sorted(self.ptcri.key_dict.items(),
+                                        key=lambda (k, v): (v, k)))
+
+        header = '# critical points in F7 files defined by sandro, basti, and phil \n'
+        header += '# i mass lixo %s fname \n' % (' '.join(sorted_keys))
+        with open(filename, 'w') as f:
+            f.write(header)
+            linefmt = '%2i %.3f 0.0 %s %s \n'
+            for i, track in enumerate(tracks):
+                self.ptcri.please_define = []
+                # this line should just slow everything down, why is it here?
+                self.load_critical_points(track, eep_obj=self.eep, hb=hb,
+                                          ptcri=self.ptcri, diag_plot=False)
+                ptcri_str = ' '.join(['%5d' % p for p in track.iptcri])
+                f.write(linefmt % (i+1, track.mass, ptcri_str,
+                                   os.path.join(track.base, track.name)))
+
+        print('wrote %s' % filename)

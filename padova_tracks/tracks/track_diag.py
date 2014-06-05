@@ -174,12 +174,12 @@ class TrackDiag(object):
             #inds = np.array([p for p in ptcri if p > 0])
             inds = ptcri
             labels = ['$%s$' %
-                      track.ptcri.get_ptcri_name(i, **ptcri_kw).replace('_', r'\ ')
+                      self.ptcri.get_ptcri_name(i, **ptcri_kw).replace('_', r'\ ')
                       for i in range(len(inds))]
         else:
             iplace = np.array([np.nonzero(ptcri == i)[0][0] for i in inds])
             labels = ['$%s$' %
-                      track.ptcri.get_ptcri_name(int(i), **ptcri_kw).replace('_', r'\ ')
+                      self.ptcri.get_ptcri_name(int(i), **ptcri_kw).replace('_', r'\ ')
                       for i in iplace]
 
         if type(xcol) == str:
@@ -223,7 +223,7 @@ class TrackDiag(object):
 
         iptcri, = np.nonzero(track.iptcri > 0)
         ptcri_kw = {'sandro': False, 'hb': hb}
-        last = track.ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
+        last = self.ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
 
         if hb is False:
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
@@ -250,7 +250,7 @@ class TrackDiag(object):
         for i, ax in enumerate(np.ravel(axs)):
             if i == len(plots):
                 continue
-            inds = [track.ptcri.get_ptcri_name(cp, **ptcri_kw)
+            inds = [self.ptcri.get_ptcri_name(cp, **ptcri_kw)
                     for cp in plots[i]]
             inds = track.iptcri[inds][np.nonzero(track.iptcri[inds])[0]]
             if np.sum(inds) == 0:
@@ -340,9 +340,6 @@ class TrackDiag(object):
     def kippenhahn(self, track, col_keys=None, heb_only=True):
         track.calc_core_mu()
 
-        #loop_inds = np.arange(*track.ptcri.sptcri[11::2])
-        # some extra space around the loop for the plots.
-        #loop_inds[1] += 10
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True, figsize=(8, 8))
         import matplotlib.gridspec as gridspec
         gs = gridspec.GridSpec(8, 2)
