@@ -67,7 +67,7 @@ class TrackDiag(object):
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=False,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
                    xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False,
-                   arrow_on_line=False, yscale='linear', xscale='linear'):
+                   arrows=False, yscale='linear', xscale='linear'):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -136,7 +136,7 @@ class TrackDiag(object):
         if annotate:
             ax = self.annotate_plot(track, ax, xdata, ydata, inds=ainds,
                                     sandro=sandro, hb=hb, cmd=cmd)
-        if arrow_on_line is True:
+        if arrows is True:
             # hard coded to be 10 equally spaced points...
             ages = np.linspace(np.min(track.data.AGE[inds]),
                                np.max(track.data.AGE[inds]), 10)
@@ -200,7 +200,7 @@ class TrackDiag(object):
             # label stylings
             bbox = dict(boxstyle='round, pad=0.5', fc=fc, alpha=0.5)
             arrowprops = dict(arrowstyle='->', connectionstyle='arc3, rad=0')
-        
+
         for i, (label, x, y) in enumerate(zip(labels, xdata[inds],
                                               ydata[inds])):
             # varies the labels placement... default is 20, 20
@@ -345,7 +345,7 @@ class TrackDiag(object):
         gs = gridspec.GridSpec(8, 2)
         sm_axs = [plt.subplot(gs[i, 0:]) for i in range(4)]
         ax2 = plt.subplot(gs[4:, 0:])
-        
+
         #ax3 = plt.subplot(gs[0:, -1])
         if heb_only is True:
             # Core HeB:
@@ -354,7 +354,7 @@ class TrackDiag(object):
             inds = np.arange(len(track.data.LY))
         # AGE IN Myr
         xdata = track.data.AGE[inds]/1e6
-        
+
         ycols = ['LOG_TE', '', 'LOG_RHc', 'LOG_Pc']
         ycolls = ['$\log T_{eff}$', '$\mu_c$', '$\\rho_c$', '$\log P_c$']
 
@@ -383,7 +383,7 @@ class TrackDiag(object):
                          track.data.CF1[inds[p2:]],
                          where=track.data.CF1[inds[p2:]]<0.2,
                          color='grey', alpha=0.4, zorder=zo)
-        ax2.fill_between(xdata, track.data.CI2[inds], track.data.CF2[inds], 
+        ax2.fill_between(xdata, track.data.CI2[inds], track.data.CF2[inds],
                          color='grey', alpha=0.4)
         ax2.fill_between(xdata, track.data.QH1[inds], track.data.QH2[inds],
                          color='navy', label='$H$', zorder=zo)
@@ -397,7 +397,7 @@ class TrackDiag(object):
         lws = [5, 2]
         rlsss = [['-'] * 6, ['-', '-', '-', '--', '--', '-']]
         for rcols, rlss, rel_colls, lw in zip(rcolss, rlsss, rel_collss, lws):
-            zo += 10 
+            zo += 10
             for rel_col, rel_coll, rcol, rls in zip(rel_cols, rel_colls, rcols, rlss):
                 ax2.plot(xdata, track.data[rel_col][inds], ls=rls, lw=3, color=rcol,
                          label=rel_coll, zorder = zo)
@@ -411,14 +411,14 @@ class TrackDiag(object):
             ax.set_ylim(ylim)
             #ax.set_xlim(track.data.AGE[track.ptcri.sptcri[11]], track.data.AGE[track.ptcri.sptcri[13]])
 
-        
+
         ax2.legend(frameon=False, loc=6)
         ax2.set_ylim(0, 1)
         #ax3.set_xlim(np.max(track.data.LOG_TE[inds]), np.min(track.data.LOG_TE[inds]))
         #ax3.set_ylim(np.min(track.data.LOG_L[inds]), np.max(track.data.LOG_L[inds]))
         ax2.set_xlabel('$Age\ (Myr)$')
         #ax2.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        #ax2.ticklabel_format(style='sci', scilimits=(0,0), axis='x') 
+        #ax2.ticklabel_format(style='sci', scilimits=(0,0), axis='x')
         #sm_axs[0].set_title(os.path.split(track.base)[1].replace('_', '\ ').replace('PH',''))
         #ax1.set_ylabel('H Shell Abundances')
         ax2.set_ylabel('$m/M\ or\ f/f_{tot}$')
@@ -433,4 +433,3 @@ class TrackDiag(object):
         #ax.plot(track.data.AGE[inds], track.data['CONV'][inds], lw=3, color='grey')
         #ax.plot(track.data.AGE[inds], track.data['MU'][inds], lw=3, color='brown')
         return fig, (ax1, ax2, ax3)
-

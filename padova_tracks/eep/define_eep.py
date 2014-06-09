@@ -74,25 +74,30 @@ class DefineEeps(object):
             return
 
         print('M=%.3f' % track.mass)
-        import pdb; pdb.set_trace()
         self.check_pms_beg(track)
         # set all to zero
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
-        
+
         # if this is high mass or if Sandro's MS_BEG is wrong:
         if track.mass >= high_mass or track.data.XCEN[track.sptcri[4]] < .6:
             #print('M=%.4f is high mass' % track.mass)
             return self.add_high_mass_eeps(track)
-            
+
         self.add_ms_eeps(track)
 
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if ims_to == 0:
             if track.mass > low_mass:
                 print('MS_TO and MS_TMIN found by AGE limits %.4f!' % track.mass)
-            self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
-            self.add_eep_with_age(track, 'MS_TO', 13.7e9)
+
+            if len(track.sptcri) <= 6:
+                # no MSTO according to Sandro too
+                self.add_eep_with_age(track, 'MS_TMIN', 13.7e9)
+                [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[1:]]
+            else:
+                self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
+                self.add_eep_with_age(track, 'MS_TO', 13.7e9)
 
             # no found MSTO and track goes up to POINT_B (very low mass)
             if track.mass > 1.25:
@@ -128,10 +133,6 @@ class DefineEeps(object):
                 # should now make sure all other eeps are 0.
                 [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[5:]]
 
-        if False in (np.diff(track.iptcri[np.nonzero(track.iptcri > 0)]) > 0):
-            print('EEPs are not monotonically increasing. M=%.3f' % track.mass)
-            print(pprint.pprint(track.iptcri))
-
     def hb_eeps(self, track, diag_plot=True, plot_dir=None):
         '''
         define the HB EEPs.
@@ -141,9 +142,11 @@ class DefineEeps(object):
         self.add_cen_eeps(track, hb=True)
         self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
         return
-        
+
     def check_pms_beg(self, track):
-        print(track.mass, track.data.AGE[track.sptcri[0]], track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
+        print('check PMS mass, age of PMS_BEG, age')
+        print(track.mass, track.data.AGE[track.sptcri[0]],
+              track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
         if track.data.AGE[track.sptcri[0]] <= 0.2:
             self.add_eep(track, 'PMS_BEG',
                          np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0])
@@ -157,10 +160,10 @@ class DefineEeps(object):
         ms_beg = self.peak_finder(track, 'LOG_L', 'PMS_END', 'POINT_B',
                                   **pf_kw)
         self.add_eep(track, 'MS_BEG', ms_beg)
-        
+
         ms_to = np.nonzero(track.data.XCEN == 0)[0][0]
         self.add_eep(track, 'MS_TO', ms_to)
-            
+
         inds = np.arange(ms_beg, ms_to)
         peak_dict = utils.find_peaks(track.data.LOG_L[inds])
         if peak_dict['minima_number'] > 2. or peak_dict['maxima_number'] > 2.:
@@ -170,13 +173,13 @@ class DefineEeps(object):
         xdata = track.data.LOG_TE[inds]
         ms_tmin = inds[np.argmin(xdata)]
         self.add_eep(track, 'MS_TMIN', ms_tmin)
-        
+
         # there is a switch for high mass tracks in the add_cen_eeps and
         # add_quiesscent_he_eep functions. If the mass is higher than
         # high_mass the functions use MS_TO as the initial EEP for peak_finder.
         cens = self.add_cen_eeps(track, istart=ms_to)
         heb_beg  = self.add_quiesscent_he_eep(track, cens[0], start=ms_to)
-        
+
         # there are instabilities in massive tracks that are on the verge or
         # returning to the hot side (Teff>10,000) of the HRD before C_BUR.
         # The following is designed to cut the tracks before the instability.
@@ -204,7 +207,7 @@ class DefineEeps(object):
         # between ms_to and heb_beg need eeps that are meaningless at high mass:
         _, sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip, _  = \
             map(int, np.round(np.linspace(ms_to, heb_beg, 7)))
-        
+
         self.add_eep(track, 'SG_MAXL', sg_maxl)
         self.add_eep(track, 'RG_MINL', rg_minl)
         self.add_eep(track, 'RG_BMP1', rg_bmp1)
@@ -212,7 +215,7 @@ class DefineEeps(object):
         self.add_eep(track, 'RG_TIP', rg_tip)
 
         return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens, [fin]))
-    
+
     def add_quiesscent_he_eep(self, track, ycen1, start='RG_TIP'):
         '''
         He fusion starts after the RGB, but where? It was tempting to simply
@@ -421,8 +424,8 @@ class DefineEeps(object):
         '''
         def second_derivative(xdata, inds):
             '''
-            The second derivative of d^2 xdata / d inds^2 
-            
+            The second derivative of d^2 xdata / d inds^2
+
             why inds for interpolation, not log l?
             if not using something like model number instead of log l,
             the tmin will get hidden by data with t < tmin but different
@@ -484,7 +487,7 @@ class DefineEeps(object):
             ms_to = inds[np.argmax(track.data.LOG_TE[inds])]
 
             delta_te = delta_te_eeps(track, ms_to, ms_tmin)
-            
+
             if track.mass <= low_mass or delta_te < 0.01:
                 # first try with parametric interpolation
                 pf_kw = {'get_max': True, 'sandro': False,
@@ -705,7 +708,7 @@ class DefineEeps(object):
             mstr = 'max'
         else:
             mstr = 'min'
-            
+
         if peak_dict['%sima_number' % mstr] > 0:
             iextr = peak_dict['%sima_locations' % mstr]
             if more_than_one == 'max of max':
@@ -724,7 +727,7 @@ class DefineEeps(object):
             if mess_err is not None:
                 print(mess_err)
             return -1
-        
+
         if parametric_interp is True:
             # closest point in interpolation to data
             ind, dif = utils.closest_match2d(almost_ind,
@@ -832,28 +835,28 @@ class DefineEeps(object):
         of duplicate values. Returns tckp, an input to splev.
         if parametric_interp is True use AGE with LOG_TE and LOG_L
            if linear is also False use log10 Age
-        
+
         note the dimensionality of tckp will change if using parametric_interp
         '''
         non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
                                       track.data.LOG_L[inds],
                                       track.data.AGE[inds])
-        
+
         if len(non_dupes) <= k:
             k = 1
             #print('only %i indices to fit...' % (len(non_dupes)))
             #print('new spline_level %i' % k)
-        
+
         xdata = track.data.LOG_TE[inds][non_dupes]
         ydata = track.data.LOG_L[inds][non_dupes]
-        
+
         if parametric is True:
             arr = [track.data.AGE[inds][non_dupes], xdata, ydata]
             if linear is False:
                 arr[0] = np.log10(arr[0])
         else:
             arr = [xdata, ydata]
-        
+
         tckp, u = splprep(arr, s=s, k=k, nest=nest)
 
         ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
@@ -884,7 +887,7 @@ class DefineEeps(object):
             non_dupes = list(set(un_ind1) & set(un_ind2))
 
         return non_dupes
-    
+
     def strip_instablities(self, track, inds):
         return track
         peak_dict = utils.find_peaks(track.data.LOG_L[inds])
@@ -928,7 +931,7 @@ class DefineEeps(object):
             print('LOG_L, LOG_TE, AGE interpolated from inds %i:%i' %
                   (finds[0], finds[-1]))
             track.header.append('LOG_L, LOG_TE, AGE interpolated from MODE %i:%i \n' % (track.data.MODE[finds][0], track.data.MODE[finds][-1]))
-            
+
             self.check_strip_instablities(track)
         return track
 
@@ -942,5 +945,3 @@ class DefineEeps(object):
             ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '), fontsize=20)
             ax.set_ylabel('$LOG\! L$', fontsize=20)
         plt.show()
-        
-

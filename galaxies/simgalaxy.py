@@ -397,7 +397,7 @@ class SimGalaxy(StarPop):
                 ax.set_xlim(xlim)
                 ax.set_ylim(ylim)
         if figname is None:
-            figname = io.replace_ext(self.name, '.png')
+            figname = fileio.replace_ext(self.name, '.png')
 
         figname = figname.replace('.png', '%s.png' % extra)
         plt.savefig(figname)

@@ -9,29 +9,53 @@ class Track(object):
     '''
     Padova stellar evolution track object.
     '''
-    def __init__(self, filename):
+    def __init__(self, filename, match=False):
         '''
-        filename is the PMS or PMS.HB file
+        filename [str] the path to the PMS or PMS.HB file
         '''
-        #print(filename)
         (self.base, self.name) = os.path.split(filename)
-        self.load_track(filename)
+        if match is True:
+            self.load_match_track(filename)
+        else:
+            self.load_track(filename)
+
         self.filename_info()
-        self.mass = self.data.MASS[0]
+        # will house error string(s)
         self.flag = None
-        fmass = float(self.name.split('_M')[1].split('.PMS')[0])
+        self.track_mass()
+        self.check_track()
+
+    def check_track(self):
+        '''check if age decreases'''
+        try:
+            age = self.data.AGE
+        except AttributeError:
+            age = self.data.logAge
+        test = np.diff(age) >= 0
+        if False in test:
+            print('Track.__init__: track has age decreasing!!', self.mass)
+            bads, = np.nonzero(np.diff(age) < 0)
+            try:
+                print('offensive MODEs:', self.data.MODE[bads])
+            except AttributeError:
+                print('offensive inds:', bads)
+        return
+
+    def track_mass(self):
+        ''' choose the mass based on the physical track starting points '''
+        try:
+            good_age, = np.nonzero(self.data.AGE > 0.2)
+        except AttributeError:
+            good_age = [[0]]
+        self.mass = self.data.MASS[good_age[0]]
+        ext = self.name.split('.')[-1]
+        fmass = float(self.name.split('_M')[1].split('.' + ext)[0])
         if self.mass >= 12:
-            # for high mass tracks, the mass starts much larger than it is
-            # for (age<0.2). The mass only correct at the beginning of the MS.
             self.mass = fmass
         elif self.mass != fmass:
             print('filename has M=%.4f track has M=%.4f' % (fmass, self.mass))
             self.flag = 'inconsistent mass'
-        test = np.diff(self.data.AGE) >= 0
-        if False in test:
-            print('Track has age decreasing!!', self.mass)
-            bads, = np.nonzero(np.diff(self.data.AGE) < 0)
-            print('offensive MODEs:', self.data.MODE[bads])
+        return self.mass
 
     def calc_Mbol(self, z_sun=4.77):
         '''
@@ -78,6 +102,19 @@ class Track(object):
         self.Y = float(Y)
         return
 
+    def load_match_track(self, filename):
+        '''
+        load the match interpolated tracks into a record array.
+        the file contains Mbol, but it is converted to LOG_L on read.
+        LOG_L = (4.77 - Mbol) / 2.5
+        names = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
+        '''
+        self.col_keys = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
+        data = np.genfromtxt(filename, names=self.col_keys,
+                             converters={3: lambda m: (4.77 - float(m)) / 2.5})
+        self.data = data.view(np.recarray)
+        return data
+
     def load_track(self, filename):
         '''
         reads PMS file into a record array. Stores header as string self.header
@@ -87,7 +124,7 @@ class Track(object):
         '''
         with open(filename, 'r') as f:
             lines = f.readlines()
-        
+
         skip_footer = 0
         for i, l in enumerate(lines):
             if 'BEGIN TRACK' in l:

@@ -25,15 +25,21 @@ class TrackSet(object):
             self.prefix = ''
             return
         self.prefix = inputs.prefix
-        self.tracks_base = os.path.join(inputs.tracks_dir, self.prefix)
+
+        if inputs.match is False:
+            self.tracks_base = os.path.join(inputs.tracks_dir, self.prefix)
+        else:
+            self.tracks_base = inputs.outfile_dir
+            inputs.track_search_term = inputs.track_search_term.replace('PMS', 'dat')
         if inputs.hb_only is False:
             self.load_tracks(track_search_term=inputs.track_search_term,
-                             masses=inputs.masses)
+                             masses=inputs.masses, match=inputs.match)
         if inputs.hb is True:
             self.load_tracks(track_search_term=inputs.hbtrack_search_term,
-                             hb=inputs.hb, masses=inputs.masses)
+                             hb=inputs.hb, masses=inputs.masses, match=inputs.match)
 
-    def load_tracks(self, track_search_term='*F7_*PMS', hb=False, masses=None):
+    def load_tracks(self, track_search_term='*F7_*PMS', hb=False, masses=None,
+                    match=False):
         '''
         loads tracks or hb tracks, can load subset if masses (list, float, or
         string) is set. If masses is string, it must be have format like:
@@ -43,7 +49,8 @@ class TrackSet(object):
                                track_search_term))
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-        mass = np.array([os.path.split(t)[1].split('_M')[1].split('.P')[0]
+
+        mass = np.array([os.path.split(t)[1].split('_M')[1].split('.'+track_search_term[-3])[0]
                          for t in track_names], dtype=float)
         cut_mass, = np.nonzero(mass <= max_mass)
         track_names = track_names[cut_mass][np.argsort(mass[cut_mass])]
@@ -66,7 +73,7 @@ class TrackSet(object):
                 track_masses = np.array(track_masses)
         else:
             track_masses = np.argsort(mass)
-        
+
         track_str = 'track'
         mass_str = 'masses'
         if hb is True:
@@ -74,7 +81,7 @@ class TrackSet(object):
             mass_str = 'hb%s' % mass_str
         self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
-        self.__setattr__('%ss' % track_str, [Track(track)
+        self.__setattr__('%ss' % track_str, [Track(track, match=match)
                                              for track in track_names[track_masses]])
 
         self.__setattr__('%s' % mass_str,
@@ -147,15 +154,15 @@ class TrackSet(object):
             for t in tracks:
                 if t.flag is not None:
                     continue
-                
+
                 if sandro is False:
                     ptcri = t.iptcri
                 else:
                     ptcri = t.sptcri
-                
+
                 ainds = [self.ptcri.get_ptcri_name(cp, **ptcri_kw)
                          for cp in plots[j]]
-                
+
                 ainds = [i for i in ainds if i < len(ptcri)]
 
                 inds = ptcri[ainds]

@@ -32,7 +32,7 @@ def parsec2match(input_obj):
         print('Current mix: %s' % prefix)
         these_inputs = set_outdirs(input_obj, prefix)
         if these_inputs.ptcri_file is not None:
-            these_inputs.ptcri_file = inputs.ptcri_file
+            these_inputs.ptcri_file = input_obj.ptcri_file
         else:
             if these_inputs.from_p2m is True:
                 # this is the equivalent of Sandro's ptcri files, but mine.
@@ -62,7 +62,7 @@ def set_outdirs(input_obj, prefix):
     new_inputs = deepcopy(input_obj)
     new_inputs.prefix = prefix
     wkd = os.path.join(input_obj.tracks_dir, new_inputs.prefix)
-    
+
     if input_obj.plot_dir == 'default':
         new_inputs.plot_dir = os.path.join(wkd, 'plots')
         fileIO.ensure_dir(new_inputs.plot_dir)
@@ -95,7 +95,8 @@ def initialize_inputs():
                    'ptcri_file': None,
                    'plot_dir': None,
                    'outfile_dir': None,
-                   'diag_plot': False}
+                   'diag_plot': False,
+                   'match': False}
     return input_dict
 
 if __name__ == '__main__':
