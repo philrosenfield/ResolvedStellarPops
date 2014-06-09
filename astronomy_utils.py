@@ -1,4 +1,4 @@
-import fileIO
+from .fileio import fileIO
 import os
 import numpy as np
 from .angst_tables import angst_data
