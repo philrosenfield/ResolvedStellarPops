@@ -18,14 +18,14 @@ td = TrackDiag()
 
 class TrackSet(object):
     '''
-
+    A class to load multiple track instances at once.
     '''
     def __init__(self, inputs=None):
         if inputs is None:
             self.prefix = ''
             return
-
-        self.tracks_base = os.path.join(inputs.tracks_dir, inputs.prefix)
+        self.prefix = inputs.prefix
+        self.tracks_base = os.path.join(inputs.tracks_dir, self.prefix)
         if inputs.hb_only is False:
             self.load_tracks(track_search_term=inputs.track_search_term,
                              masses=inputs.masses)
@@ -81,13 +81,13 @@ class TrackSet(object):
                          np.round([t.mass for t in
                                    self.__getattribute__('%ss' % track_str)], 3))
 
-
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
                         convert_mag_kw={}, hb=False, plot_dir=None,
                         zoomin=True, one_plot=False, cols=None,
                         td_kw={}):
         '''
+        should go in TrackDiag??
         It would be much easier to discern breaks in the sequences if you did
         three separate plots: PMS_BEG to MS_BEG,
         MS_BEG to RG_TIP, and RG_TIP to TPAGB.
@@ -100,15 +100,6 @@ class TrackSet(object):
         '''
 
         line_pltkw = {'color': 'black', 'alpha': 0.1}
-
-        #if one_plot is True:
-        #    for t in tracks:
-        #        all_inds, = np.nonzero(t.data.AGE > 0.2)
-        #        ax = td.plot_track(t, xcol, ycol, ax=ax, inds=all_inds,
-        #                          annotate=annotate,
-        #                             plt_kw=line_pltkw, cmd=cmd, sandro=sandro,
-        #                             convert_mag_kw=convert_mag_kw, hb=hb)
-        #    return ax
 
         ptcri_kw = {'sandro': sandro, 'hb': hb}
 
@@ -154,30 +145,33 @@ class TrackSet(object):
             xlimi = np.array([])
             ylimi = np.array([])
             for t in tracks:
+                if t.flag is not None:
+                    continue
+                
                 if sandro is False:
                     ptcri = t.iptcri
                 else:
                     ptcri = t.sptcri
-                ainds = [t.ptcri.get_ptcri_name(cp, **ptcri_kw)
+                
+                ainds = [self.ptcri.get_ptcri_name(cp, **ptcri_kw)
                          for cp in plots[j]]
+                
                 ainds = [i for i in ainds if i < len(ptcri)]
 
                 inds = ptcri[ainds]
                 inds = np.squeeze(inds)
 
                 if np.sum(inds) == 0:
+                    noplot = True
                     continue
+                else:
+                    noplot = False
 
                 some_inds = np.arange(inds[0], inds[-1])
 
                 ax = td.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
                                    plt_kw=line_pltkw, cmd=cmd, clean=False,
                                    convert_mag_kw=convert_mag_kw, **td_kw)
-
-                #line_pltkw['alpha'] = 1.
-                #ax = self.plot_track(t, xcol, ycol, ax=ax, inds=some_inds,
-                #                     plt_kw=line_pltkw, cmd=cmd,
-                #                     convert_mag_kw=convert_mag_kw)
 
                 xlims = np.append(xlims, np.array(ax.get_xlim()))
                 ylims = np.append(ylims, np.array(ax.get_ylim()))
@@ -206,7 +200,7 @@ class TrackSet(object):
                     if one_plot is True:
                         plines = pls
 
-            if zoomin is True:
+            if zoomin is True and noplot is False:
                 ax.set_xlim(np.min(xlimi), np.max(xlimi))
                 ax.set_ylim(np.min(ylimi), np.max(ylimi))
             else:
@@ -232,22 +226,21 @@ class TrackSet(object):
             if plot_dir is not None:
                 figname = os.path.join(plot_dir, figname)
             plt.savefig(figname)
-            print('wrote %s' % figname)
-            #plt.close()
+            #print('wrote %s' % figname)
         return
 
-    def all_inds_of_eep(self, ptcri, eep_name):
+    def all_inds_of_eep(self, eep_name):
         '''
         get all the ind for all tracks of some eep name, for example
         want ms_to of the track set? set eep_name = point_c if sandro==True.
         '''
         inds = []
         for track in self.tracks:
-            check = ptcri.load_sandro_eeps(track)
+            check = self.ptcri.load_sandro_eeps(track)
             if check == -1:
                 inds.append(-1)
                 continue
-            eep_ind = ptcri.get_ptcri_name(eep_name)
+            eep_ind = self.ptcri.get_ptcri_name(eep_name)
             if len(track.sptcri) <= eep_ind:
                 inds.append(-1)
                 continue

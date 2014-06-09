@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from ResolvedStellarPops.fileio import fileIO
 from ResolvedStellarPops.padova_tracks.match import TracksForMatch
 from ResolvedStellarPops.padova_tracks.match import MatchTracks
+from ResolvedStellarPops.padova_tracks.eep import critical_point
 
 def parsec2match(input_obj):
     '''
@@ -44,6 +45,8 @@ def parsec2match(input_obj):
                                                     search_term)
 
         tfm = TracksForMatch(these_inputs)
+        tfm.ptcri = critical_point.critical_point(these_inputs.ptcri_file)
+        these_inputs.flag_dict = tfm.match_interpolation(these_inputs)
         #tfm.save_ptcri(hb=these_inputs.hb)
         mt = MatchTracks(these_inputs)
         mt.check_tracks()

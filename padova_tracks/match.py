@@ -23,13 +23,19 @@ class MatchTracks(critical_point.Eep):
         self.prefix = inputs.prefix
         # hard coding where the match files are kept tracks_base/match/
         all_track_names = fileIO.get_files(self.tracks_base,
-                                    inputs.track_search_term.replace('PMS', ''))
+                                           inputs.track_search_term.replace('PMS', ''))
 
         self.hbtrack_names = [t for t in all_track_names if 'HB' in t]
         self.track_names = [t for t in all_track_names
                             if t not in self.hbtrack_names]
 
         self.load_tracks()
+
+        if hasattr(inputs, 'flag_dict'):
+            self.flag_dict = inputs.flag_dict
+        else:
+            pass
+            #self.flag_dict = dict(DO THIS)
 
     def load_tracks(self):
         '''
@@ -42,6 +48,8 @@ class MatchTracks(critical_point.Eep):
 
     def check_tracks(self):
         for i, t in enumerate(self.tracks):
+            if self.flag_dict['M%.3f' % t.MASS[0]] is not None:
+                continue
             test = np.diff(t['logAge']) > 0
             if False in test:
                 bads, = np.nonzero(np.diff(t['logAge']) < 0)
@@ -52,7 +60,7 @@ class MatchTracks(critical_point.Eep):
                     #print(self.track_names[i], bads, t['logAge'][bads])
                     bad_inds = np.unique([np.nonzero(j - np.cumsum(self.nticks) < 0)[0][0]
                                           for j in bads])
-                    print(self.track_names[i], self.eep_list[bad_inds],
+                    print(self.track_names[i], np.array(self.eep_list)[bad_inds],
                           t['logAge'][bads])
 
                 if len(bads1) != 0:
@@ -103,7 +111,6 @@ class MatchTracks(critical_point.Eep):
             for xcol in xcols:
                 pat_kw['xcol'] = xcol
                 self._plot_all_tracks(self.hbtracks, **pat_kw)
-
 
     def _load_track(self, filename):
         '''
@@ -184,27 +191,26 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         DefineEeps.__init__(self)
 
-        if inputs.do_interpolation is True:
-            self.match_interpolation(inputs)
-
     def match_interpolation(self, inputs):
+        flag_dict = {}
         if inputs.hb_only is False:
             for track in self.tracks:
                 if track.flag == 'inconsistent mass':
+                    print('skipping track because mass is wrong.',
+                          track.base, track.name)
                     continue
-                # do the work! Assign eeps either from sandro, or eep_list and
-                # make some diagnostic plots.
-                self.ptcri = critical_point.critical_point(inputs.ptcri_file)
+
+                # assign eeps either from sandro or Eep
                 track = self.load_critical_points(track, ptcri=self.ptcri,
                                                   plot_dir=inputs.plot_dir,
                                                   diag_plot=inputs.diag_plot,
                                                   debug=inputs.debug)
-                if len(np.nonzero(track.iptcri>0)[0]) < 3:
-                    print('skipping track because there is no ms_beg.',
-                          track.base, track.name)
+                if track.flag is not None:
+                    print('skipping track because of flag:', track.flag)
                     continue
                 # make match output files.
-                self.prepare_track(track, outfile_dir=inputs.outfile_dir)
+                self.prepare_track(track, outfile_dir=inputs.outfile_dir,
+                                   diag_plot=inputs.diag_plot)
 
                 if inputs.diag_plot is True:
                     # make diagnostic plots
@@ -212,13 +218,12 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     self.check_ptcris(track, plot_dir=inputs.plot_dir,
                                       xcol='AGE')
                     self.plot_sandro_ptcri(track, plot_dir=inputs.plot_dir)
-
+                flag_dict['M%.3f' % track.mass] = track.flag
             if inputs.diag_plot is True:
                 # make summary diagnostic plots
                 self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L',
                                      sandro=False, reverse_x=True,
                                      plot_dir=inputs.plot_dir)
-
         else:
             print('Only doing HB.')
 
@@ -240,15 +245,15 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L',
                                      hb=inputs.hb, reverse_x=True,
                                      plot_dir=inputs.plot_dir, sandro=False)
+        return flag_dict
 
     def prepare_track(self, track, outfile='default', hb=False,
                       outfile_dir=None, diag_plot=False):
         if outfile == 'default':
             if outfile_dir is None or outfile_dir is 'default':
                 outfile_dir = track.base
-            outfile = os.path.join('%s' % outfile_dir,
-                                   'match_%s.dat' % track.name.replace('.PMS', ''))
-            header = '# logAge Mass logTe Mbol logg C/O \n'
+        outfile = os.path.join(outfile_dir, 'match_%s.dat' % track.name.replace('.PMS', ''))
+        header = '# logAge Mass logTe Mbol logg C/O \n'
 
         if hasattr(self.ptcri, 'eep'):
             if hb is True:
@@ -256,7 +261,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             else:
                 nticks = self.ptcri.eep.nticks
         else:
-            print('using default spacing between eeps')
+            print('equal spacing between all eeps')
             nticks = np.repeat(200, len(track.iptcri) - 1)
 
         assert nticks is not None, 'invalid eep_lengths, check eep list.'
@@ -266,6 +271,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         Age = np.array([])
         tot_pts = 0
         ptcri_kw = {'sandro': False, 'hb': hb}
+
         for i in range(len(np.nonzero(track.iptcri >= 0)[0]) - 1):
             this_eep = self.ptcri.get_ptcri_name(i, **ptcri_kw)
             next_eep = self.ptcri.get_ptcri_name(i+1, **ptcri_kw)
@@ -334,9 +340,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         
         if False in test:
             print(track.base, track.name)
-            print('AGE NOT MONOTONICALLY INCREASING', track.mass)
-            print('%f: %f' % (10**agenew[bads[0]], 10**agenew[bads[-1]]))
+            print('Age not monotonically increasing', track.mass)
             print(mess)
+            if len(inds) * 2 < nticks:
+                print('there are only %i inds this part of the track, probably overfitting with %i' % (len(inds), nticks))
+            else:
+                print('%i inds on the track, %i requested for MATCH' % (len(inds), nticks))
+            #print('%g: %g' % (10**agenew[bads[0]], 10**agenew[bads[-1]]))
             if diag_plot is True:
                 fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10))
                 for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):

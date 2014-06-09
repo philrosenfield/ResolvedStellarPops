@@ -87,15 +87,18 @@ class Track(object):
         '''
         with open(filename, 'r') as f:
             lines = f.readlines()
+        
+        skip_footer = 0
+        for i, l in enumerate(lines):
+            if 'BEGIN TRACK' in l:
+                begin_track = i
+            if 'Comp Time' in l or 'EXCEED' in l or 'carbon burning' in l \
+                or 'REACHED' in l or 'STOP' in l:
+                skip_footer += 1
 
-        begin_track, = [i for i, l in enumerate(lines) if 'BEGIN TRACK' in l]
         self.header = lines[:begin_track]
         col_keys = lines[begin_track + 1].replace('#', '').strip().split()
         begin_track_skip = 2
-        skip_footer = len([i for i, l in enumerate(lines)
-                           if 'Comp Time' in l or 'EXCEED' in l
-                           or 'carbon burning' in l or 'REACHED' in l
-                           or 'STOP' in l])
         # Hack to read tracks that have been "colored"
         if 'information' in lines[begin_track + 2]:
             col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])
