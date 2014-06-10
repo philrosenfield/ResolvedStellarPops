@@ -1,5 +1,4 @@
 from __future__ import print_function
-from ..fileio import fileIO
 import numpy as np
 import matplotlib.pylab as plt
 from ..graphics.GraphicsUtils import discrete_colors
@@ -23,8 +22,6 @@ class MatchTracks(critical_point.Eep, TrackSet):
         inputs.match = True
         TrackSet.__init__(self, inputs=inputs)
         self.flag_dict = inputs.flag_dict
-        if inputs.hb is False:
-            self.hbtrack_names = []
 
     def check_tracks(self):
         for i, t in enumerate(self.tracks):
@@ -42,7 +39,7 @@ class MatchTracks(critical_point.Eep, TrackSet):
                                           for j in bads])
                     print(self.track_names[i], np.array(self.eep_list)[bad_inds],
                           t.data.logAge[bads])
-
+                    self.flag_dict['M%.3f' % t.mass] = 'Age decreases'
                 if len(bads1) != 0:
                     print('%i identical age values in %s' % (len(bads1),
                                                              self.track_names[i]))
@@ -97,7 +94,6 @@ class MatchTracks(critical_point.Eep, TrackSet):
         call padova_tracks.Track with match = True
         '''
         return Track(filename, match=True)
-
 
     def _plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
                          plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L',
@@ -162,65 +158,50 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     def __init__(self, inputs):
         # load all tracks
         TrackSet.__init__(self, inputs)
-
         DefineEeps.__init__(self)
-
         self.debug = inputs.debug
 
     def match_interpolation(self, inputs):
         flag_dict = {}
+        trackss = []
+        hbswitch = []
         if inputs.hb_only is False:
-            for track in self.tracks:
-                if track.flag == 'inconsistent mass':
-                    print('skipping track because mass is wrong.',
-                          track.base, track.name)
-                    continue
-
+            trackss = [self.tracks]
+            hbswitch = [False]
+        if inputs.hb is True:
+            trackss.append(self.hbtracks)
+            hbswitch.append(True)
+        for i, tracks in enumerate(trackss):
+            for track in tracks:
                 # assign eeps track.iptcri and track.sptcri
                 track = self.load_critical_points(track, ptcri=self.ptcri,
                                                   plot_dir=inputs.plot_dir,
                                                   diag_plot=inputs.diag_plot,
-                                                  debug=inputs.debug)
+                                                  debug=inputs.debug,
+                                                  hb=hbswitch[i])
                 if track.flag is not None:
                     print('skipping track because of flag:', track.flag)
                     continue
                 # interpolate tracks for match
                 self.prepare_track(track, outfile_dir=inputs.outfile_dir,
-                                   diag_plot=inputs.diag_plot)
+                                   diag_plot=inputs.diag_plot, hb=hbswitch[i])
 
                 if inputs.diag_plot is True:
                     # make diagnostic plots
-                    self.check_ptcris(track, plot_dir=inputs.plot_dir)
                     self.check_ptcris(track, plot_dir=inputs.plot_dir,
-                                      xcol='AGE')
-                    self.plot_sandro_ptcri(track, plot_dir=inputs.plot_dir)
+                                      hb=hbswitch[i])
+                    self.check_ptcris(track, plot_dir=inputs.plot_dir,
+                                      xcol='AGE', hb=hbswitch[i])
+                    #self.plot_sandro_ptcri(track, plot_dir=inputs.plot_dir)
+
                 flag_dict['M%.3f' % track.mass] = track.flag
+
             if inputs.diag_plot is True:
                 # make summary diagnostic plots
-                self.plot_all_tracks(self.tracks, 'LOG_TE', 'LOG_L',
+                self.plot_all_tracks(tracks, 'LOG_TE', 'LOG_L',
                                      sandro=False, reverse_x=True,
-                                     plot_dir=inputs.plot_dir)
-        else:
-            print('Only doing HB.')
+                                     plot_dir=inputs.plot_dir, hb=hbswitch[i])
 
-        # do the same as above but for HB.
-        if inputs.hb is True:
-            self.hbtrack_names = fileIO.get_files(self.tracks_base,
-                                                  inputs.hbtrack_search_term)
-            for track in self.hbtracks:
-                track = self.load_critical_points(track, ptcri=self.ptcri,
-                                                  hb=inputs.hb,
-                                                  plot_dir=inputs.plot_dir,
-                                                  debug=inputs.debug)
-                self.prepare_track(track, outfile_dir=inputs.outfile_dir,
-                                   hb=inputs.hb, diag_plot=inputs.diag_plot)
-                if inputs.diag_plot is True:
-                    self.check_ptcris(track, hb=inputs.hb,
-                                      plot_dir=inputs.plot_dir)
-            if inputs.diag_plot is True:
-                self.plot_all_tracks(self.hbtracks, 'LOG_TE', 'LOG_L',
-                                     hb=inputs.hb, reverse_x=True,
-                                     plot_dir=inputs.plot_dir, sandro=False)
         return flag_dict
 
     def prepare_track(self, track, outfile='default', hb=False,
@@ -231,14 +212,10 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         outfile = os.path.join(outfile_dir, 'match_%s.dat' % track.name.replace('.PMS', ''))
         header = '# logAge Mass logTe Mbol logg C/O \n'
 
-        if hasattr(self.ptcri, 'eep'):
-            if hb is True:
-                nticks = self.ptcri.eep.nticks_hb
-            else:
-                nticks = self.ptcri.eep.nticks
+        if hb is True:
+            nticks = self.ptcri.eep.nticks_hb
         else:
-            print('equal spacing between all eeps')
-            nticks = np.repeat(200, len(track.iptcri) - 1)
+            nticks = self.ptcri.eep.nticks
 
         assert nticks is not None, 'invalid eep_lengths, check eep list.'
 
@@ -311,20 +288,29 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         test = np.diff(agenew) > 0
         bads, = np.nonzero(test==False)
         # try again with lower spline level
+        # xxx there should be a better way to do this!!!
         if False in test:
-            tckp = self._interpolate(track, inds, k=1)[0]
+            tckp = self._interpolate(track, inds, linear=True)[0]
             agenew, tenew, lnew = splev(arb_arr, tckp)
-            test1 = np.diff(agenew) > 0
-            bads, = np.nonzero(test1==False)
+            test = np.diff(agenew) > 0
+            bads, = np.nonzero(test==False)
+            agenew = np.log10(agenew)
 
-            if False in test1:
+            if False in test:
+                track.flag = 'Age not monotonically increasing'
                 print(track.base, track.name)
                 print('Age not monotonically increasing', track.mass)
                 print(mess)
                 if len(inds) * 2 < nticks:
                     print('there are only %i inds this part of the track, probably overfitting with %i' % (len(inds), nticks))
                 else:
-                    print('%i inds on the track, %i requested for MATCH' % (len(inds), nticks))
+                    #print('%i inds on the track, %i requested for MATCH' % (len(inds), nticks))
+                    print('track ends with Sandro\'s %s' % self.ptcri.get_ptcri_name(len(track.sptcri)-1, sandro=True))
+                    agediff = track.data.AGE[inds[-1]] - track.data.AGE[inds[0]]
+                    tediff = track.data.LOG_TE[inds[-1]] - track.data.LOG_TE[inds[0]]
+                    logldiff = track.data.LOG_L[inds[-1]] - track.data.LOG_L[inds[0]]
+                    print('dAge %g dlog Te %g dlog L %g' % (agediff, tediff, logldiff))
+                    import pdb; pdb.set_trace()
                 #print('%g: %g' % (10**agenew[bads[0]], 10**agenew[bads[-1]]))
                 if diag_plot is True:
                     fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10), sharey=True)

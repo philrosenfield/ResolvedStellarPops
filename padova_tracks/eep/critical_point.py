@@ -16,8 +16,8 @@ class Eep(object):
                          'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
                          'YCEN_0.000', 'TPAGB']
         if eep_lengths is None:
-            eep_lengths = [60, 60, 60, 199, 100, 100, 70, 370, 30, 400,
-                           10, 150, 100, 80, 100, 80, 80, 80, 100]
+            eep_lengths = [60, 60, 80, 199, 100, 100, 70, 370, 30, 400,
+                           10, 150, 100, 60, 100, 80, 80, 80, 100]
         if eep_list_hb is None:
             eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
                            'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
@@ -65,17 +65,17 @@ class critical_point(object):
             inds = track.sptcri
         else:
             inds = track.iptcri
-    
+
         try:
             first = inds[self.get_ptcri_name(name1, sandro=sandro)]
         except IndexError:
             first = 0
-    
+
         try:
             second = inds[self.get_ptcri_name(name2, sandro=sandro)]
         except IndexError:
             second = 0
-    
+
         inds = np.arange(first, second)
         return inds
 
@@ -158,7 +158,7 @@ class critical_point(object):
         track.sptcri = \
             np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                     for m in mptcri])
-    
+
     def save_ptcri(self, filename=None, hb=False):
         #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
         if hb is True:

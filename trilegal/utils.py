@@ -595,15 +595,16 @@ def get_stage_label(region):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
                'TPAGB', 'POSTAGB', 'WD']
-    stage_lab = regions.index(region.upper())
+    if type(region) == int:
+        stage_lab = regions[region]
+    if type(region) == str:
+        stage_lab = regions.index(region.upper())
     return stage_lab
 
 
 def get_label_stage(stage_lab):
-    # see parametri.h
-    regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
-               'TPAGB', 'POSTAGB', 'WD']
-    return regions[stage_lab]
+    '''phasing out'''
+    return get_stage_label(stage_lab)
 
 
 def get_loop_data(cmd_input_file, metallicity):

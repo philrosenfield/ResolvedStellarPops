@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-import pprint
 from ResolvedStellarPops import utils
 import os
 import matplotlib.pylab as plt
@@ -17,16 +16,18 @@ class DefineEeps(object):
     '''
     Define the stages if not simply using Sandro's defaults.
     * denotes stages defined here, otherwise, taken from Sandro's defaults.
-    PMS_BEG    Beginning of Pre Main Sequence
+    PMS_BEG*   Beginning of Pre Main Sequence: Replaced by first model
+               older than AGE = 0.2 if Sandro's PMS_BEG has AGE <= 0.2.
     PMS_MIN    Minimum of Pre Main Sequence
     PMS_END    End of Pre-Main  Sequence
-    1 MS_BEG   Starting of the central H-burning phase
+    1 MS_BEG*  Starting of the central H-burning phase: Replaced for M>high_mass
+               by Log L min after PMS_END.
     2 MS_TMIN* First Minimum in Teff for high-mass
                Xc=0.30 for low-mass stars (BaSTi)
                For very low mass stars that do not reach Xc=0.30: AGE~=13.7 Gyr
     3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT (BaSTi)
                For very low mass stars that do not reach the MSTO in 100 Gyr,
-               this is AGE~=100 Gyr
+               this is AGE~=100 Gyr or final track age.
     4 SG_MAXL* Maximum in logL for high-mass or Xc=0.0 for low-mass stars
                   (BaSTi)
     5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
@@ -49,7 +50,7 @@ class DefineEeps(object):
     13 YCEN_0.200* Central abundance of He equal to 0.20
     14 YCEN_0.100* Central abundance of He equal to 0.10
     15 YCEN_0.000* Central abundance of He equal to 0.00
-    16 TPAGB Starting of the central C-burning phase
+    16 TPAGB Starting of the central C-burning phase or beginning of TPAGB.
 
     HB Tracks:
     AGB_LY1*     Helium (shell) fusion first overpowers hydrogen (shell) fusion
@@ -137,7 +138,7 @@ class DefineEeps(object):
         '''
         define the HB EEPs.
         '''
-        print('M=%.3f, HB' % track.mass)
+        #print('M=%.3f, HB' % track.mass)
         self.add_hb_beg(track)
         self.add_cen_eeps(track, hb=True)
         self.add_agb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
@@ -145,8 +146,8 @@ class DefineEeps(object):
 
     def check_pms_beg(self, track):
         #print('check PMS mass, age of PMS_BEG, age')
-        print(track.mass, track.data.AGE[track.sptcri[0]],
-              track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
+        #print(track.mass, track.data.AGE[track.sptcri[0]],
+        #      track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
         if track.data.AGE[track.sptcri[0]] <= 0.2:
             self.add_eep(track, 'PMS_BEG',
                          np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0])

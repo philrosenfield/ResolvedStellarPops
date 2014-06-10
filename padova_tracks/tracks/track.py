@@ -119,8 +119,7 @@ class Track(object):
         '''
         reads PMS file into a record array. Stores header as string self.header
 
-        this could be optimized, right now it reads the file twice and loops
-        through it twice...
+        this could be optimized, right now it reads the file twice
         '''
         with open(filename, 'r') as f:
             lines = f.readlines()

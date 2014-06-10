@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 from subprocess import PIPE, Popen
 
 from .. import trilegal
-from .. import fileio
+from ..fileio import fileIO
 from .. import astronomy_utils
 __all__ = ['ast_correct_trilegal_sim', 'ASTs']
 
@@ -57,7 +57,7 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
         return
 
     def add_cols_leo_method(sgal, spread_outfile):
-        spout = io.readfile(spread_outfile)
+        spout = fileIO.readfile(spread_outfile)
         ast_filts = [s for s in spout.dtype.names if '_cor' in s]
         new_cols = {}
         for ast_filt in ast_filts:
