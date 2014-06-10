@@ -144,7 +144,7 @@ class DefineEeps(object):
         return
 
     def check_pms_beg(self, track):
-        print('check PMS mass, age of PMS_BEG, age')
+        #print('check PMS mass, age of PMS_BEG, age')
         print(track.mass, track.data.AGE[track.sptcri[0]],
               track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
         if track.data.AGE[track.sptcri[0]] <= 0.2:

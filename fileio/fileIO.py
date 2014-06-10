@@ -243,8 +243,14 @@ def replace_ext(filename, ext):
     $ replace_ext('data.02.SSS.v4.dat', '.log')
     data.02.SSS.v4.log
     '''
-    return '.'.join(filename.split('.')[:-1]) + ext
+    return split_file_extention(filename)[0] + ext
 
+
+def split_file_extention(filename):
+    '''
+    split the filename from its extension
+    '''
+    return '.'.join(filename.split('.')[:-1]), filename.split('.')[-1]
 
 def read_tagged_phot(tagged_file):
     '''

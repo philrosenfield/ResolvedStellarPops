@@ -23,6 +23,8 @@ class MatchTracks(critical_point.Eep, TrackSet):
         inputs.match = True
         TrackSet.__init__(self, inputs=inputs)
         self.flag_dict = inputs.flag_dict
+        if inputs.hb is False:
+            self.hbtrack_names = []
 
     def check_tracks(self):
         for i, t in enumerate(self.tracks):
@@ -268,7 +270,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             if len(inds) <= 1:
                 print(mess)
-                print('skipping %s-%s: there are %i inds between these crit pts.'
+                print('skipping %s-%s: there are %i inds between these eeps.'
                     % (this_eep, next_eep, len(inds)))
                 print(track.base, track.name)
                 continue
@@ -281,7 +283,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             Age = np.append(Age, agenew)
 
         if diag_plot is True and self.debug is True:
-            plt.show()
+            pass
+            #plt.show()
 
         Mbol = 4.77 - 2.5 * logL
         logg = -10.616 + np.log10(track.mass) + 4.0 * logTe - logL
@@ -327,16 +330,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     fig, (axs) = plt.subplots(ncols=2, figsize=(16, 10), sharey=True)
                     iptcri = track.iptcri[track.iptcri > 0]
                     for ax, xcol in zip(axs, ['AGE', 'LOG_TE']):
-                        ax.scatter(track.data[xcol][iptcri],
-                                   track.data.LOG_L[iptcri],
-                                   s=60, c='k', label='crit pts')
-                        [ax.annotate('%i' % i, (track.data[xcol][i],
-                                                track.data.LOG_L[i]))
-                         for i in iptcri]
-
-
-                        xlim = ax.get_xlim()
-                        ylim = ax.get_ylim()
                         ax.plot(track.data[xcol], track.data.LOG_L, color='k')
                         ax.plot(track.data[xcol], track.data.LOG_L, ',', color='k')
                         if hasattr(track, 'data_orig'):
@@ -344,21 +337,30 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                     color='k', alpha=0.3, label='original track')
                             ax.plot(track.data_orig[xcol], track.data_orig.LOG_L,
                                     ',', color='k', alpha=0.3)
+                        xlim = ax.get_xlim()
+                        ylim = ax.get_ylim()
 
-                        ax.set_xlim(xlim)
-                        ax.set_ylim(ylim)
                         ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '),
                                       fontsize=20)
                         ax.set_ylabel('$LOG\! L$', fontsize=20)
+                        ax.scatter(track.data[xcol][iptcri],
+                                   track.data.LOG_L[iptcri],
+                                   s=60, c='k', label='crit pts')
+                        [ax.annotate('%i' % i, (track.data[xcol][i],
+                                                track.data.LOG_L[i]))
+                         for i in iptcri]
+                        ax.set_xlim(xlim)
+                    ax.set_ylim(ylim)
                     for ax, xcol in zip(axs, [10 ** agenew, tenew]):
                         ax.plot(xcol, lnew, lw=2, alpha=0.4, color='r')
                         ax.plot(xcol, lnew, '.', color='r', label='match intp')
                         ax.plot(xcol[bads], lnew[bads], 'o', color='b', label='bads')
                         [ax.annotate('%i' % i, (xcol[i], lnew[i])) for i in bads]
+
                     #axs[0].set_xscale('log')
                     fig.suptitle('$%s$' % track.name.replace('_', r'\! '))
                     plt.legend(loc=0)
                     plt.savefig(os.path.join(os.getcwd(), track.name + '_bad.png'))
-                    #plt.close('all')
+                    plt.close('all')
 
         return 10 ** agenew[:-1], lnew[:-1], tenew[:-1]

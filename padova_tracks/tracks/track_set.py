@@ -30,27 +30,37 @@ class TrackSet(object):
             self.tracks_base = os.path.join(inputs.tracks_dir, self.prefix)
         else:
             self.tracks_base = inputs.outfile_dir
-            inputs.track_search_term = inputs.track_search_term.replace('PMS', 'dat')
-        if inputs.hb_only is False:
-            self.load_tracks(track_search_term=inputs.track_search_term,
-                             masses=inputs.masses, match=inputs.match)
-        if inputs.hb is True:
-            self.load_tracks(track_search_term=inputs.hbtrack_search_term,
-                             hb=inputs.hb, masses=inputs.masses, match=inputs.match)
+            inputs.track_search_term = \
+                                inputs.track_search_term.replace('PMS', 'dat')
 
-    def load_tracks(self, track_search_term='*F7_*PMS', hb=False, masses=None,
+        if inputs.hb_only is False:
+            self.find_tracks(track_search_term=inputs.track_search_term,
+                             masses=inputs.masses, match=inputs.match)
+
+        if inputs.hb is True:
+            self.find_tracks(track_search_term=inputs.hbtrack_search_term,
+                             masses=inputs.masses, match=inputs.match,
+                             hb=True)
+        else:
+            self.hbtrack_names = []
+            self.hbtracks = []
+            self.hbmasses = []
+            
+    def find_tracks(self, track_search_term='*F7_*PMS', masses=None, hb=False,
                     match=False):
         '''
-        loads tracks or hb tracks, can load subset if masses (list, float, or
-        string) is set. If masses is string, it must be have format like:
+        loads tracks or hb tracks and their masses as attributes
+        can load subset if masses (list, float, or string) is set.
+        If masses is string, it must be have format like:
         '%f < 40' and it will use masses that are less 40.
         '''
         track_names = np.array(fileIO.get_files(self.tracks_base,
                                track_search_term))
+
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
-
-        mass = np.array([os.path.split(t)[1].split('_M')[1].split('.'+track_search_term[-3])[0]
+        ext = '.' + fileIO.split_file_extention(track_names[0])[1]
+        mass = np.array([os.path.split(t)[1].split('_M')[1].split(ext)[0]
                          for t in track_names], dtype=float)
         cut_mass, = np.nonzero(mass <= max_mass)
         track_names = track_names[cut_mass][np.argsort(mass[cut_mass])]
@@ -59,34 +69,36 @@ class TrackSet(object):
         # only do a subset of masses
         if masses is not None:
             if type(masses) == float:
-                masses = [masses]
+                inds = [masses]
             elif type(masses) == str:
-                track_masses = [i for i in range(len(mass))
-                                if eval(masses % mass[i])]
+                inds = [i for i in range(len(mass)) if eval(masses % mass[i])]
             if type(masses) == list:
-                track_masses = []
-                for set_mass in masses:
+                inds = np.array([])
+                for m in masses:
                     try:
-                        track_masses.append(list(mass).index(set_mass))
+                        inds = np.append(inds, list(mass).index(m))
                     except ValueError:
+                        # this mass is missing
                         pass
-                track_masses = np.array(track_masses)
         else:
-            track_masses = np.argsort(mass)
-
+            inds = np.argsort(mass)
+        
         track_str = 'track'
         mass_str = 'masses'
+
         if hb is True:
             track_str = 'hb%s' % track_str
             mass_str = 'hb%s' % mass_str
-        self.__setattr__('%s_names' % track_str, track_names[track_masses])
 
-        self.__setattr__('%ss' % track_str, [Track(track, match=match)
-                                             for track in track_names[track_masses]])
-
+        track_attr = '%ss' % track_str
+        self.__setattr__('%s_names' % track_str, track_names[inds])
+        self.__setattr__(track_attr, [Track(track, match=match)
+                                      for track in track_names[inds]])
         self.__setattr__('%s' % mass_str,
                          np.round([t.mass for t in
-                                   self.__getattribute__('%ss' % track_str)], 3))
+                                   self.__getattribute__(track_attr)], 3))
+        return
+
 
     def plot_all_tracks(self, tracks, xcol, ycol, annotate=True, ax=None,
                         reverse_x=False, sandro=True, cmd=False,
