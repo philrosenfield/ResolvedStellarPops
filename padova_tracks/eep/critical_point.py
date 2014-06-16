@@ -128,6 +128,13 @@ class critical_point(object):
         data_dict = {}
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
+            ptcris= data[i][3:].astype('int')
+            check = np.nonzero(np.diff(ptcris[ptcris>0]) <= 3)[0]
+            if len(check) > 0:
+                for c in check:
+                    print('ptcri file M=%.3f: fewer than 3 tracks points between' % self.masses[i],
+                          col_keys[c], col_keys[c+1])
+                continue
             data_dict[str_mass] = data[i][3:].astype('int')
 
         self.data_dict = data_dict
@@ -135,10 +142,9 @@ class critical_point(object):
         self.please_define_hb = []
 
         eep_obj = Eep()
-        self.key_dict = dict(zip(eep_obj.eep_list,
-                                 range(len(eep_obj.eep_list))))
-        self.please_define = [c for c in eep_obj.eep_list
-                              if c not in col_keys]
+        eep_list = eep_obj.eep_list
+        self.key_dict = dict(zip(eep_list, range(len(eep_list))))
+        self.please_define = [c for c in eep_list if c not in col_keys]
 
         if eep_obj.eep_list_hb is not None:
             self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
@@ -157,7 +163,7 @@ class critical_point(object):
             return -1
         track.sptcri = \
             np.concatenate([np.nonzero(track.data.MODE == m)[0]
-                                    for m in mptcri])
+                            for m in mptcri])
 
     def save_ptcri(self, filename=None, hb=False):
         #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'

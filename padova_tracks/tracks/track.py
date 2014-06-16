@@ -47,6 +47,10 @@ class Track(object):
             good_age, = np.nonzero(self.data.AGE > 0.2)
         except AttributeError:
             good_age = [[0]]
+        if len(good_age) == 0:
+            self.flag = 'unfinished track'
+            self.mass = self.data.MASS[-1]
+            return self.mass
         self.mass = self.data.MASS[good_age[0]]
         ext = self.name.split('.')[-1]
         fmass = float(self.name.split('_M')[1].split('.' + ext)[0])

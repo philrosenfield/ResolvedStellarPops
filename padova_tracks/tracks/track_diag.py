@@ -67,7 +67,8 @@ class TrackDiag(object):
                    ax=None, inds=None, plt_kw={}, annotate=False, clean=False,
                    ainds=None, sandro=False, cmd=False, convert_mag_kw={},
                    xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False,
-                   arrows=False, yscale='linear', xscale='linear'):
+                   arrows=False, yscale='linear', xscale='linear',
+                   ptcri_inds=False, ptcri_names=False, add_ptcris=False):
         '''
         ainds is passed to annotate plot, and is to only plot a subset of crit
         points.
@@ -133,6 +134,14 @@ class TrackDiag(object):
         if reverse_y:
             ax.set_ylim(ax.get_ylim()[::-1])
 
+        if add_ptcris is True:
+            iptcri = track.iptcri
+            if sandro is True:
+                iptcri = track.sptcri
+            ax.plot(xdata[iptcri], ydata[iptcri], 'o', color='k')
+            if ptcri_inds is True:
+                [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in iptcri]
+            
         if annotate:
             ax = self.annotate_plot(track, ax, xdata, ydata, inds=ainds,
                                     sandro=sandro, hb=hb, cmd=cmd)
@@ -196,6 +205,7 @@ class TrackDiag(object):
 
         if cmd is True:
             xdata = xdata - ydata
+        
         if box is True:
             # label stylings
             bbox = dict(boxstyle='round, pad=0.5', fc=fc, alpha=0.5)
@@ -220,6 +230,8 @@ class TrackDiag(object):
         plot of the track, the interpolation, with each eep labeled
         '''
         all_inds, = np.nonzero(track.data.AGE > 0.2)
+        if track.flag is not None:
+            return
 
         iptcri, = np.nonzero(track.iptcri > 0)
         ptcri_kw = {'sandro': False, 'hb': hb}

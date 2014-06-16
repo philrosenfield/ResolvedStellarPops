@@ -69,12 +69,12 @@ class DefineEeps(object):
 
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True, debug=False):
-
+        track.info = {}
         if hb is True:
             self.hb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
-        print('M=%.3f' % track.mass)
+        print('M=%.3f' % track.mass, end=' ')
         self.check_pms_beg(track)
         # set all to zero
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
@@ -85,54 +85,59 @@ class DefineEeps(object):
             #print('M=%.4f is high mass' % track.mass)
             return self.add_high_mass_eeps(track)
 
+        if len(track.sptcri) <= 6:
+            # no MSTO according to Sandro too
+            [self.add_eep(track, cp, 0, message='No MS_TO')
+             for cp in self.ptcri.please_define]
+            #ms_beg = track.iptcri[self.ptcri.get_ptcri_name('MS_BEG', sandro=False)]
+            #fin = len(track.data) - 1
+            #half_way = ms_beg + (fin - ms_beg) / 2
+            #self.add_eep(track, 'MS_TMIN', fin, message='final point')
+            self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
+            self.add_eep_with_age(track, 'MS_TO', 13.7e9)
+
+            return
         self.add_ms_eeps(track)
 
         ims_to = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if ims_to == 0:
             if track.mass > low_mass:
                 print('MS_TO and MS_TMIN found by AGE limits %.4f!' % track.mass)
+            ms_beg = track.iptcri[self.ptcri.get_ptcri_name('MS_BEG', sandro=False)]
+            fin = len(track.data)
+            half_way = ms_beg + (fin - ms_beg) / 2
+            self.add_eep(track, 'MS_TMIN', half_way, message='Half way from MS_BEG to Fin')
+            #self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
+            self.add_eep_with_age(track, 'MS_TO', 13.7e9)
 
-            if len(track.sptcri) <= 6:
-                # no MSTO according to Sandro too
-                self.add_eep_with_age(track, 'MS_TMIN', 13.7e9)
-                [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[1:]]
-            else:
-                self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
-                self.add_eep_with_age(track, 'MS_TO', 13.7e9)
-
-            # no found MSTO and track goes up to POINT_B (very low mass)
-            if track.mass > 1.25:
-                print('major problem with finding MS and ptcri file!')
+        # go on defining eeps.
+        imin_l = self.add_min_l_eep(track)
+        if imin_l == -1:
+            imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
         else:
-            # go on defining eeps.
-            imin_l = self.add_min_l_eep(track)
-            if imin_l == -1:
-                imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
-            else:
-                imax_l = self.add_max_l_eep(track)
-            # high mass, low z, have hard to find base of rg, but easier to find
-            # sg_maxl. This flips the order of finding. Also an issue is if
-            # the L min after the MS_TO is much easier to find than the RG Base.
-            # hence make sure the indexs are at least 10 apart.
-            if imax_l == -1 or imax_l == 0:
-                print('max_l near ms_to M=%.4f delta ind: %i' %
-                             (track.mass, (imax_l - ims_to)))
-                imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
-                self.add_min_l_eep(track, eep1='SG_MAXL')
+            imax_l = self.add_max_l_eep(track)
+        # high mass, low z, have hard to find base of rg, but easier to find
+        # sg_maxl. This flips the order of finding. Also an issue is if
+        # the L min after the MS_TO is much easier to find than the RG Base.
+        if imax_l <= 0:
+            print('SG_MAXL near MS_TO M=%.4f delta ind: %i' %
+                  (track.mass, (imax_l - ims_to)))
+            self.add_max_l_eep(track, eep2='RG_BMP1')
+            self.add_min_l_eep(track, eep1='SG_MAXL')
 
-            ihe_beg = 0
-            self.add_eep(track, 'HE_BEG', ihe_beg)  # initilizing
-            self.add_cen_eeps(track)
-            ycen1 = track.iptcri[self.ptcri.get_ptcri_name('YCEN_0.550',
-                                                           sandro=False)]
-            if ycen1 != 0:
-                self.add_quiesscent_he_eep(track, 'YCEN_0.550')
-                ihe_beg = track.iptcri[self.ptcri.get_ptcri_name('HE_BEG',
-                                                                 sandro=False)]
-            if ihe_beg == 0 or nsandro_pts <= 10:
-                # No He EEPs
-                # should now make sure all other eeps are 0.
-                [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define[5:]]
+        ihe_beg = 0
+        self.add_eep(track, 'HE_BEG', ihe_beg, message='Initializing')
+        cens = self.add_cen_eeps(track)
+
+        if cens[0] != 0:
+            self.add_quiesscent_he_eep(track, 'YCEN_0.550')
+            ihe_beg = track.iptcri[self.ptcri.get_ptcri_name('HE_BEG',
+                                                             sandro=False)]
+        
+        if ihe_beg == 0 or nsandro_pts <= 10:
+            # should now make sure all other eeps are 0.
+            [self.add_eep(track, cp, 0, message='no He EEPs')
+             for cp in self.ptcri.please_define[5:]]
 
     def hb_eeps(self, track, diag_plot=True, plot_dir=None):
         '''
@@ -150,20 +155,25 @@ class DefineEeps(object):
         #      track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
         if track.data.AGE[track.sptcri[0]] <= 0.2:
             self.add_eep(track, 'PMS_BEG',
-                         np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0])
+                         np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0],
+                         message='overwritten with age > 0.2')
         return
 
     def add_high_mass_eeps(self, track):
+        
         pf_kw = {'get_max': False, 'sandro': True,
                  'more_than_one': 'min of min',
                  'parametric_interp': True}
 
         ms_beg = self.peak_finder(track, 'LOG_L', 'PMS_END', 'POINT_B',
                                   **pf_kw)
-        self.add_eep(track, 'MS_BEG', ms_beg)
-
+        
+        self.add_eep(track, 'MS_BEG', ms_beg,
+                     message='Min LOG_L between PMS_END and POINT_B')
+        
         ms_to = np.nonzero(track.data.XCEN == 0)[0][0]
-        self.add_eep(track, 'MS_TO', ms_to)
+        self.add_eep(track, 'MS_TO', ms_to,
+                     message='XCEN==0')
 
         inds = np.arange(ms_beg, ms_to)
         peak_dict = utils.find_peaks(track.data.LOG_L[inds])
@@ -173,7 +183,8 @@ class DefineEeps(object):
             track = self.strip_instablities(track, inds)
         xdata = track.data.LOG_TE[inds]
         ms_tmin = inds[np.argmin(xdata)]
-        self.add_eep(track, 'MS_TMIN', ms_tmin)
+        self.add_eep(track, 'MS_TMIN', ms_tmin,
+                     message='Min LOG_TE between MS_BEG, MS_TO')
 
         # there is a switch for high mass tracks in the add_cen_eeps and
         # add_quiesscent_he_eep functions. If the mass is higher than
@@ -202,18 +213,19 @@ class DefineEeps(object):
         #tpagb = inds[np.argmax(track.data.LOG_L[inds])]
         #if track.mass >= 55. and track.data.LOG_TE[fin] < 4.:
         #    fin = tpagb
-        self.add_eep(track, 'TPAGB', fin)
+        self.add_eep(track, 'TPAGB', fin,
+                     message='Last track value')
         if cens[-1] > fin:
             print('final point on track is cut before final ycen %.4f' % track.mass)
         # between ms_to and heb_beg need eeps that are meaningless at high mass:
         _, sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip, _  = \
-            map(int, np.round(np.linspace(ms_to, heb_beg, 7)))
-
-        self.add_eep(track, 'SG_MAXL', sg_maxl)
-        self.add_eep(track, 'RG_MINL', rg_minl)
-        self.add_eep(track, 'RG_BMP1', rg_bmp1)
-        self.add_eep(track, 'RG_BMP2', rg_bmp2)
-        self.add_eep(track, 'RG_TIP', rg_tip)
+            map(int, np.round(np.linspace(heb_beg, fin, 7)))
+        msg = 'linspace between HEB_BEG, TPAGB'
+        self.add_eep(track, 'SG_MAXL', sg_maxl, message=msg)
+        self.add_eep(track, 'RG_MINL', rg_minl, message=msg)
+        self.add_eep(track, 'RG_BMP1', rg_bmp1, message=msg)
+        self.add_eep(track, 'RG_BMP2', rg_bmp2, message=msg)
+        self.add_eep(track, 'RG_TIP', rg_tip, message=msg)
 
         return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens, [fin]))
 
@@ -236,8 +248,8 @@ class DefineEeps(object):
         eep_name = 'HE_BEG'
 
         if len(inds) == 0:
-            print('No HE_BEG M=%.4f Z=%.4f' % (track.mass, track.Z))
-            self.add_eep(track, eep_name, 0)
+            self.add_eep(track, eep_name, 0,
+                         message='No HE_BEG M=%.4f Z=%.4f' % (track.mass, track.Z))
             return 0
 
         he_min = np.argmin(track.data.LY[inds])
@@ -253,7 +265,7 @@ class DefineEeps(object):
             amin = np.argmin(track.data.LY[inds[he_max + 1:]])
             he_min = he_max + 1 + amin
         he_beg = inds[he_min]
-        self.add_eep(track, eep_name, he_beg)
+        self.add_eep(track, eep_name, he_beg, message='Min LY after RG_TIP')
         return he_beg
 
     def add_cen_eeps(self, track, hb=False, tol=0.01, istart=None):
@@ -287,7 +299,8 @@ class DefineEeps(object):
             # some tolerance for a good match.
             if dif > tol:
                 icen = 0
-            self.add_eep(track, 'YCEN_%.3f' % cen, icen, hb=hb)
+            self.add_eep(track, 'YCEN_%.3f' % cen, icen, hb=hb,
+                         message='YCEN == %.6f' % track.data.YCEN[icen])
             # for monotonic increase, even if there is another flare up in
             # He burning, this limits the matching indices to begin at this
             # new eep index.
@@ -302,7 +315,8 @@ class DefineEeps(object):
         ainds, = np.nonzero(track.data['AGE'] > 0.2)
         hb_beg = ainds[0]
         eep_name = 'HB_BEG'
-        self.add_eep(track, eep_name, hb_beg, hb=True)
+        self.add_eep(track, eep_name, hb_beg, hb=True,
+                     message='first point with AGE > 0.2')
         return hb_beg
 
     def add_agb_eeps(self, track, diag_plot=False, plot_dir=None):
@@ -434,7 +448,7 @@ class DefineEeps(object):
             If I find the arg min of teff to be very close to MS_BEG it
             probably means the MS_BEG is at a lower Teff than Tmin.
             '''
-            tckp, _ = splprep([inds, xdata], s=0, k=3, nest=-1)
+            tckp, _ = splprep([inds, xdata], s=0, k=3)
             arb_arr = np.arange(0, 1, 1e-2)
             xnew, ynew = splev(arb_arr, tckp)
             # second derivative, bitches.
@@ -456,28 +470,29 @@ class DefineEeps(object):
 
         if len(inds) == 0:
             ms_tmin = 0
+            msg = 'No points between MS_BEG and POINT_C'
         else:
             xdata = track.data.LOG_TE[inds]
             ms_tmin = inds[np.argmin(xdata)]
             delta_te = delta_te_eeps(track, ms_tmin, inds[0])
-
+            msg = 'Min LOG_TE'
             if track.mass <= low_mass:
                 # BaSTi uses XCEN == 0.3, could put this as a keyword
                 xcen = 0.3
                 dte = np.abs(track.data.XCEN[inds] - xcen)
                 ms_tmin = inds[np.argmin(dte)]
-                #print('MS_TMIN found by XCEN=%.1f M=%.4f' % (xcen, track.mass))
+                msg = 'XCEN==%.1f' % xcen
             elif delta_te < .1:  # value to use interp instead
                 # find the te min by interpolation.
                 ms_tmin = second_derivative(xdata, inds)
-                #print('MS_TMIN found by interp M=%.4f' % track.mass)
-            #else:
-                #print('found MS_TMIN the easy way, np.argmin(LOG_TE)')
+                msg = 'Min LOG_TE by interpolation'
 
-        self.add_eep(track, 'MS_TMIN', ms_tmin)
+
+        self.add_eep(track, 'MS_TMIN', ms_tmin, message=msg)
 
         if ms_tmin == 0:
             ms_to = 0
+            msg = 'no MS_TMIN'
         else:
             inds = self.ptcri.inds_between_ptcris(track, 'MS_TMIN', 'RG_BMP1',
                                        sandro=False)
@@ -486,7 +501,7 @@ class DefineEeps(object):
                 inds = np.arange(ms_tmin, len(track.data.LOG_TE - 1))
 
             ms_to = inds[np.argmax(track.data.LOG_TE[inds])]
-
+            msg = 'Max LOG_TE between MS_TMIN and either RG_BMP1 or final track point'
             delta_te = delta_te_eeps(track, ms_to, ms_tmin)
 
             if track.mass <= low_mass or delta_te < 0.01:
@@ -497,25 +512,27 @@ class DefineEeps(object):
 
                 ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN', 'RG_BMP1',
                                          **pf_kw)
-
+                msg = 'Max LOG_TE between MS_TMIN and RG_BMP1'
                 delta_te = delta_te_eeps(track, ms_to, ms_tmin)
                 # if the points are too cluse try with less linear fit
                 if ms_to == -1 or delta_te < 0.01:
                     pf_kw['less_linear_fit'] = True
                     ms_to = self.peak_finder(track, 'LOG_TE', 'MS_TMIN',
                                              'RG_BMP1', **pf_kw)
+                    msg = 'Max LOG_TE between MS_TMIN and RG_BMP1 (subtracted linear fit)'
             if ms_to == -1:
                 # do the same as for tmin... take second deriviative
                 xdata = track.data.LOG_L[inds]
                 ms_to = second_derivative(xdata, inds)
+                msg = 'Min LOG_L between MS_TMIN and RG_BMP1 by interpolation'
                 if ms_to == -1:
                     ms_to = inds[np.nonzero(track.data.XCEN[inds] == 0)[0][0]]
-                    print('MS_TO %.4f set to XCEN==0 as last resort' % track.mass)
+                    msg = 'XCEN==0 as last resort'
             if ms_to == -1:
                 # tried four ways!?!!
-                print('No MS_TO? M=%.4f Z=%.4f' % (track.mass, track.Z))
+                msg = 'No MS_TO found after four methods'
                 ms_to = 0
-        self.add_eep(track, 'MS_TO', ms_to)
+        self.add_eep(track, 'MS_TO', ms_to, message=msg)
         return ms_tmin, ms_to
 
     def add_min_l_eep(self, track, eep1='MS_TO'):
@@ -531,26 +548,25 @@ class DefineEeps(object):
 
         pf_kw = {'sandro': False, 'more_than_one': 'last'}
         min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
-
+        msg = 'Last Min LOG_L between %s and RG_BMP1 with parametric interp' % eep1
         if min_l == -1 or track.mass < low_mass:
             pf_kw = {'parametric_interp': False,
                      'more_than_one': 'min of min',
                      'sandro': False}
 
             pf_kw['less_linear_fit'] = True
-            #print('RG_MINL found with less linear fit %s %.3f %.4f' %
-            #             (eep1, track.mass, track.Z))
+            msg += ' less linear fit'
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
         if min_l == -1:
             pf_kw['less_linear_fit'] = False
-            #print('RG_MINL without parametric')
+            msg = 'Last Min LOG_L between %s and RG_BMP1' % eep1
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
         if np.round(track.data.XCEN[min_l], 4) > 0 and min_l > 0:
             print('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
                          (track.mass, track.data.XCEN[min_l]))
-        self.add_eep(track, 'RG_MINL', min_l)
+        self.add_eep(track, 'RG_MINL', min_l, message=msg)
         return min_l
 
     def add_max_l_eep(self, track, eep2='RG_MINL'):
@@ -568,20 +584,20 @@ class DefineEeps(object):
             pf_kw['mess_err'] = 'still a problem with SG_MAXL %.3f' % track.mass
 
         max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
-
+        msg = 'Max LOG_L between MS_TO and %s less_linear_fit' % eep2
         if max_l == -1:
             pf_kw['less_linear_fit'] = bool(np.abs(pf_kw['less_linear_fit']-1))
-            #print('SG_MAXL flipping less_linear_fit to %s (was %i with eep2: %s)' % (pf_kw['less_linear_fit'], max_l, eep2))
+            msg = msg = 'Max LOG_L between MS_TO and %s' % eep2
             max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
-            #print('%i %.4f' % (max_l, track.mass))
+
 
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if max_l == msto:
             print('SG_MAXL is at MS_TO!')
             print('XCEN at MS_TO (%i): %.3f' % (msto, track.data.XCEN[msto]))
             max_l = -1
-
-        self.add_eep(track, 'SG_MAXL', max_l)
+            msg = 'SG_MAXL is at MS_TO'
+        self.add_eep(track, 'SG_MAXL', max_l, message=msg)
         return max_l
 
     def convective_core_test(self, track):
@@ -627,13 +643,14 @@ class DefineEeps(object):
     def add_eep_with_age(self, track, eep_name, age, tol=0.1):
         iage = np.argmin(np.abs(track.data.AGE - age))
         age_diff = np.min(np.abs(track.data.AGE - age))
+        msg = 'By AGE = %g and is %g' % (age, track.data.AGE[iage])
         if (age_diff/age) > tol:
             print('possible bad age match for eep.')
             print('frac diff, mass, eep_name, age, final track age')
             print('%g' % (age_diff/age), track.mass, eep_name, '%g' % age, '%g' % track.data.AGE[-1])
-        self.add_eep(track, eep_name, iage)
+        self.add_eep(track, eep_name, iage, message=msg)
 
-    def add_eep(self, track, eep_name, ind, hb=False):
+    def add_eep(self, track, eep_name, ind, hb=False, message='no info'):
         '''
         Will add or replace the index of Track.data to track.iptcri
         '''
@@ -643,7 +660,8 @@ class DefineEeps(object):
             key_dict = self.ptcri.key_dict
 
         track.iptcri[key_dict[eep_name]] = ind
-
+        track.info['%s' %  eep_name] = message
+        
     def peak_finder(self, track, col, eep1, eep2, get_max=False, diff_err=None,
                     sandro=True, more_than_one='max of max', mess_err=None,
                     ind_tol=3, dif_tol=0.01, less_linear_fit=False,
@@ -668,6 +686,11 @@ class DefineEeps(object):
         # use age, so logl(age), logte(age) for parametric interpolation
         tckp, step_size, non_dupes = self._interpolate(track, inds,
                                                        parametric=parametric_interp)
+        
+        if step_size == -1:
+            # sometimes there are not enough inds to interpolate 
+            return -2
+        
         arb_arr = np.arange(0, 1, step_size)
         if parametric_interp is True:
             agenew, xnew, ynew = splev(arb_arr, tckp)
@@ -748,10 +771,10 @@ class DefineEeps(object):
 
         if dif > dif_tol:
             # closest match was too far away from orig.
-            if diff_err is not None:
-                print(diff_err)
-            else:
-                print('bad match %s-%s M=%.3f' % (eep1, eep2, track.mass))
+            #if diff_err is not None:
+            #    print(diff_err)
+            #else:
+            #    print('bad match %s-%s M=%.3f' % (eep1, eep2, track.mass))
             return -1
         return inds[non_dupes][ind]
 
@@ -828,9 +851,10 @@ class DefineEeps(object):
                 track.iptcri = ptcri.data_dict['M%.3f' % track.mass]
         return track
 
-    def _interpolate(self, track, inds, k=3, nest=-1, s=0.,
-                             min_step=1e-4, parametric=True,
-                             linear=False):
+    def _interpolate(self, track, inds, k=3, s=0., min_step=1e-4,
+                     parametric=True, linear=False, xfunc=None, yfunc=None,
+                     parafunc=None, xcol='LOG_TE', ycol='LOG_L',
+                     paracol='AGE'):
         '''
         a caller for scipy.optimize.splprep. Will also rid the array
         of duplicate values. Returns tckp, an input to splev.
@@ -839,27 +863,49 @@ class DefineEeps(object):
 
         note the dimensionality of tckp will change if using parametric_interp
         '''
-        non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
-                                      track.data.LOG_L[inds],
-                                      track.data.AGE[inds])
+        just_two = False
+        if parametric is False:
+            just_two = True
+            
+        non_dupes = self.remove_dupes(track.data[xcol][inds],
+                                      track.data[ycol][inds],
+                                      track.data[paracol][inds],
+                                      just_two=just_two)
 
         if len(non_dupes) <= k:
             k = 1
             #print('only %i indices to fit...' % (len(non_dupes)))
             #print('new spline_level %i' % k)
-
-        xdata = track.data.LOG_TE[inds][non_dupes]
-        ydata = track.data.LOG_L[inds][non_dupes]
-
+        if len(non_dupes) <= 1:
+            print('not enough indices to interpolate!')
+            return -1, -1, -1
+            
+        xdata = track.data[xcol][inds][non_dupes]
+        ydata = track.data[ycol][inds][non_dupes]
+        
+        #slope = np.abs(np.polyfit(xdata, ydata, 1)[0])
+        
+        #if slope > 100:
+        #    tmp = xdata[:]
+        #    xdata = ydata[:]
+        #   ydata = tmp[:]
+        
+        if xfunc is not None:
+            xdata = eval('%s(xdata)' % xfunc)
+        if yfunc is not None:
+            ydata = eval('%s(ydata)' % yfunc)
+        
         if parametric is True:
-            arr = [track.data.AGE[inds][non_dupes], xdata, ydata]
-            if linear is False:
-                arr[0] = np.log10(arr[0])
+            paradata = track.data[paracol][inds][non_dupes]
+            if parafunc is not None:
+                paradata = eval('%s(paradata)' % parafunc)
+            arr = [paradata, xdata, ydata]
         else:
             arr = [xdata, ydata]
 
-        tckp, u = splprep(arr, s=s, k=k, nest=nest)
-
+        ((tckp, u), fp, ier, msg) = splprep(arr, s=s, k=k, full_output=1)
+        if ier > 0:
+            print(fp, ier, msg)
         ave_data_step = np.round(np.mean(np.abs(np.diff(xdata))), 4)
         step_size = np.max([ave_data_step, min_step])
 
@@ -869,16 +915,22 @@ class DefineEeps(object):
         '''
         Remove duplicates so as to not brake the interpolator.
         '''
-        def unique_seq(seq):
+        def unique_seq(seq, tol=1e-6):
+            '''
+            Not exactly unique, but only points that are farther apart than some tol
+            '''
             '''
             A fast uniquify of a sequence
             from http://www.peterbe.com/plog/uniqifiers-benchmark
             # submitted by Dave Kirby
-            '''
+            
             seen = set()
             return [i for i, x in enumerate(seq)
                     if x not in seen and not seen.add(x)]
-
+            '''
+            
+            return np.nonzero(np.abs(np.diff(seq)) >= tol)[0]
+        
         un_ind1 = unique_seq(inds1)
         un_ind2 = unique_seq(inds2)
         if not just_two:
@@ -886,7 +938,7 @@ class DefineEeps(object):
             non_dupes = list(set(un_ind1) & set(un_ind2) & set(un_ind3))
         else:
             non_dupes = list(set(un_ind1) & set(un_ind2))
-
+        #print(len(non_dupes))
         return non_dupes
 
     def strip_instablities(self, track, inds):

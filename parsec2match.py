@@ -1,5 +1,6 @@
 from __future__ import print_function
 from copy import deepcopy
+import pprint
 import sys
 import os
 import matplotlib.pyplot as plt
@@ -50,6 +51,7 @@ def parsec2match(input_obj):
         #tfm.save_ptcri(hb=these_inputs.hb)
         mt = MatchTracks(these_inputs)
         mt.check_tracks()
+        pprint.pprint(mt.match_info)
         mt.diag_plots()
         plt.close('all')
     print('DONE')

@@ -95,8 +95,7 @@ class TrackSet(object):
         self.__setattr__(track_attr, [Track(track, match=match)
                                       for track in track_names[inds]])
         self.__setattr__('%s' % mass_str,
-                         np.round([t.mass for t in
-                                   self.__getattribute__(track_attr)], 3))
+                         ['%.3f' % t.mass for t in self.__getattribute__(track_attr)])
         return
 
 
