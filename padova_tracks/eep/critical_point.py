@@ -126,15 +126,14 @@ class critical_point(object):
         data_dict = {}
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
-            ptcris= data[i][3:].astype('int')
+            ptcris = data[i][3:].astype(int)
             check = np.nonzero(np.diff(ptcris[ptcris>0]) <= 3)[0]
             if len(check) > 0:
                 for c in check:
                     print('ptcri file M=%.3f: fewer than 3 tracks points between' % self.masses[i],
                           col_keys[c], col_keys[c+1])
                 continue
-            data_dict[str_mass] = data[i][3:].astype('int')
-
+            data_dict[str_mass] = ptcris
         self.data_dict = data_dict
 
         eep_obj = Eep()

@@ -6,7 +6,6 @@ import os
 import matplotlib.pylab as plt
 import numpy as np
 
-from ResolvedStellarPops.graphics.GraphicsUtils import discrete_colors
 from ResolvedStellarPops.fileio import fileIO
 
 from .track import Track

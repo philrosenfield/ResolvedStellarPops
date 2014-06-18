@@ -203,7 +203,7 @@ class TrackDiag(object):
             for i in range(len(eep_lengths)):
                 x = t.data[xcol]
                 y = t.data[ycol]
-                ind = eep_lengths[i] - 1
+                ind = np.cumsum(eep_lengths)[i] + 1
 
                 if (len(x) < ind):
                     continue
@@ -218,7 +218,7 @@ class TrackDiag(object):
         ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
         ax.set_ylabel('$%s$' % ycol.replace('_', '\! '), fontsize=20)
         ax.legend(loc=0, numpoints=1, frameon=0)
-        figname = 'match_%s%s.png' % (self.prefix, extra)
+        figname = '%s%s.png' % (self.prefix, extra)
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname, dpi=300)

@@ -13,49 +13,59 @@ from ResolvedStellarPops.padova_tracks.eep.define_eep import DefineEeps
 
 def parsec2match(input_obj):
     '''do an entire set and make the plots'''
-    # tracks location
-    tracks_dir = input_obj.tracks_dir
-    
-    # find which prefixes (Z, Y mixes)
-    if input_obj.prefixs == 'all':
-        prefixs = [d for d in os.listdir(tracks_dir)
-                   if os.path.isdir(os.path.join(tracks_dir, d))]
-    elif input_obj.prefixs is not None:
-        prefixs = input_obj.prefixs
-    else:
-        if input_obj.prefix is None:
-            print('nothing to do')
-            return
-        prefixs = [input_obj.prefix]
-
-    # will overwrite prefix through the loop
-    del input_obj.prefixs
-    assert type(prefixs) == list, 'prefixs must be a list'
+    prefixs = set_prefixs(input_obj)
 
     for prefix in prefixs:
         print('Current mix: %s' % prefix)
-        # set output file and plot directory structure
         inps = set_outdirs(input_obj, prefix)
     
-        # find the ptcri file
         inps = load_ptcri(inps)
         
-        # TracksForMatch is a TrackSet instance with extra QA/QC functions
         tfm = TracksForMatch(inps)
         if inps.from_p2m is True:
+            # load from parsec2match eep file (define_eeps already ran)
             pass
         else:
+            # find the parsec2match eeps for these tracks.
             tfm = define_eeps(tfm, inps)
+        
+        # do the match interpolation (produce match output files)
+        if inps.do_interpolation is True:
+            inps.flag_dict = tfm.match_interpolation(inps)
 
-        inps.flag_dict = tfm.match_interpolation(inps)
-
-        mt = MatchTracks(inps)
-        mt.check_tracks()
-        pprint.pprint(mt.match_info)
-        td.diag_plots()
-        plt.close('all')
+            # check the match interpolation
+            mt = MatchTracks(inps)
+            mt.check_tracks()
+            pprint.pprint(mt.match_info)
+            if inps.diag_plots is True:
+                td.diag_plots()
     print('DONE')
     return
+
+def set_prefixs(inputs):
+    '''
+    find which prefixes (Z, Y mixes) to run based on inputs.prefix or
+    inputs.prefixs.
+    '''
+    # tracks location
+    tracks_dir = inputs.tracks_dir
+    if inputs.prefixs == 'all':
+        # find all dirs in tracks dir
+        prefixs = [d for d in os.listdir(tracks_dir)
+                   if os.path.isdir(os.path.join(tracks_dir, d))]
+    elif inputs.prefixs is not None:
+        # some subset listed in the input file (seperated by comma)
+        prefixs = inputs.prefixs
+    else:
+        if inputs.prefix is None:
+            print('nothing to do')
+            sys.exit(2)
+        # just do one
+        prefixs = [inputs.prefix]
+
+    del inputs.prefixs
+    assert type(prefixs) == list, 'prefixs must be a list'
+    return prefixs
 
 def load_ptcri(inputs):
     '''load the ptcri file, either sandro's or mine'''
@@ -104,7 +114,10 @@ def define_eeps(tfm, inputs):
 
         
 def set_outdirs(input_obj, prefix):
-    '''set up the directories for output and plotting'''
+    '''
+    set up the directories for output and plotting
+    returns a copy of input_obj
+    '''
     new_inputs = deepcopy(input_obj)
     new_inputs.prefix = prefix
     wkd = os.path.join(input_obj.tracks_dir, new_inputs.prefix)

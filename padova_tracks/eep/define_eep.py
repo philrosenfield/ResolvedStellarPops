@@ -823,7 +823,8 @@ class DefineEeps(object):
             track.sptcri = \
                 np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                 for m in mptcri])
-
+            if len(track.sptcri) != len(mptcri):
+                track.flag = 'ptcri file does not match track, not enough MODEs'
             if len(ptcri.please_define) > 0:
                 # Initialize iptcri
                 track.iptcri = np.zeros(len(eep_obj.eep_list), dtype=int)

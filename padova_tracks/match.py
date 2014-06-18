@@ -119,7 +119,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     # PMS_BEG to MS_BEG, MS_BEG to RG_TIP, and RG_TIP to TPAGB.
                     eep_lists = [eep.eep_list[0:11], eep.eep_list[10:14],
                                  eep.eep_list[13:]]
-                    extras = ['pms', 'ms', 'rg', 'ycen']
+                    extras = ['match_pms', 'match_ms', 'match_rg', 'match_ycen']
                     eep_lengthss = [eep.nticks[0:11], eep.nticks[10:14],
                                     eep.nticks[13:]]
                 else:
