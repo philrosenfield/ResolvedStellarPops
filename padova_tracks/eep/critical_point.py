@@ -186,6 +186,7 @@ class critical_point(object):
             linefmt = '%2i %.3f 0.0 %s %s \n'
             for i, track in enumerate(tracks):
                 if track.flag is not None:
+                    print('save_ptcri skipping %s: %s' % (track.name, track.flag))
                     continue
                 ptcri_str = ' '.join(['%5d' % p for p in track.iptcri])
                 f.write(linefmt % (i+1, track.mass, ptcri_str,

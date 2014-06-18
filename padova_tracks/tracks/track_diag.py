@@ -121,8 +121,8 @@ class TrackDiag(object):
         return ax
 
     def diag_plots(self, pat_kw=None, xcols=['LOG_TE', 'logAge'],
-                   mass_split=[1, 3, 12, 50],
-                   mextras = ['vlow', 'low', 'inte', 'high', 'vhigh']):
+                   mass_split=[1, 1.4, 3, 12, 50],
+                   mextras = ['lowest', 'vlow', 'low', 'inte', 'high', 'vhigh']):
         '''
         pat_kw go to plot all tracks default:
             'eep_list': self.eep_list,
@@ -153,7 +153,9 @@ class TrackDiag(object):
                              and t.mass <= mass_split[2]],
                             [t for t in self.tracks if t.mass >= mass_split[2]
                              and t.mass <= mass_split[3]],
-                            [t for t in self.tracks if t.mass >= mass_split[3]]]
+                            [t for t in self.tracks if t.mass >= mass_split[3]
+                             and t.mass <= mass_split[4]],
+                            [t for t in self.tracks if t.mass >= mass_split[4]]]
 
         for i, tracks in enumerate(tracks_split):
             if len(tracks) == 0:
@@ -172,26 +174,23 @@ class TrackDiag(object):
 
     def plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
                          plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L',
-                         ax=None):
+                         ax=None, ptcri=None):
         '''
         plot all tracks and annotate eeps
         '''
         extra += '_%s' % xcol
-
         if eep_lengths is not None:
-            eep_lengths = map(int, np.insert(np.cumsum(eep_lengths), 0, 1))
+            eep_lengths = np.array([np.insert(np.cumsum(eep_lengths), 0, 1)], dtype=int) - 1
         line_pltkw = {'color': 'black', 'alpha': 0.3}
-        point_pltkw = {'marker': '.', 'ls': '', 'alpha': 0.5}
-        cols = discrete_colors(len(eep_list)+1, colormap='spectral')
+        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
         labs = [p.replace('_', '\_') for p in eep_list]
         if ax is None:
             fig, ax = plt.subplots(figsize=(16, 9))
         # fake lengend
-        [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
-         for i in range(len(eep_list))]
+        cols = discrete_colors(len(eep_list), colormap='spectral')
+        #[ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
+        # for i in range(len(eep_list))]
 
-
-        [ax.plot(t.data[xcol], t.data[ycol], **line_pltkw) for t in tracks]
         # instead, plot the tracks with alternating alpha for clarity
         #[ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks[::2]]
         #line_pltkw['alpha'] = 0.8
@@ -200,10 +199,22 @@ class TrackDiag(object):
         ylims = np.array([])
 
         for t in tracks:
+            if t.flag is not None:
+                continue
+            if ptcri is not None:
+                try:
+                    eep_lengths = ptcri.data_dict['M%.3f' % t.mass]
+                except KeyError:
+                    print('no %.3f in ptcri data' % t.mass)
+                    continue
+                eep_lengths = eep_lengths[eep_lengths>0]
+            inds = np.arange(eep_lengths[0], eep_lengths[-1])
+            ax.plot(t.data[xcol][inds], t.data[ycol][inds], **line_pltkw)
+
             for i in range(len(eep_lengths)):
                 x = t.data[xcol]
                 y = t.data[ycol]
-                ind = np.cumsum(eep_lengths)[i] + 1
+                ind = eep_lengths[i]
 
                 if (len(x) < ind):
                     continue
@@ -212,13 +223,17 @@ class TrackDiag(object):
                 ylims = np.append(ylims, (np.min(y[ind]), np.max(y[ind])))
                 if i == 5:
                     ax.annotate('%g' % t.mass, (x[ind], y[ind]), fontsize=8)
-        ax.set_title('$%s$' % self.prefix.replace('_', '\ '))
+        if hasattr(self, 'prefix'):
+            ax.set_title('$%s$' % self.prefix.replace('_', '\ '))
+            figname = '%s%s.png' % (self.prefix, extra)
+        else:
+            figname = 'diag_plot%s.png' % extra
         ax.set_xlim(np.max(xlims), np.min(xlims))
         ax.set_ylim(np.min(ylims), np.max(ylims))
         ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
         ax.set_ylabel('$%s$' % ycol.replace('_', '\! '), fontsize=20)
-        ax.legend(loc=0, numpoints=1, frameon=0)
-        figname = '%s%s.png' % (self.prefix, extra)
+        #ax.legend(loc=0, numpoints=1, frameon=0)
+        
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname, dpi=300)

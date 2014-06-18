@@ -113,6 +113,7 @@ class DefineEeps(object):
         # go on defining eeps.
         imin_l = self.add_min_l_eep(track)
         if imin_l == -1:
+            print('failed to find RG_MINL on first shot')
             imax_l = self.add_max_l_eep(track, eep2='RG_BMP1')
         else:
             imax_l = self.add_max_l_eep(track)
@@ -468,6 +469,12 @@ class DefineEeps(object):
 
         inds = self.ptcri.inds_between_ptcris(track, 'MS_BEG', 'POINT_C', sandro=True)
 
+        # transition mass
+        if track.mass <= 0.9 and track.mass >= 0.7 and len(inds) == 0:
+            ind1 = track.sptcri[ptcri.get_ptcri_name('MS_BEG')]
+            ind2 = len(track.data.LOG_L) - 1
+            inds = np.arange(ind1, ind2)
+
         if len(inds) == 0:
             ms_tmin = 0
             msg = 'No points between MS_BEG and POINT_C'
@@ -578,16 +585,16 @@ class DefineEeps(object):
         else:
             extreme = 'max of max'
         pf_kw = {'get_max': True, 'sandro': False, 'more_than_one': extreme,
-                 'parametric_interp': False, 'less_linear_fit': True}
+                 'parametric_interp': False, 'less_linear_fit': False}
 
         if eep2 != 'RG_MINL':
             pf_kw['mess_err'] = 'still a problem with SG_MAXL %.3f' % track.mass
 
         max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
-        msg = 'Max LOG_L between MS_TO and %s less_linear_fit' % eep2
+        msg = 'Max LOG_L between MS_TO and %s' % eep2
         if max_l == -1:
             pf_kw['less_linear_fit'] = bool(np.abs(pf_kw['less_linear_fit']-1))
-            msg = msg = 'Max LOG_L between MS_TO and %s' % eep2
+            msg = 'Max LOG_L between MS_TO and %s less_linear_fit' % eep2
             max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
 
 
@@ -809,7 +816,6 @@ class DefineEeps(object):
             track.iptcri = np.zeros(len(eep_obj.eep_list_hb), dtype=int)
             self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
                                    diag_plot=diag_plot, debug=debug)
-            self.ptcri.save_ptcri(hb=True)
         else:
             # Sandro's definitions. (I don't use his HB EEPs)
             try:
@@ -823,7 +829,7 @@ class DefineEeps(object):
             track.sptcri = \
                 np.concatenate([np.nonzero(track.data.MODE == m)[0]
                                 for m in mptcri])
-            if len(track.sptcri) != len(mptcri):
+            if len(track.sptcri) != len(np.nonzero(mptcri)[0]):
                 track.flag = 'ptcri file does not match track, not enough MODEs'
             if len(ptcri.please_define) > 0:
                 # Initialize iptcri

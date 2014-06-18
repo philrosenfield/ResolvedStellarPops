@@ -12,17 +12,16 @@ from tracks import Track
 import pprint
 max_mass = 120.
 
-class MatchTracks(critical_point.Eep, TrackSet, TrackDiag):
+class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
     '''
-    a simple check of the output from TracksForMatch. I want it to run on the
-    same input file as TracksForMatch.
+    a simple check of the output from TracksForMatch.
     '''
     def __init__(self, inputs):
         critical_point.Eep.__init__(self)
         inputs.match = True
         TrackSet.__init__(self, inputs=inputs)
         self.flag_dict = inputs.flag_dict
-        self.match_info = {}
+        self.check_tracks()
 
     def check_tracks(self):
         '''
@@ -32,6 +31,7 @@ class MatchTracks(critical_point.Eep, TrackSet, TrackDiag):
         
         if the track has already been flagged, not test occurs.
         '''
+        self.match_info = {}
         for i, t in enumerate(self.tracks):
             key = 'M%.3f' % t.mass
             #match_info = self.match_info['M%.3f' % t.mass]
