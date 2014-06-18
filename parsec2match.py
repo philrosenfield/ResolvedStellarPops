@@ -3,17 +3,20 @@ from copy import deepcopy
 import pprint
 import sys
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 from ResolvedStellarPops.fileio import fileIO
 from ResolvedStellarPops.padova_tracks.match import TracksForMatch
 from ResolvedStellarPops.padova_tracks.match import MatchTracks
-from ResolvedStellarPops.padova_tracks.eep import critical_point
+from ResolvedStellarPops.padova_tracks.eep.critical_point import critical_point
+from ResolvedStellarPops.padova_tracks.eep.define_eep import DefineEeps
 
 def parsec2match(input_obj):
-    '''
-    do an entire set and make the plots
-    '''
+    '''do an entire set and make the plots'''
+    # tracks location
     tracks_dir = input_obj.tracks_dir
+    
+    # find which prefixes (Z, Y mixes)
     if input_obj.prefixs == 'all':
         prefixs = [d for d in os.listdir(tracks_dir)
                    if os.path.isdir(os.path.join(tracks_dir, d))]
@@ -25,42 +28,83 @@ def parsec2match(input_obj):
             return
         prefixs = [input_obj.prefix]
 
-    # will overwrite prefix instead through the loop
+    # will overwrite prefix through the loop
     del input_obj.prefixs
     assert type(prefixs) == list, 'prefixs must be a list'
 
     for prefix in prefixs:
         print('Current mix: %s' % prefix)
-        these_inputs = set_outdirs(input_obj, prefix)
-        if these_inputs.ptcri_file is not None:
-            these_inputs.ptcri_file = input_obj.ptcri_file
+        # set output file and plot directory structure
+        inps = set_outdirs(input_obj, prefix)
+    
+        # find the ptcri file
+        inps = load_ptcri(inps)
+        
+        # TracksForMatch is a TrackSet instance with extra QA/QC functions
+        tfm = TracksForMatch(inps)
+        if inps.from_p2m is True:
+            pass
         else:
-            if these_inputs.from_p2m is True:
-                # this is the equivalent of Sandro's ptcri files, but mine.
-                search_term = 'p2m*%s*dat' % these_inputs.prefix
-                print('reading ptcri from saved p2m file.')
-            else:
-                search_term = 'pt*%s*dat' % these_inputs.prefix
+            tfm = define_eeps(tfm, inps)
 
-        these_inputs.ptcri_file, = fileIO.get_files(these_inputs.ptcrifile_loc,
-                                                    search_term)
+        inps.flag_dict = tfm.match_interpolation(inps)
 
-        tfm = TracksForMatch(these_inputs)
-        tfm.ptcri = critical_point.critical_point(these_inputs.ptcri_file)
-        these_inputs.flag_dict = tfm.match_interpolation(these_inputs)
-        #tfm.save_ptcri(hb=these_inputs.hb)
-        mt = MatchTracks(these_inputs)
+        mt = MatchTracks(inps)
         mt.check_tracks()
         pprint.pprint(mt.match_info)
-        mt.diag_plots()
+        td.diag_plots()
         plt.close('all')
     print('DONE')
     return
 
+def load_ptcri(inputs):
+    '''load the ptcri file, either sandro's or mine'''
+    # find the ptcri file
+    if inputs.ptcri_file is not None:
+        inputs.ptcri_file = inputs.ptcri_file
+    else:
+        if inputs.from_p2m is True:
+            # eeps already defined
+            search_term = 'p2m*%s*dat' % inputs.prefix
+            print('reading ptcri from saved p2m file.')
+            sandro = False
+        else:
+            # eeps are to be defined
+            search_term = 'pt*%s*dat' % inputs.prefix
+            sandro = True
+
+    inputs.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc, search_term)
+    inputs.ptcri = critical_point(inputs.ptcri_file, sandro=sandro)
+    return inputs
+
+def define_eeps(tfm, inputs):
+    '''add the ptcris to the tracks'''
+    # assign eeps track.iptcri and track.sptcri
+    de = DefineEeps()
+    crit_kw = {'plot_dir': inputs.plot_dir,
+               'diag_plot': inputs.diag_plot,
+               'debug': inputs.debug}
+
+    # Whether or not HB is happening
+    hbswitch = np.unique([inputs.hb_only, inputs.hb])
+    for i in range(len(hbswitch)):
+        crit_kw['hb'] = hbswitch[i]
+        track_str = 'tracks'
+        if hbswitch[i] is True:
+            track_str = 'hbtracks'
+
+        tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
+                  for track in tfm.tracks]
+
+        if inputs.from_p2m is False:
+            inputs.ptcri.save_ptcri(tracks, hb=hbswitch[i])
+
+        tfm.__setattr__(track_str, tracks)
+    return tfm
+
+        
 def set_outdirs(input_obj, prefix):
-    '''
-    set up the directories for output and plotting
-    '''
+    '''set up the directories for output and plotting'''
     new_inputs = deepcopy(input_obj)
     new_inputs.prefix = prefix
     wkd = os.path.join(input_obj.tracks_dir, new_inputs.prefix)

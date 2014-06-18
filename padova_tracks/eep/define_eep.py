@@ -809,6 +809,7 @@ class DefineEeps(object):
             track.iptcri = np.zeros(len(eep_obj.eep_list_hb), dtype=int)
             self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
                                    diag_plot=diag_plot, debug=debug)
+            self.ptcri.save_ptcri(hb=True)
         else:
             # Sandro's definitions. (I don't use his HB EEPs)
             try:
@@ -845,7 +846,6 @@ class DefineEeps(object):
                 # define the eeps
                 self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
                                        diag_plot=diag_plot, debug=debug)
-
             else:
                 # copy sandros dict.
                 track.iptcri = ptcri.data_dict['M%.3f' % track.mass]

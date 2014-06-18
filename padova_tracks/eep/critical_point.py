@@ -1,5 +1,7 @@
+from __future__ import print_function
 import os
 import numpy as np
+
 
 class Eep(object):
     '''
@@ -38,8 +40,8 @@ class critical_point(object):
     which tells which critical points of Sandro's to ignore and which new
     ones to define. Definitions of new eeps are in the Track class.
     '''
-    def __init__(self, filename):
-        self.load_ptcri(filename)
+    def __init__(self, filename, sandro=True):
+        self.load_ptcri(filename, sandro=sandro)
         self.base, self.name = os.path.split(filename)
         self.get_args_from_name(filename)
 
@@ -94,7 +96,7 @@ class critical_point(object):
             return [pval for name, pval in search_dict.items()
                     if name == val][0]
 
-    def load_ptcri(self, filename):
+    def load_ptcri(self, filename, sandro=True):
         '''
         reads the ptcri*dat file. If there is an eep_obj, it will flag the
         missing eeps in the ptcri file and only read the eeps that match both
@@ -109,14 +111,10 @@ class critical_point(object):
                   and 'F7' in lines[i]]
 
         # the final column is a filename.
-        col_keys = lines[begin + 1].replace('#', '').strip().split()[3:-1]
-
-        # useful to save what Sandro defined
-        self.sandro_eeps = col_keys
-        self.sandros_dict = dict(zip(col_keys, range(len(col_keys))))
-
+        all_keys = lines[begin + 1].replace('#', '').strip().split()
+        col_keys = all_keys[3:-1]
         # ptcri file has filename as col #19 so skip the last column
-        usecols = range(0, 18)
+        usecols = range(0, len(all_keys) - 1)
         # invalid_raise will skip the last rows that Sandro uses to fake the
         # youngest MS ages (600Msun).
         data = np.genfromtxt(filename, usecols=usecols, skip_header=begin + 2,
@@ -138,20 +136,26 @@ class critical_point(object):
             data_dict[str_mass] = data[i][3:].astype('int')
 
         self.data_dict = data_dict
-        self.please_define = []
-        self.please_define_hb = []
 
         eep_obj = Eep()
         eep_list = eep_obj.eep_list
         self.key_dict = dict(zip(eep_list, range(len(eep_list))))
-        self.please_define = [c for c in eep_list if c not in col_keys]
+
+        if sandro is True:
+            # loading sandro's eeps means they will be used for match
+            self.sandro_eeps = col_keys
+            self.sandros_dict = dict(zip(col_keys, range(len(col_keys))))
+            self.please_define = []
+            self.please_define_hb = []
+            self.please_define = [c for c in eep_list if c not in col_keys]
 
         if eep_obj.eep_list_hb is not None:
             self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
                                     range(len(eep_obj.eep_list_hb))))
             # there is no mixture between Sandro's HB eeps since there
             # are no HB eeps in the ptcri files. Define them all here.
-            self.please_define_hb = eep_obj.eep_list_hb
+            if sandro is True:
+                self.please_define_hb = eep_obj.eep_list_hb
 
         self.eep = eep_obj
 
@@ -159,40 +163,32 @@ class critical_point(object):
         try:
             mptcri = self.data_dict['M%.3f' % track.mass]
         except KeyError:
-            print 'No M%.3f in ptcri.data_dict.' % track.mass
+            print('No M%.3f in ptcri.data_dict.' % track.mass)
             return -1
         track.sptcri = \
             np.concatenate([np.nonzero(track.data.MODE == m)[0]
                             for m in mptcri])
 
-    def save_ptcri(self, filename=None, hb=False):
+    def save_ptcri(self, tracks, filename=None, hb=False):
         #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
-        if hb is True:
-            tracks = self.hbtracks
-        else:
-            tracks = self.tracks
 
         if filename is None:
-            base, name = os.path.split(self.ptcri_file)
-            filename = os.path.join(base, 'p2m_%s' % name)
+            filename = os.path.join(self.base, 'p2m_%s' % self.name)
             if hb is True:
                 filename = filename.replace('p2m', 'p2m_hb')
 
-        sorted_keys, inds = zip(*sorted(self.ptcri.key_dict.items(),
+        sorted_keys, inds = zip(*sorted(self.key_dict.items(),
                                         key=lambda (k, v): (v, k)))
 
         header = '# critical points in F7 files defined by sandro, basti, and phil \n'
-        header += '# i mass lixo %s fname \n' % (' '.join(sorted_keys))
+        header += '# i mass kind_track %s fname \n' % (' '.join(sorted_keys))
         with open(filename, 'w') as f:
             f.write(header)
             linefmt = '%2i %.3f 0.0 %s %s \n'
             for i, track in enumerate(tracks):
-                self.ptcri.please_define = []
-                # this line should just slow everything down, why is it here?
-                self.load_critical_points(track, eep_obj=self.eep, hb=hb,
-                                          ptcri=self.ptcri, diag_plot=False)
+                if track.flag is not None:
+                    continue
                 ptcri_str = ' '.join(['%5d' % p for p in track.iptcri])
                 f.write(linefmt % (i+1, track.mass, ptcri_str,
                                    os.path.join(track.base, track.name)))
-
         print('wrote %s' % filename)

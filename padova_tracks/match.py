@@ -12,7 +12,7 @@ from tracks import Track
 import pprint
 max_mass = 120.
 
-class MatchTracks(critical_point.Eep, TrackSet):
+class MatchTracks(critical_point.Eep, TrackSet, TrackDiag):
     '''
     a simple check of the output from TracksForMatch. I want it to run on the
     same input file as TracksForMatch.
@@ -64,104 +64,6 @@ class MatchTracks(critical_point.Eep, TrackSet):
                     match_info.append(['log ages:', t.data.logAge[bads1]])
                     match_info.append(['inds:', bads1])
 
-    def diag_plots(self, pat_kw=None, xcols=['LOG_TE', 'logAge'],
-                   mass_split=[3, 12, 50],
-                   extras = ['low', 'inte', 'high', 'very_high']):
-        '''
-        pat_kw go to plot all tracks default:
-            'eep_list': self.eep_list,
-            'eep_lengths': self.nticks,
-            'plot_dir': self.tracks_base
-        xcols are the xcolumns to make individual plots
-        mass_split is a list to split masses length == 3 (I'm lazy)
-        extras is the filename extra associated with each mass split
-           length == mass_split + 1
-        '''
-        pat_kw = pat_kw or {}
-        default = {'eep_list': self.eep_list,
-                   'eep_lengths': self.nticks,
-                   'plot_dir': self.tracks_base}
-
-        pat_kw = dict(default.items() + pat_kw.items())
-        # could be done a lot better and faster:
-        tracks_split = [[t for t in self.tracks if t.mass <= mass_split[0]],
-                        [t for t in self.tracks if t.mass >= mass_split[0]
-                         and t.mass <= mass_split[1]],
-                        [t for t in self.tracks if t.mass >= mass_split[1]
-                         and t.mass <= mass_split[2]],
-                        [t for t in self.tracks if t.mass >= mass_split[2]]]
-
-        for i, tracks in enumerate(tracks_split):
-            if len(tracks) == 0:
-                continue
-            pat_kw['extra'] = '_' + extras[i]
-            for xcol in xcols:
-                pat_kw['xcol'] = xcol
-                self._plot_all_tracks(tracks, **pat_kw)
-
-        if len(self.hbtrack_names) > 0:
-            pat_kw['extra'] = '_HB'
-            pat_kw['eep_lengths'] = self.nticks_hb
-            for xcol in xcols:
-                pat_kw['xcol'] = xcol
-                self._plot_all_tracks(self.hbtracks, **pat_kw)
-
-    def _plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
-                         plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L',
-                         ax=None):
-        '''
-        plot all tracks and annoate eeps
-        '''
-        if extra == '':
-            extra = '_%s' % xcol
-        else:
-            extra += '_%s' % xcol
-
-        if eep_lengths is not None:
-            eep_lengths = map(int, np.insert(np.cumsum(eep_lengths), 0, 1))
-        line_pltkw = {'color': 'black', 'alpha': 0.3}
-        point_pltkw = {'marker': '.', 'ls': '', 'alpha': 0.5}
-        cols = discrete_colors(len(eep_list), colormap='spectral')
-        labs = [p.replace('_', '\_') for p in eep_list]
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(16, 9))
-        # fake lengend
-        [ax.plot(9999, 9999, color=cols[i], label=labs[i], **point_pltkw)
-         for i in range(len(eep_list))]
-
-
-        [ax.plot(t.data[xcol], t.data[ycol], **line_pltkw) for t in tracks]
-        # instead, plot the tracks with alternating alpha for clarity
-        #[ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks[::2]]
-        #line_pltkw['alpha'] = 0.8
-        #[ax.plot(t[xcol], t[ycol], **line_pltkw) for t in tracks[1::2]]
-        xlims = np.array([])
-        ylims = np.array([])
-
-        for t in tracks:
-            for i in range(len(eep_lengths)):
-                x = t.data[xcol]
-                y = t.data[ycol]
-                ind = eep_lengths[i] - 1
-
-                if (len(x) < ind):
-                    continue
-                ax.plot(x[ind], y[ind], color=cols[i], **point_pltkw)
-                xlims = np.append(xlims, (np.min(x[ind]), np.max(x[ind])))
-                ylims = np.append(ylims, (np.min(y[ind]), np.max(y[ind])))
-                if i == 5:
-                    ax.annotate('%g' % t.mass, (x[ind], y[ind]), fontsize=8)
-        ax.set_title('$%s$' % self.prefix.replace('_', '\ '))
-        ax.set_xlim(np.max(xlims), np.min(xlims))
-        ax.set_ylim(np.min(ylims), np.max(ylims))
-        ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
-        ax.set_ylabel('$%s$' % ycol.replace('_', '\! '), fontsize=20)
-        ax.legend(loc=0, numpoints=1, frameon=0)
-        figname = 'match_%s%s.png' % (self.prefix, extra)
-        if plot_dir is not None:
-            figname = os.path.join(plot_dir, figname)
-        plt.savefig(figname, dpi=300)
-
 
 class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
     '''
@@ -181,7 +83,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         info_dict = {}
         trackss = []
         hbswitch = []
-
+        eep = critical_point.Eep()
         if inputs.hb_only is False:
             trackss = [self.tracks]
             hbswitch = [False]
@@ -193,34 +95,45 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         for i, tracks in enumerate(trackss):
             for track in tracks:
                 flag_dict['M%.3f' % track.mass] = track.flag
-                
-                # assign eeps track.iptcri and track.sptcri
-                track = self.load_critical_points(track, ptcri=self.ptcri,
-                                                  plot_dir=inputs.plot_dir,
-                                                  diag_plot=inputs.diag_plot,
-                                                  debug=inputs.debug,
-                                                  hb=hbswitch[i])
+
                 if track.flag is not None:
                     print('skipping track because of flag:', track.flag)
                     continue
-    
+
                 # interpolate tracks for match
-                self.prepare_track(track, outfile_dir=inputs.outfile_dir,
+                self.prepare_track(track, inputs.ptcri, outfile_dir=inputs.outfile_dir,
                                    diag_plot=inputs.diag_plot, hb=hbswitch[i])
-                
+
                 info_dict['M%.3f' % track.mass] = track.info
-                
+
                 if inputs.diag_plot is True:
                     # make diagnostic plots
                     for xcol in ['LOG_TE', 'AGE']:
                         self.check_ptcris(track, plot_dir=inputs.plot_dir,
-                                          xcol=xcol, hb=hbswitch[i])
-
+                                          xcol=xcol, hb=hbswitch[i],
+                                          ptcri=inputs.ptcri)
+            if inputs.diag_plot is True:
                 # make summary diagnostic plots
-            self.plot_all_tracks(tracks, 'LOG_TE', 'LOG_L',
-                                 sandro=False, reverse_x=True,
-                                 plot_dir=inputs.plot_dir, hb=hbswitch[i])
-        
+                if hbswitch[i] is False:
+                    # split into three plots
+                    # PMS_BEG to MS_BEG, MS_BEG to RG_TIP, and RG_TIP to TPAGB.
+                    eep_lists = [eep.eep_list[0:11], eep.eep_list[10:14],
+                                 eep.eep_list[13:]]
+                    extras = ['pms', 'ms', 'rg', 'ycen']
+                    eep_lengthss = [eep.nticks[0:11], eep.nticks[10:14],
+                                    eep.nticks[13:]]
+                else:
+                    eep_lists = [eep.eep_list_hb]
+                    extras = ['hb']
+                    eep_lengthss = [eep.nticks_hb]
+    
+                for i in range(len(eep_lengthss)):
+                    pat_kw = {'eep_lengths': eep_lengthss[i],
+                              'eep_list': eep_lists[i],
+                              'extra': extras[i],
+                              'plot_dir': inputs.plot_dir}
+                    self.diag_plots(pat_kw=pat_kw, xcols=['LOG_TE', 'AGE'])
+
         logfile = os.path.join(self.tracks_base, 'logfile_%s.dat' % self.prefix.lower())
         with open(logfile, 'w') as out:
             for m, d in info_dict.items():
@@ -230,7 +143,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         
         return flag_dict
 
-    def prepare_track(self, track, outfile='default', hb=False,
+    def prepare_track(self, track, ptcri, outfile='default', hb=False,
                       outfile_dir=None, diag_plot=False):
         broken = False
         if outfile == 'default':
@@ -241,9 +154,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         header = '# logAge Mass logTe Mbol logg C/O \n'
 
         if hb is True:
-            nticks = self.ptcri.eep.nticks_hb
+            nticks = ptcri.eep.nticks_hb
         else:
-            nticks = self.ptcri.eep.nticks
+            nticks = ptcri.eep.nticks
 
         logTe = np.array([])
         logL = np.array([])
@@ -252,8 +165,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         ptcri_kw = {'sandro': False, 'hb': hb}
         ndefined_ptcri = len(np.nonzero(track.iptcri >= 0)[0]) 
         for i in range(ndefined_ptcri - 1):
-            this_eep = self.ptcri.get_ptcri_name(i, **ptcri_kw)
-            next_eep = self.ptcri.get_ptcri_name(i+1, **ptcri_kw)
+            this_eep = ptcri.get_ptcri_name(i, **ptcri_kw)
+            next_eep = ptcri.get_ptcri_name(i+1, **ptcri_kw)
             ithis_eep = track.iptcri[i]
             inext_eep = track.iptcri[i+1]
             mess = '%.3f %s=%i %s=%i' % (track.mass,
