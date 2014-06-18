@@ -1,0 +1,410 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.tools.astrotools &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'../../../',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../../index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.tools.astrotools</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for resolvedstellarpops.tools.astrotools</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">io</span>
+<span class="kn">from</span> <span class="nn">..bc_config</span> <span class="kn">import</span> <span class="n">BCDIR</span>
+<span class="kn">from</span> <span class="nn">..angst_tables</span> <span class="kn">import</span> <span class="n">angst_data</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;Av2Alambda&#39;</span><span class="p">,</span> <span class="s">&#39;Mag2mag&#39;</span><span class="p">,</span> <span class="s">&#39;bens_fmt_galaxy_info&#39;</span><span class="p">,</span> <span class="s">&#39;get_dmodAv&#39;</span><span class="p">,</span>
+           <span class="s">&#39;hla_galaxy_info&#39;</span><span class="p">,</span> <span class="s">&#39;mag2Mag&#39;</span><span class="p">,</span> <span class="s">&#39;parse_mag_tab&#39;</span><span class="p">,</span> <span class="p">]</span>
+
+
+<div class="viewcode-block" id="parse_mag_tab"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.parse_mag_tab">[docs]</a><span class="k">def</span> <span class="nf">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">bcdir</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">bcdir</span> <span class="o">=</span> <span class="n">bcdir</span> <span class="ow">or</span> <span class="n">BCDIR</span>
+    <span class="n">photsys</span> <span class="o">=</span> <span class="n">photsys</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+    <span class="n">tab_mag_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bcdir</span><span class="p">,</span> <span class="s">&#39;tab_mag_odfnew/&#39;</span><span class="p">)</span>
+    <span class="n">tab_mag</span><span class="p">,</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">get_files</span><span class="p">(</span><span class="n">tab_mag_dir</span><span class="p">,</span> <span class="s">&#39;tab_mag_{0:s}.dat&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">photsys</span><span class="p">))</span>
+
+    <span class="n">tab</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">tab_mag</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="n">mags</span> <span class="o">=</span> <span class="n">tab</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">Alam_Av</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">tab</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+    <span class="n">Alam_Av</span><span class="p">[</span><span class="n">mags</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">filter</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">Alam_Av</span><span class="p">[</span><span class="n">mags</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">filter</span><span class="p">)]</span>
+
+</div>
+<div class="viewcode-block" id="Av2Alambda"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.Av2Alambda">[docs]</a><span class="k">def</span> <span class="nf">Av2Alambda</span><span class="p">(</span><span class="n">Av</span><span class="p">,</span> <span class="n">photsys</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
+    <span class="n">Alam_Av</span> <span class="o">=</span> <span class="n">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="nb">filter</span><span class="p">)</span>
+    <span class="n">Alam</span> <span class="o">=</span> <span class="n">Alam_Av</span> <span class="o">*</span> <span class="n">Av</span>
+    <span class="k">return</span> <span class="n">Alam</span>
+
+</div>
+<div class="viewcode-block" id="Mag2mag"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.Mag2mag">[docs]</a><span class="k">def</span> <span class="nf">Mag2mag</span><span class="p">(</span><span class="n">Mag</span><span class="p">,</span> <span class="n">filterx</span><span class="p">,</span> <span class="n">photsys</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Av</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dmod</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Return an apparent redenned magnitude from absolute magnitude</span>
+
+<span class="sd">    This uses Leo calculations using Cardelli et al 1998 extinction curve with</span>
+<span class="sd">    Rv = 3.1</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Mag: float</span>
+<span class="sd">        absolute magnitude</span>
+
+
+<span class="sd">    filterx:</span>
+
+
+<span class="sd">    photsys:</span>
+
+<span class="sd">    target:</span>
+<span class="sd">        galaxy id to find in angst survey paper table 5</span>
+
+<span class="sd">    Av: float</span>
+<span class="sd">        0.0</span>
+<span class="sd">    dmod: float</span>
+<span class="sd">        0.0</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    mag: float</span>
+<span class="sd">        apparent magnitude (added distance and extinction)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">filter2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter2&#39;</span><span class="p">,</span> <span class="n">filterx</span><span class="p">)</span>
+        <span class="n">filter1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter1&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="n">trgb</span><span class="p">,</span> <span class="n">Av</span><span class="p">,</span> <span class="n">dmod</span> <span class="o">=</span> <span class="n">angst_data</span><span class="o">.</span><span class="n">get_tab5_trgb_av_dmod</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">filter1</span><span class="p">,</span> <span class="n">filter2</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">Av</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="n">Alam_Av</span> <span class="o">=</span> <span class="n">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="n">filterx</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">Alam_Av</span> <span class="o">*</span> <span class="n">Av</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="mf">0.</span>
+
+    <span class="k">return</span> <span class="n">Mag</span> <span class="o">+</span> <span class="n">dmod</span> <span class="o">+</span> <span class="n">A</span>
+
+</div>
+<div class="viewcode-block" id="mag2Mag"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.mag2Mag">[docs]</a><span class="k">def</span> <span class="nf">mag2Mag</span><span class="p">(</span><span class="n">mag</span><span class="p">,</span> <span class="n">filterx</span><span class="p">,</span> <span class="n">photsys</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Av</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dmod</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Returns the apparent magnitude from an absolute magnitude</span>
+
+<span class="sd">    This uses Leo calculations using Cardelli et al 1998 extinction curve</span>
+<span class="sd">    with Rv = 3.1</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mag: float</span>
+<span class="sd">        apparent magnitude</span>
+
+
+<span class="sd">    filterx:</span>
+
+
+<span class="sd">    photsys:</span>
+
+<span class="sd">    target:</span>
+<span class="sd">        galaxy id to find in angst survey paper table 5</span>
+
+<span class="sd">    Av: float</span>
+<span class="sd">        0.0</span>
+<span class="sd">    dmod: float</span>
+<span class="sd">        0.0</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Mag: float</span>
+<span class="sd">        absolute magnitude (magnitude corrected for distance and extinction)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">target</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;target&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">filter2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter2&#39;</span><span class="p">,</span> <span class="n">filterx</span><span class="p">)</span>
+        <span class="n">filter1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter1&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">Av</span><span class="p">,</span> <span class="n">dmod</span> <span class="o">=</span> <span class="n">angst_data</span><span class="o">.</span><span class="n">get_tab5_trgb_av_dmod</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">filter1</span><span class="p">,</span> <span class="n">filter2</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Av</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Av&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">dmod</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;dmod&#39;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">Av</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="n">Alam_Av</span> <span class="o">=</span> <span class="n">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="n">filterx</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">Alam_Av</span> <span class="o">*</span> <span class="n">Av</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="mf">0.</span>
+
+    <span class="k">return</span> <span class="n">mag</span> <span class="o">-</span> <span class="n">dmod</span> <span class="o">-</span> <span class="n">A</span>
+
+</div>
+<div class="viewcode-block" id="get_dmodAv"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.get_dmodAv">[docs]</a><span class="k">def</span> <span class="nf">get_dmodAv</span><span class="p">(</span><span class="n">gal</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    dmod and Av can be separated only if we have more than one filter to deal</span>
+<span class="sd">    with.</span>
+
+<span class="sd">    This will take either a Galaxies.star_pop instance (galaxy, simgalaxy) or a</span>
+<span class="sd">    pile of kwargs.</span>
+
+<span class="sd">    .. math:</span>
+<span class="sd">        mag1 - Mag1 = dmod + (Alambda1/Av) * Av</span>
+<span class="sd">        mag2 - Mag2 = dmod + (Alambda2/Av) * Av</span>
+
+<span class="sd">        Av   = ((mag1 - Mag1) - (mag2 - Mag2)) / (Alambda1/Av - Alambda2/Av)</span>
+<span class="sd">        dmod = mag1 - Mag1 - al1 * Av</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">gal</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">photsys</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;photsys&#39;</span><span class="p">)</span>
+        <span class="n">filter1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter1&#39;</span><span class="p">)</span>
+        <span class="n">filter2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filter2&#39;</span><span class="p">)</span>
+        <span class="n">mag1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;mag1&#39;</span><span class="p">)</span>
+        <span class="n">mag2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;mag2&#39;</span><span class="p">)</span>
+        <span class="n">Mag1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Mag1&#39;</span><span class="p">)</span>
+        <span class="n">Mag2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Mag2&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">photsys</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">photsys</span>
+        <span class="n">filter1</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter1</span>
+        <span class="n">filter2</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">filter2</span>
+        <span class="n">mag1</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag1</span>
+        <span class="n">mag2</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">mag2</span>
+        <span class="n">Mag1</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">Mag1</span>
+        <span class="n">Mag2</span> <span class="o">=</span> <span class="n">gal</span><span class="o">.</span><span class="n">Mag2</span>
+
+    <span class="n">Al1</span> <span class="o">=</span> <span class="n">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="n">filter1</span><span class="p">)</span>
+    <span class="n">Al2</span> <span class="o">=</span> <span class="n">parse_mag_tab</span><span class="p">(</span><span class="n">photsys</span><span class="p">,</span> <span class="n">filter2</span><span class="p">)</span>
+    <span class="n">Av</span> <span class="o">=</span> <span class="p">(</span><span class="n">mag1</span> <span class="o">-</span> <span class="n">Mag1</span> <span class="o">-</span> <span class="n">mag2</span> <span class="o">+</span> <span class="n">Mag2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">Al1</span> <span class="o">-</span> <span class="n">Al2</span><span class="p">)</span>
+    <span class="n">dmod</span> <span class="o">=</span> <span class="n">mag1</span> <span class="o">-</span> <span class="n">Mag1</span> <span class="o">-</span> <span class="n">Al1</span> <span class="o">*</span> <span class="n">Av</span>
+    <span class="c"># could do some assert dmods and Avs  are all the same...</span>
+    <span class="k">return</span> <span class="n">dmod</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Av</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="hla_galaxy_info"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.hla_galaxy_info">[docs]</a><span class="k">def</span> <span class="nf">hla_galaxy_info</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Parse HLA information from a given file name</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filename: str</span>
+<span class="sd">        name of the file to get info from</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    survey: str</span>
+<span class="sd">        survey name</span>
+
+<span class="sd">    propid: str</span>
+<span class="sd">        proposal id</span>
+
+<span class="sd">    target: str</span>
+<span class="sd">        target of the proposal</span>
+
+<span class="sd">    filters: str</span>
+<span class="sd">        filters</span>
+
+<span class="sd">    photsys: str</span>
+<span class="sd">        photometric system</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">name_split</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">survey</span><span class="p">,</span> <span class="n">lixo</span><span class="p">,</span> <span class="n">photsys</span><span class="p">,</span> <span class="n">pidtarget</span><span class="p">,</span> <span class="n">filters</span> <span class="o">=</span> <span class="n">name_split</span>
+    <span class="n">propid</span> <span class="o">=</span> <span class="n">pidtarget</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="s">&#39;-&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pidtarget</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">return</span> <span class="n">survey</span><span class="p">,</span> <span class="n">propid</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">filters</span><span class="p">,</span> <span class="n">photsys</span>
+
+</div>
+<div class="viewcode-block" id="bens_fmt_galaxy_info"><a class="viewcode-back" href="../../../resolvedstellarpops.tools.html#resolvedstellarpops.tools.astrotools.bens_fmt_galaxy_info">[docs]</a><span class="k">def</span> <span class="nf">bens_fmt_galaxy_info</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Parse Ben&#39;s file names and extract relevant info</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filename: str</span>
+<span class="sd">        name of the file to get info from</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    propid: str</span>
+<span class="sd">        proposal id</span>
+
+<span class="sd">    target: str</span>
+<span class="sd">        target of the proposal</span>
+
+<span class="sd">    filter1: str</span>
+<span class="sd">        name of the 1st filter</span>
+
+<span class="sd">    filter2: str</span>
+<span class="sd">        name of the 2nd filter</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">)</span>
+    <span class="c"># Why not just split? Sometimes there&#39;s an IR right in there for</span>
+    <span class="c"># reasons beyond comprehension.</span>
+    <span class="p">(</span><span class="n">propid</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span> <span class="o">=</span> <span class="n">info</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="p">(</span><span class="n">filter1</span><span class="p">,</span> <span class="n">filter2</span><span class="p">)</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+    <span class="k">return</span> <span class="n">propid</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">filter1</span><span class="p">,</span> <span class="n">filter2</span>
+
+</div>
+<span class="k">def</span> <span class="nf">read_galtable</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filename&#39;</span><span class="p">)</span>
+    <span class="n">br</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;br&#39;</span><span class="p">,</span> <span class="bp">True</span><span class="p">)</span>
+    <span class="n">tpagb</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;tpagb&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fname</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">br</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="s">&#39;/Users/phil/research/BRratio/tables/brratio_galtable.dat&#39;</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s">&#39;Target&#39;</span><span class="p">,</span> <span class="s">&#39;|S10&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;O/H&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;Z&#39;</span><span class="p">,</span> <span class="s">&#39;&lt;f8&#39;</span><span class="p">)]</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;autostrip&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#39;delimiter&#39;</span><span class="p">:</span> <span class="s">&#39;,&#39;</span><span class="p">,</span> <span class="s">&#39;dtype&#39;</span><span class="p">:</span> <span class="n">dtype</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">tpagb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">genfromtxt</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">galaxy_metallicity</span><span class="p">(</span><span class="n">gal</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    add metallicity to galaxy object.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&#39;galaxy_metallicity is gonna break shit.&#39;</span><span class="p">)</span>
+    <span class="n">got</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">met_table</span> <span class="o">=</span> <span class="n">read_galtable</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">met_table</span><span class="p">[</span><span class="s">&#39;Target&#39;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">met_table</span><span class="p">[</span><span class="s">&#39;Z&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">met_table</span><span class="p">[</span><span class="s">&#39;Target&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">t</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&#39;fuck!!!&#39;</span><span class="p">)</span>
+            <span class="n">got</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">got</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;{0:s} not found&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target</span><span class="p">))</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">gal</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">z</span>
+    <span class="k">return</span> <span class="n">z</span>
+
+
+<span class="k">def</span> <span class="nf">get_fake</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">fake_loc</span><span class="o">=</span><span class="s">&#39;.&#39;</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">io</span><span class="o">.</span><span class="n">get_files</span><span class="p">(</span><span class="n">fake_loc</span><span class="p">,</span> <span class="s">&#39;*</span><span class="si">%s</span><span class="s">*.matchfake&#39;</span> <span class="o">%</span> <span class="n">target</span><span class="o">.</span><span class="n">upper</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>

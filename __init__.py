@@ -1,20 +1,16 @@
+"""
+From Phil's repo: ResolvedStellarPops
+This is a repo of codes used for my own projects, it's not that portable
+(yet), filenames are hardcoded, and lots can change.
 
-
-__version__ = '0.1alpha'
-
-
-import math_utils
-import functions
-import fileIO
-import angst_tables
-import astronomy_utils
-import match_utils
-import match_graphics
-import graphics
-import Galaxies
-import StellarPops
-import annotate_cmd
-import IsochroneUtils
-import PadovAppUtils
-import TrilegalUtils
-import trilegal_model_grid
+First crack at porting version and at cleaning internal recipes
+"""
+from . import angst_tables
+from . import tools
+from . import galaxies
+from . import graphics
+from . import fileio
+from . import match
+from . import utils
+from . import trilegal
+from . import padova_tracks

@@ -1,0 +1,806 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>resolvedstellarpops.galaxies package &mdash; ResolvedStellarPops 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:'./',
+        VERSION:'1.0',
+        COLLAPSE_INDEX:false,
+        FILE_SUFFIX:'.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+    <script type="text/javascript">
+        jQuery(function () {
+            SphinxRtdTheme.StickyNav.enable();
+        });
+    </script>
+  
+
+  
+    <link rel="top" title="ResolvedStellarPops 1.0 documentation" href="index.html"/> 
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="index.html" class="fa fa-home"> ResolvedStellarPops</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">ResolvedStellarPops</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>resolvedstellarpops.galaxies package</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/resolvedstellarpops.galaxies.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="resolvedstellarpops-galaxies-package">
+<h1>resolvedstellarpops.galaxies package<a class="headerlink" href="#resolvedstellarpops-galaxies-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies.asts">
+<span id="resolvedstellarpops-galaxies-asts-module"></span><h2>resolvedstellarpops.galaxies.asts module<a class="headerlink" href="#module-resolvedstellarpops.galaxies.asts" title="Permalink to this headline">¶</a></h2>
+<p>All about Artificial star tests</p>
+<dl class="function">
+<dt id="resolvedstellarpops.galaxies.asts.ast_correct_trilegal_sim">
+<tt class="descclassname">resolvedstellarpops.galaxies.asts.</tt><tt class="descname">ast_correct_trilegal_sim</tt><big>(</big><em>sgal</em>, <em>fake_file=None</em>, <em>outfile=None</em>, <em>overwrite=False</em>, <em>spread_outfile=None</em>, <em>leo_method=False</em>, <em>spread_outfile2=None</em>, <em>asts_obj=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ast_correct_trilegal_sim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ast_correct_trilegal_sim" title="Permalink to this definition">¶</a></dt>
+<dd><p>correct trilegal simulation with artificial star tests.
+options to write the a copy of the trilegal simulation with the corrected
+mag columns, and also just the color, mag into a file (spread_too).</p>
+<p>ARGS:
+sgal: simgalaxy instance with convert_mag method already called.
+fake_file: string - matchfake file(s), or an artifical_star_tests instance(s).
+outfile: string - ast_file to write
+overwrite: overwrite output files, is also passed to write_spread
+spread_too: call write_spread flag
+spread_outfile: outfile for write_spread</p>
+<p>RETURNS:
+adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict</p>
+<p>if fake_file is an a list of opt and ir, will do the corrections twice.
+fake_file as artificial_star_instance won&#8217;t work if leo_method=True.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.asts.</tt><tt class="descname">ASTs</tt><big>(</big><em>filename</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">object</span></tt></p>
+<p>class for reading and using artificial stars.
+If <em>filename</em> is not a matchfake file, MUST create a new method to read in
+artificial stars.
+for load_fake:
+mag1 is assumed to be mag1in
+mag2 is assumed to be mag2in
+mag1diff is assumed to be mag1in-mag1out
+mag2diff is assumed to be mag2in-mag2out
+filename is assumed as matchfake:
+<a href="#id1"><span class="problematic" id="id2">PID_TARGET_FILTER1_FILTER2_</span></a>... or <a href="#id3"><span class="problematic" id="id4">TARGET_FILTER1_FILTER2_</span></a>
+this is how attributes target, filter1, and filter2 are assigned.</p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.ast_correction">
+<tt class="descname">ast_correction</tt><big>(</big><em>obs_mag1</em>, <em>obs_mag2</em>, <em>binsize=0.2</em>, <em>bins=None</em>, <em>not_rec_val=nan</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.ast_correction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.ast_correction" title="Permalink to this definition">¶</a></dt>
+<dd><p>apply ast correction to input mags.</p>
+<p>ARGS:
+obs_mag1, obs_mag2: N, 1 arrays</p>
+<p>KWARGS:
+binsize, bins: for bin_asts if not already run.</p>
+<p>RETURNS:
+cor_mag1, cor_mag2: ast corrected magnitudes</p>
+<p>RAISES:
+returns -1 if obs_mag1 and obs_mag2 are different sizes</p>
+<p>Corrections are made by going through obs_mag1 in bins of
+bin_asts and randomly selecting magdiff values in that ast_bin.
+obs_mag2 simply follows along since it is tied to obs_mag1.</p>
+<p>Random selection was chosen because of the spatial nature of
+artificial star tests. If there are 400 asts in one mag bin,
+and 30 are not recovered, random selection should match the
+distribution (if there are many obs stars).</p>
+<p>If there are obs stars in a mag bin where there are no asts,
+will throw the star out unless the completeness in that mag bin
+is more than 50%.</p>
+<p>TODO:
+possibly return magXdiff rather than magX + magXdiff?
+reason not to: using AST results from one filter to another isn&#8217;t
+kosher. At least not glatt kosher.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.bin_asts">
+<tt class="descname">bin_asts</tt><big>(</big><em>binsize=0.2</em>, <em>bins=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.bin_asts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.bin_asts" title="Permalink to this definition">¶</a></dt>
+<dd><p>bin the artificial star tests</p>
+<p>ARGS:
+bins: bins for the asts
+binsize: width of bins for the asts</p>
+<p>RETURNS:
+self.am1_inds, self.am2_inds: the indices of the bins to</p>
+<blockquote>
+<div>which each value in mag1 and mag2 belong (see np.digitize).</div></blockquote>
+<p>self.ast_bins: bins used for the asts.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.completeness">
+<tt class="descname">completeness</tt><big>(</big><em>combined_filters=False</em>, <em>interpolate=False</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.completeness"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.completeness" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate the completeness of the data in each filter
+ARGS:
+combined_filters: Use individual or combined ast recovery
+interpolate: add a 1d spline the completeness function to self
+RETURNS:
+self.comp1 the completeness in filter1 binned with self.ast_bins
+self.comp2 same as above but filter2</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.get_completeness_fraction">
+<tt class="descname">get_completeness_fraction</tt><big>(</big><em>frac</em>, <em>dmag=0.01</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.get_completeness_fraction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.get_completeness_fraction" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.load_fake">
+<tt class="descname">load_fake</tt><big>(</big><em>filename</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.load_fake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.load_fake" title="Permalink to this definition">¶</a></dt>
+<dd><p>read MATCH fake file into attributes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.asts.ASTs.recovered">
+<tt class="descname">recovered</tt><big>(</big><em>threshold=9.99</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/asts.html#ASTs.recovered"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.asts.ASTs.recovered" title="Permalink to this definition">¶</a></dt>
+<dd><p>find indicies of stars with magdiff &lt; threshold</p>
+<p>ARGS:
+threshold: [9.99] magin - magout threshold for recovery</p>
+<p>RETURNS:
+self.rec: recovered stars in both filters
+rec1, rec2: recovered stars in filter1, filter2</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies.galaxies">
+<span id="resolvedstellarpops-galaxies-galaxies-module"></span><h2>resolvedstellarpops.galaxies.galaxies module<a class="headerlink" href="#module-resolvedstellarpops.galaxies.galaxies" title="Permalink to this headline">¶</a></h2>
+<p>wrapper for lists of galaxy objects, each method returns lists, unless they
+are setting attributes.</p>
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.galaxies.</tt><tt class="descname">Galaxies</tt><big>(</big><em>galaxy_objects</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvedstellarpops.galaxies.starpop.StarPop" title="resolvedstellarpops.galaxies.starpop.StarPop"><tt class="xref py py-class docutils literal"><span class="pre">resolvedstellarpops.galaxies.starpop.StarPop</span></tt></a></p>
+<p>wrapper for lists of galaxy objects, each method returns lists, unless they
+are setting attributes.</p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.all_stages">
+<tt class="descname">all_stages</tt><big>(</big><em>*stages</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.all_stages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.all_stages" title="Permalink to this definition">¶</a></dt>
+<dd><p>adds the indices of any stage as attributes to galaxy.
+If the stage isn&#8217;t found, -1 is returned.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.finite_key">
+<tt class="descname">finite_key</tt><big>(</big><em>key</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.finite_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.finite_key" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.group_by_z">
+<tt class="descname">group_by_z</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.group_by_z"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.group_by_z" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.intersection">
+<tt class="descname">intersection</tt><big>(</big><em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.intersection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.intersection" title="Permalink to this definition">¶</a></dt>
+<dd><p>ex kwargs = {&#8216;filter2&#8217;:&#8217;F814W&#8217;, &#8216;filter1&#8217;:&#8217;F555W&#8217;}
+will return a list of galaxy objects that match all kwarg values.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.select_on_key">
+<tt class="descname">select_on_key</tt><big>(</big><em>key</em>, <em>val</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.select_on_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.select_on_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>ex filter2 == F814W works great with strings or exact g.key==val.
+rounds z to four places, no error handling.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.squish">
+<tt class="descname">squish</tt><big>(</big><em>*attrs</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.squish"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.squish" title="Permalink to this definition">¶</a></dt>
+<dd><p>concatenates an attribute or many attributes and adds them to galaxies
+instance &#8211; with an &#8216;s&#8217; at the end to pluralize them... that might
+be stupid.
+ex
+for gal in gals:</p>
+<blockquote>
+<div>gal.ra = gal.data[&#8216;ra&#8217;]
+gal.dec = gal.data[&#8216;dec&#8217;]</div></blockquote>
+<p>gs =  Galaxies.galaxies(gals)
+gs.squish(&#8216;color&#8217;, &#8216;mag2&#8217;, &#8216;ra&#8217;, &#8216;dec&#8217;)
+gs.ras ...</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxies.Galaxies.sum_attr">
+<tt class="descname">sum_attr</tt><big>(</big><em>*attrs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxies.html#Galaxies.sum_attr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxies.Galaxies.sum_attr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies.galaxy">
+<span id="resolvedstellarpops-galaxies-galaxy-module"></span><h2>resolvedstellarpops.galaxies.galaxy module<a class="headerlink" href="#module-resolvedstellarpops.galaxies.galaxy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.galaxy.Galaxy">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.galaxy.</tt><tt class="descname">Galaxy</tt><big>(</big><em>fname</em>, <em>filetype=None</em>, <em>hla=True</em>, <em>angst=True</em>, <em>ext=None</em>, <em>band=None</em>, <em>photsys=None</em>, <em>trgb=nan</em>, <em>z=-99</em>, <em>Av=None</em>, <em>dmod=None</em>, <em>filter1=None</em>, <em>filter2=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxy.html#Galaxy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxy.Galaxy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvedstellarpops.galaxies.starpop.StarPop" title="resolvedstellarpops.galaxies.starpop.StarPop"><tt class="xref py py-class docutils literal"><span class="pre">resolvedstellarpops.galaxies.starpop.StarPop</span></tt></a></p>
+<p>angst and angrrr galaxy object. data is a ascii tagged file with stages.</p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxy.Galaxy.cut_mag_inds">
+<tt class="descname">cut_mag_inds</tt><big>(</big><em>mag2cut</em>, <em>mag1cut=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxy.html#Galaxy.cut_mag_inds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxy.Galaxy.cut_mag_inds" title="Permalink to this definition">¶</a></dt>
+<dd><p>a simple function to return indices of magX that are brighter than
+magXcut.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxy.Galaxy.load_data">
+<tt class="descname">load_data</tt><big>(</big><em>fname</em>, <em>filetype=None</em>, <em>hla=True</em>, <em>angst=True</em>, <em>ext=None</em>, <em>band=None</em>, <em>photsys=None</em>, <em>filter1=None</em>, <em>filter2=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxy.html#Galaxy.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxy.Galaxy.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.galaxy.Galaxy.trgb_av_dmod">
+<tt class="descname">trgb_av_dmod</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/galaxy.html#Galaxy.trgb_av_dmod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.galaxy.Galaxy.trgb_av_dmod" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns trgb, av, dmod from angst table</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies.simgalaxy">
+<span id="resolvedstellarpops-galaxies-simgalaxy-module"></span><h2>resolvedstellarpops.galaxies.simgalaxy module<a class="headerlink" href="#module-resolvedstellarpops.galaxies.simgalaxy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.simgalaxy.</tt><tt class="descname">SimGalaxy</tt><big>(</big><em>trilegal_out</em>, <em>filter1</em>, <em>filter2</em>, <em>photsys=None</em>, <em>count_offset=0.0</em>, <em>table_data=False</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#resolvedstellarpops.galaxies.starpop.StarPop" title="resolvedstellarpops.galaxies.starpop.StarPop"><tt class="xref py py-class docutils literal"><span class="pre">resolvedstellarpops.galaxies.starpop.StarPop</span></tt></a></p>
+<p>reads a trilegal output catalog there is an issue with mags being abs mag
+or app mag. If dmod == 0, mags are assumed to be abs mag and get title()
+attributes.</p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.burst_duration">
+<tt class="descname">burst_duration</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.burst_duration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.burst_duration" title="Permalink to this definition">¶</a></dt>
+<dd><p>for calculating ages of bursts</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.cmd_by_stage">
+<tt class="descname">cmd_by_stage</tt><big>(</big><em>color</em>, <em>mag2</em>, <em>inds=None</em>, <em>xlim=None</em>, <em>ylim=None</em>, <em>extra=''</em>, <em>figname=None</em>, <em>trgb=None</em>, <em>cmap=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.cmd_by_stage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.cmd_by_stage" title="Permalink to this definition">¶</a></dt>
+<dd><p>made to be called from diagnostic plots. Make a panel of plots for
+each stage (get_label_stage)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.diagnostic_cmd">
+<tt class="descname">diagnostic_cmd</tt><big>(</big><em>trgb=None</em>, <em>figname=None</em>, <em>inds=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.diagnostic_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.diagnostic_cmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>make a cmd of both simulated cmd and ast corrected cmd by stage.
+input</p>
+<p>will make diagnostic plots depending on attributes available.
+ast_mag2, mag2, Mag2. See cmd_by_stage</p>
+<p>optional input
+trgb</p>
+<blockquote>
+<div>plot a line at the trgb mag2 with the number of stars brighter
+than trgb.</div></blockquote>
+<dl class="docutils">
+<dt>figname</dt>
+<dd>save the plot as figname and figname_spread</dd>
+<dt>inds</dt>
+<dd>only use some subset of indices</dd>
+</dl>
+<p>kwargs:
+xlim tuple of plot xlimits
+ylim tuple of plot ylimits</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.get_fits">
+<tt class="descname">get_fits</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.get_fits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.get_fits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.hist_by_attr">
+<tt class="descname">hist_by_attr</tt><big>(</big><em>attr</em>, <em>bins=10</em>, <em>stage=None</em>, <em>slice_inds=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.hist_by_attr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.hist_by_attr" title="Permalink to this definition">¶</a></dt>
+<dd><p>builds a histogram of some attribute (mass, logl, etc)
+slice_inds will cut the full array, and stage will limit to only that stage.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.load_ast_corrections">
+<tt class="descname">load_ast_corrections</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.load_ast_corrections"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.load_ast_corrections" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.load_ic_mstar">
+<tt class="descname">load_ic_mstar</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.load_ic_mstar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.load_ic_mstar" title="Permalink to this definition">¶</a></dt>
+<dd><p>separate C and M stars, sets their indicies as attributes: icstar and
+imstar, will include artificial star tests (if there are any).</p>
+<p>Trilegal simulation must have been done with -l and -a flags.</p>
+<p>This is done using self.rec meaning use should be e.g.:
+self.ast_mag2[self.rec][self.icstar]</p>
+<p>Hard coded:
+M star: C/O &lt;= 1, LogL &gt;= 3.3 Mdot &lt;=-5, and TPAGB flag
+C star: C/O &gt;= 1, Mdot &lt;=-5, and TPAGB flag</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.mix_modelname">
+<tt class="descname">mix_modelname</tt><big>(</big><em>model</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.mix_modelname"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.mix_modelname" title="Permalink to this definition">¶</a></dt>
+<dd><p>give a model, will split into CAF09, modelname</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.normalize">
+<tt class="descname">normalize</tt><big>(</big><em>stage_lab</em>, <em>filt1</em>, <em>filt2</em>, <em>mag=None</em>, <em>stage=None</em>, <em>by_stage=True</em>, <em>magcut=999.0</em>, <em>useasts=False</em>, <em>verts=None</em>, <em>ndata_stars=-inf</em>, <em>sinds_cut=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimGalaxy.normalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimGalaxy.normalize" title="Permalink to this definition">¶</a></dt>
+<dd><p>randomly sample stars from a trilegal simulation maintaining their
+distribution. Sample selection is set either by specific indices of
+data in some stage or by a CMD polygon based on data.</p>
+<p>assumes mag2 either self.mag2 or if useasts self.ast_mag2</p>
+<p>INPUT
+stage_lab: the label of the stage, probably &#8216;ms&#8217; or &#8216;rgb&#8217; it will be
+used to set attribute names
+by_stage: DO NOT USE THIS</p>
+<blockquote>
+<div>mag2, stage: data arrays of filter2 and the tagged stage inds
+if using galaxy object, mag2 = gal.mag2, stage = gal.stage.</div></blockquote>
+<dl class="docutils">
+<dt>else, by verts: requires verts and ndata_stars</dt>
+<dd>don&#8217;t normalize by data stage (e.g., not a tagged file)
+in this case verts should be a cmd polygon and ndata_stars should be
+the number of data stars in that cmd polygon.</dd>
+</dl>
+<p>magcut: flat mag2 cut to apply (return brighter than)
+useasts: use artificial star test corrections.
+sinds_cut: use a slice of simgalaxy mag2 instead of all (currently</p>
+<blockquote>
+<div>overridden if useasts=True)</div></blockquote>
+<p>RETURNS
+normalization: N_i/N_j &#8211; the lower the fraction the better. Consider
+a larger simulation if normalization is less than 0.75.</p>
+<blockquote>
+<div>N_i = number of stars in stage or verts
+N_j = number of simulated stars in stage or verts</div></blockquote>
+<p>inds: random sample of simulated stars &lt; normalization (to slice
+simgalaxy array)</p>
+<p>creates attributes: [stage]_norm and [stage]_norm_inds
+Note:
+if there are no simulated stars in the normalization region, will
+return inds = [-1] and norm = 999.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimAndGal">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.simgalaxy.</tt><tt class="descname">SimAndGal</tt><big>(</big><em>galaxy</em>, <em>simgalaxy</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimAndGal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimAndGal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">object</span></tt></p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimAndGal.add_lines_LF">
+<tt class="descname">add_lines_LF</tt><big>(</big><em>fig</em>, <em>axs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimAndGal.add_lines_LF"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimAndGal.add_lines_LF" title="Permalink to this definition">¶</a></dt>
+<dd><p>must have attributes sgal, gal nbrighter</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimAndGal.make_mini_hess">
+<tt class="descname">make_mini_hess</tt><big>(</big><em>color</em>, <em>mag</em>, <em>scolor</em>, <em>smag</em>, <em>ax=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimAndGal.make_mini_hess"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimAndGal.make_mini_hess" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.SimAndGal.nrgb_nagb">
+<tt class="descname">nrgb_nagb</tt><big>(</big><em>band=None</em>, <em>agb_verts=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#SimAndGal.nrgb_nagb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.SimAndGal.nrgb_nagb" title="Permalink to this definition">¶</a></dt>
+<dd><p>this is the real deal, man.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="resolvedstellarpops.galaxies.simgalaxy.get_mix_modelname">
+<tt class="descclassname">resolvedstellarpops.galaxies.simgalaxy.</tt><tt class="descname">get_mix_modelname</tt><big>(</big><em>model</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/simgalaxy.html#get_mix_modelname"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.simgalaxy.get_mix_modelname" title="Permalink to this definition">¶</a></dt>
+<dd><p>separate the mix and model name
+eg cmd_input_CAF09_COV0.5_ENV0.5.dat =&gt; CAF09, COV0.5_ENV0.5</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies.starpop">
+<span id="resolvedstellarpops-galaxies-starpop-module"></span><h2>resolvedstellarpops.galaxies.starpop module<a class="headerlink" href="#module-resolvedstellarpops.galaxies.starpop" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop">
+<em class="property">class </em><tt class="descclassname">resolvedstellarpops.galaxies.starpop.</tt><tt class="descname">StarPop</tt><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">object</span></tt></p>
+<p class="rubric">Methods</p>
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.add_data">
+<tt class="descname">add_data</tt><big>(</big><em>**new_cols</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.add_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.add_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>add columns to data
+new_cols: {new_key: new_vals}
+new_vals must have same number of rows as data.
+Ie, be same length as self.data.shape[0]
+adds new data to self.data.data_array and self.data.key_dict
+returns new header string (or -1 if nrows != len(new_vals))</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.annotate_cmd">
+<tt class="descname">annotate_cmd</tt><big>(</big><em>yval</em>, <em>string</em>, <em>offset=0.1</em>, <em>text_kw={}</em>, <em>ax=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.annotate_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.annotate_cmd" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.color_by_arg">
+<tt class="descname">color_by_arg</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.color_by_arg"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.color_by_arg" title="Permalink to this definition">¶</a></dt>
+<dd><p>see :func: color_by_arg</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.convert_mag">
+<tt class="descname">convert_mag</tt><big>(</big><em>dmod=0.0</em>, <em>Av=0.0</em>, <em>target=None</em>, <em>shift_distance=False</em>, <em>useasts=False</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.convert_mag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.convert_mag" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert from mag to Mag or from Mag to mag or just shift distance.
+pass dmod, Av, or use AngstTables to look it up from target.
+shift_distance: for the possibility of doing dmod, Av fitting of model
+to data the key here is that we re-read the mag from the original data
+array.</p>
+<p>useasts only work with shift_distance is true.
+It will calculate the original dmod and av from self, and then shift
+that to the new dmod av. there may be a faster way, but this is just
+multiplicative effects.
+Without shift_distance: Just for common usage. If trilegal was given a
+dmod, it will swap it back to Mag, if it was done at dmod=10., will
+shift to given dmod. mag or Mag attributes are set in __init__.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.decorate_cmd">
+<tt class="descname">decorate_cmd</tt><big>(</big><em>mag1_err=None</em>, <em>mag2_err=None</em>, <em>trgb=False</em>, <em>ax=None</em>, <em>reddening=True</em>, <em>dmag=0.5</em>, <em>text_kw={}</em>, <em>errors=True</em>, <em>cmd_errors_kw={}</em>, <em>filter1=None</em>, <em>text=True</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.decorate_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.decorate_cmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>add annotations on the cmd, such as reddening vector, typical errors etc</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.delete_data">
+<tt class="descname">delete_data</tt><big>(</big><em>data_names=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.delete_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.delete_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>for wrapper functions, I don&#8217;t want gigs of data stored when they
+are no longer needed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.double_gaussian_contamination">
+<tt class="descname">double_gaussian_contamination</tt><big>(</big><em>all_verts</em>, <em>dcol=0.05</em>, <em>Color=None</em>, <em>Mag2=None</em>, <em>color_sep=None</em>, <em>diag_plot=False</em>, <em>absmag=False</em>, <em>thresh=5</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.double_gaussian_contamination"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.double_gaussian_contamination" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function fits a double gaussian to a color histogram of stars
+within the &lt;maglimits&gt; and &lt;colorlimits&gt; (tuples).</p>
+<p>It then finds the intersection of the two gaussians, and the fraction
+of each integrated gaussian that crosses over the intersection color
+line.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.get_header">
+<tt class="descname">get_header</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.get_header"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.get_header" title="Permalink to this definition">¶</a></dt>
+<dd><p>utility for writing data files, sets header attribute and returns
+header string.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.hess_plot">
+<tt class="descname">hess_plot</tt><big>(</big><em>fig=None</em>, <em>ax=None</em>, <em>colorbar=False</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.hess_plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.hess_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a hess diagram with imshow.</p>
+<p>See <cite>:func: helpers.plot_hess</cite></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.interp_errs">
+<tt class="descname">interp_errs</tt><big>(</big><em>mag1err=None</em>, <em>mag2err=None</em>, <em>binsize=0.1</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.interp_errs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.interp_errs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Many bugs in this function</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.make_hess">
+<tt class="descname">make_hess</tt><big>(</big><em>binsize</em>, <em>absmag=False</em>, <em>useasts=False</em>, <em>slice_inds=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.make_hess"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.make_hess" title="Permalink to this definition">¶</a></dt>
+<dd><p>adds a hess diagram of color, mag2 or Color, Mag2 (if absmag is True).
+if useasts is true will use ast_mags.</p>
+<p>slice_inds will slice the arrays and only bin those stars, there
+is no evidence besides the hess tuple itself that hess is not of the
+full cmd.</p>
+<p>See <cite>:func: helpers.make_hess</cite></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.make_lf">
+<tt class="descname">make_lf</tt><big>(</big><em>mag</em>, <em>bins=None</em>, <em>stages=None</em>, <em>inds=None</em>, <em>bin_width=0.1</em>, <em>hist_it_up=False</em>, <em>stage_inds=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.make_lf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.make_lf" title="Permalink to this definition">¶</a></dt>
+<dd><p>make a lf out of mag</p>
+<p>ARGS:
+mag: array to hist
+bins: bins for the histogram (or give bin_width)
+stages: evolutionary stages (will add individually)
+inds: indices of array include
+bin_width: width of mag bin for histogram
+stage_inds: indices to slice the stages
+RETURNS
+if stages, will name the attributes
+self.i[stage]_lfhist
+self.i[stage]_lfbins
+otherwise,
+self.lfhist
+self.lfbins</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.plot_cmd">
+<tt class="descname">plot_cmd</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.plot_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.plot_cmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>plot a stellar color-magnitude diagram
+see :func: plot_cmd</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.put_a_line_on_it">
+<tt class="descname">put_a_line_on_it</tt><big>(</big><em>ax</em>, <em>val</em>, <em>consty=True</em>, <em>color='black'</em>, <em>ls='--'</em>, <em>lw=2</em>, <em>annotate=True</em>, <em>filter1=None</em>, <em>annotate_fmt='$TRGB=%.2f$'</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.put_a_line_on_it"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.put_a_line_on_it" title="Permalink to this definition">¶</a></dt>
+<dd><p>if consty is True: plots a constant y value across ax.xlims().
+if consty is False: plots a constant x on a plot of y vs x-y</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.redding_vector">
+<tt class="descname">redding_vector</tt><big>(</big><em>dmag=1.0</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.redding_vector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.redding_vector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add an arrow to show the reddening vector</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.slice_data">
+<tt class="descname">slice_data</tt><big>(</big><em>data_to_slice</em>, <em>slice_inds</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.slice_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.slice_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>slice already set attributes by some index list.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.stars_in_region">
+<tt class="descname">stars_in_region</tt><big>(</big><em>mag2</em>, <em>mag_dim</em>, <em>mag_bright</em>, <em>mag1=None</em>, <em>verts=None</em>, <em>col_min=None</em>, <em>col_max=None</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.stars_in_region"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.stars_in_region" title="Permalink to this definition">¶</a></dt>
+<dd><p>counts stars in a region. Give mag2 and the mag2 limits.
+If col_min, col_max, and verts are none, will just give all stars
+between those mag limits (if no color info is used mag2 can actually
+be mag1.)
+If verts are given (Nx2) array, will use those, otherwise will build
+a polygon from col_* and mag_* limits.</p>
+<p>Returns indices inside.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="resolvedstellarpops.galaxies.starpop.StarPop.text_on_cmd">
+<tt class="descname">text_on_cmd</tt><big>(</big><em>extra=None</em>, <em>ax=None</em>, <em>distance_av=True</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#StarPop.text_on_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.StarPop.text_on_cmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>add a text on the cmd</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="resolvedstellarpops.galaxies.starpop.plot_cmd">
+<tt class="descclassname">resolvedstellarpops.galaxies.starpop.</tt><tt class="descname">plot_cmd</tt><big>(</big><em>starpop</em>, <em>color</em>, <em>mag</em>, <em>ax=None</em>, <em>xlim=None</em>, <em>ylim=None</em>, <em>xlabel=None</em>, <em>ylabel=None</em>, <em>contour_kwargs={}</em>, <em>scatter_kwargs={}</em>, <em>plot_kwargs={}</em>, <em>scatter=True</em>, <em>levels=5</em>, <em>threshold=75</em>, <em>contour_lw={}</em>, <em>color_by_arg_kw={}</em>, <em>slice_inds=None</em>, <em>hist_bin_res=0.05</em>, <em>log_counts=False</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#plot_cmd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.plot_cmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>plot a stellar color-magnitude diagram</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>starpop: StarPop instance</strong> :</p>
+<blockquote>
+<div><p>population to plot</p>
+</div></blockquote>
+<p><strong>color: ndarray, dtype=float, ndim=1</strong> :</p>
+<blockquote>
+<div><p>colors of the stars</p>
+</div></blockquote>
+<p><strong>mag: ndarray, dtype=float, ndim=1</strong> :</p>
+<blockquote>
+<div><p>magnitudes of the stars</p>
+</div></blockquote>
+<p><strong>ax: plt.Axes instance, optional (default=plt.gca())</strong> :</p>
+<blockquote>
+<div><p>axes in which it will make the plot</p>
+</div></blockquote>
+<p><strong>xlim: optional</strong> :</p>
+<blockquote>
+<div><p>if set, adjust the limits on the color axis</p>
+</div></blockquote>
+<p><strong>ylim: optional</strong> :</p>
+<blockquote>
+<div><p>if set, adjust the limits on the magnitude axis</p>
+</div></blockquote>
+<p><strong>xlabel: str, optional</strong> :</p>
+<blockquote>
+<div><p>label of the color axis</p>
+</div></blockquote>
+<p><strong>ylabel: str, optional</strong> :</p>
+<blockquote>
+<div><p>label of the magntiude axis</p>
+</div></blockquote>
+<p><strong>contour_args: dict, optional</strong> :</p>
+<blockquote>
+<div><p>keywords for contour plot</p>
+</div></blockquote>
+<p><strong>scatter_args: dict, optional</strong> :</p>
+<blockquote>
+<div><p>keywords for scatter</p>
+</div></blockquote>
+<p><strong>plot_args: dict, optional</strong> :</p>
+<blockquote>
+<div><p>kweywords for plot</p>
+</div></blockquote>
+<p><strong>scatter: bool, optional (default=True)</strong> :</p>
+<blockquote>
+<div><p>CMD will be generated with plt.scatter</p>
+</div></blockquote>
+<p><strong>levels: optional (default=5)</strong> :</p>
+<p><strong>threshold: optional (default=75)</strong> :</p>
+<p><strong>contour_lw: optional</strong> :</p>
+<p><strong>color_by_arg_kw: optional</strong> :</p>
+<p><strong>slice_inds: slice instance, optional</strong> :</p>
+<blockquote>
+<div><p>if set, cull the data and only consider this slice</p>
+</div></blockquote>
+<p><strong>hist_bin_res: optional (default=0.05),</strong> :</p>
+<p class="last"><strong>log_counts: bool, optional (default=False)</strong> :</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="resolvedstellarpops.galaxies.starpop.color_by_arg">
+<tt class="descclassname">resolvedstellarpops.galaxies.starpop.</tt><tt class="descname">color_by_arg</tt><big>(</big><em>starpop</em>, <em>xcol</em>, <em>ycol</em>, <em>colorcol</em>, <em>bins=None</em>, <em>cmap=None</em>, <em>ax=None</em>, <em>fig=None</em>, <em>labelfmt='$%.3f$'</em>, <em>xdata=None</em>, <em>ydata=None</em>, <em>coldata=None</em>, <em>xlim=None</em>, <em>ylim=None</em>, <em>slice_inds=None</em>, <em>legend=True</em><big>)</big><a class="reference internal" href="_modules/resolvedstellarpops/galaxies/starpop.html#color_by_arg"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#resolvedstellarpops.galaxies.starpop.color_by_arg" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>starpop: StarPop instance</strong> :</p>
+<blockquote>
+<div><p>population to plot</p>
+</div></blockquote>
+<p><strong>xcol: ndarray</strong> :</p>
+<p><strong>ycol: ndarray</strong> :</p>
+<p><strong>colorcol: ndarray</strong> :</p>
+<p><strong>bins: optional</strong> :</p>
+<p><strong>cmap: optional</strong> :</p>
+<blockquote>
+<div><p>colormap to use</p>
+</div></blockquote>
+<p><strong>ax: plt.Axes instance, optional (default=plt.gca())</strong> :</p>
+<p><strong>labelfmt: str, optional (default=&#8217;$%.3f$&#8217;)</strong> :</p>
+<blockquote>
+<div><p>colorbar label format</p>
+</div></blockquote>
+<p><strong>xdata: optional</strong> :</p>
+<p><strong>ydata: optional</strong> :</p>
+<p><strong>coldata: optional</strong> :</p>
+<p><strong>xlim: optional</strong> :</p>
+<blockquote>
+<div><p>if set, adjust the limits on the x-axis</p>
+</div></blockquote>
+<p><strong>ylim: optional</strong> :</p>
+<blockquote>
+<div><p>if set, adjust the limits on the y-axis</p>
+</div></blockquote>
+<p><strong>slice_inds: slice instance, optional</strong> :</p>
+<blockquote>
+<div><p>if set, cull the data and only consider this slice</p>
+</div></blockquote>
+<p><strong>legend: bool, optional (default=True)</strong> :</p>
+<blockquote class="last">
+<div><p>if set, add a legend to the figure</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-resolvedstellarpops.galaxies">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-resolvedstellarpops.galaxies" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Phil Rosesenfield.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+</body>
+</html>
