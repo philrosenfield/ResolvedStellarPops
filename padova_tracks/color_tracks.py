@@ -60,7 +60,7 @@ def color_tracks(filename, fromHR2mags=None, logl=5, logte=6, mass=2, z=None,
     cmd = '%s %s ' % (fromHR2mags, photsys)
     cmd += '%s %i %i %i %.4f'
 
-    if comments is True:
+    if comments:
         add_comments_to_header(tracks_base, prefix, search_term)
         filename +=  '.dat'
 

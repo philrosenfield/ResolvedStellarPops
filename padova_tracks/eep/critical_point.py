@@ -7,6 +7,8 @@ class Eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to
     critical_point class.
+    These eeps are found in the tracks in define_eep.DefineEep
+    The lengths are then used in match.TracksForMatch.match_interpolation
     '''
     def __init__(self, eep_list=None, eep_lengths=None, eep_list_hb=None,
                  eep_lengths_hb=None):
@@ -47,7 +49,8 @@ class critical_point(object):
 
     def get_args_from_name(self, filename):
         '''
-        god i wish i knew regex
+        strip Z and Y and add to self must have format of
+        ..._Z0.01_Y0.25...
         '''
         zstr = filename.split('_Z')[-1]
         self.Z = float(zstr.split('_')[0])
@@ -59,10 +62,10 @@ class critical_point(object):
     def inds_between_ptcris(self, track, name1, name2, sandro=True):
         '''
         returns the indices from [name1, name2)
-        this is iptcri, not mptcri
+        this is iptcri, not mptcri (which start at 1 not 0)
         they will be the same inds that can be used in Track.data
         '''
-        if sandro is True:
+        if sandro:
             # this must be added in Tracks.load_critical_points!
             inds = track.sptcri
         else:
@@ -82,19 +85,20 @@ class critical_point(object):
         return inds
 
     def get_ptcri_name(self, val, sandro=True, hb=False):
-        if sandro is True:
-            search_dict = self.sandros_dict
-        elif hb is True:
-            search_dict = self.key_dict_hb
+        '''
+        given the eep number or the eep name return the eep name or eep number.
+        '''
+        if sandro:
+            pdict = self.sandros_dict
+        elif hb:
+            pdict = self.key_dict_hb
         else:
-            search_dict = self.key_dict
+            pdict = self.key_dict
 
         if type(val) == int:
-            return [name for name, pval in search_dict.items()
-                    if pval == val][0]
+            return [name for name, pval in pdict.items() if pval == val][0]
         elif type(val) == str:
-            return [pval for name, pval in search_dict.items()
-                    if name == val][0]
+            return [pval for name, pval in pdict.items() if name == val][0]
 
     def load_ptcri(self, filename, sandro=True):
         '''
@@ -134,13 +138,14 @@ class critical_point(object):
                           col_keys[c], col_keys[c+1])
                 continue
             data_dict[str_mass] = ptcris
+
         self.data_dict = data_dict
 
         eep_obj = Eep()
         eep_list = eep_obj.eep_list
         self.key_dict = dict(zip(eep_list, range(len(eep_list))))
 
-        if sandro is True:
+        if sandro:
             # loading sandro's eeps means they will be used for match
             self.sandro_eeps = col_keys
             self.sandros_dict = dict(zip(col_keys, range(len(col_keys))))
@@ -153,30 +158,39 @@ class critical_point(object):
                                     range(len(eep_obj.eep_list_hb))))
             # there is no mixture between Sandro's HB eeps since there
             # are no HB eeps in the ptcri files. Define them all here.
-            if sandro is True:
+            if sandro:
                 self.please_define_hb = eep_obj.eep_list_hb
 
         self.eep = eep_obj
 
-    def load_sandro_eeps(self, track):
+    def load_eeps(self, track, sandro=True):
+        '''load the eeps from the ptcri file'''
         try:
-            mptcri = self.data_dict['M%.3f' % track.mass]
+            ptcri = self.data_dict['M%.3f' % track.mass]
         except KeyError:
-            print('No M%.3f in ptcri.data_dict.' % track.mass)
-            return -1
-        track.sptcri = \
-            np.concatenate([np.nonzero(track.data.MODE == m)[0]
-                            for m in mptcri])
+            track.flag = 'No M%.3f in ptcri.data_dict.' % track.mass
+            return track
+        if sandro:
+            track.sptcri = \
+                np.concatenate([np.nonzero(track.data.MODE == m)[0]
+                                for m in ptcri])
+        else:
+            track.iptcri = ptcri
+        return track
 
     def save_ptcri(self, tracks, filename=None, hb=False):
-        #assert hasattr(self, ptcri), 'need to have ptcri objects loaded'
+        '''save parsec2match ptcris in same format as sandro's'''
 
         if filename is None:
             filename = os.path.join(self.base, 'p2m_%s' % self.name)
-            if hb is True:
+            if hb:
                 filename = filename.replace('p2m', 'p2m_hb')
 
-        sorted_keys, inds = zip(*sorted(self.key_dict.items(),
+        if hb:
+            key_dict = self.key_dict_hb
+        else:
+            key_dict = self.key_dict
+        sorted_keys, inds = zip(*sorted(key_dict.items(),
                                         key=lambda (k, v): (v, k)))
 
         header = '# critical points in F7 files defined by sandro, basti, and phil \n'

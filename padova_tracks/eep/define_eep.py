@@ -68,9 +68,14 @@ class DefineEeps(object):
         pass
 
     def define_eep_stages(self, track, hb=False, plot_dir=None,
-                          diag_plot=True, debug=False):
+                          diag_plot=True, debug=False, agb=False):
         track.info = {}
-        if hb is True:
+        
+        if agb:
+            self.add_tpagb_eeps(track)
+            return
+
+        if hb:
             self.hb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
@@ -158,6 +163,16 @@ class DefineEeps(object):
             self.add_eep(track, 'PMS_BEG',
                          np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0],
                          message='overwritten with age > 0.2')
+        return
+
+    def add_tpagb_eeps(self, track):
+        '''
+        three points for each thermal pulse
+        phi_tp = 0.2
+        max L
+        quessent point (phi_tp max)
+        '''
+        print('need to code buddy')
         return
 
     def add_high_mass_eeps(self, track):
@@ -280,7 +295,7 @@ class DefineEeps(object):
             pstart = self.ptcri.get_ptcri_name(start, sandro=False)
             istart = track.iptcri[pstart]
 
-        if hb is False:
+        if not hb:
             # not Horizontal branch, start before rgb tip
             please_define = self.ptcri.please_define
         else:
@@ -373,7 +388,7 @@ class DefineEeps(object):
         self.add_eep(track, 'AGB_LY1', agb_ly1, hb=True)
         self.add_eep(track, 'AGB_LY2', agb_ly2, hb=True)
 
-        if diag_plot is True:
+        if diag_plot:
             agb_ly1c = 'red'
             agb_ly2c = 'blue'
             fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 6))
@@ -571,8 +586,10 @@ class DefineEeps(object):
             min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
 
         if np.round(track.data.XCEN[min_l], 4) > 0 and min_l > 0:
-            print('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
-                         (track.mass, track.data.XCEN[min_l]))
+            #print('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
+            #             (track.mass, track.data.XCEN[min_l]))
+            min_l = track.sptcri[7]
+            msg = 'XCEN > 0 and low mass. Adopted Sandro\'s RG_BASE'
         self.add_eep(track, 'RG_MINL', min_l, message=msg)
         return min_l
 
@@ -588,13 +605,15 @@ class DefineEeps(object):
                  'parametric_interp': False, 'less_linear_fit': False}
 
         if eep2 != 'RG_MINL':
+            extreme = 'last'
             pf_kw['mess_err'] = 'still a problem with SG_MAXL %.3f' % track.mass
 
         max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
-        msg = 'Max LOG_L between MS_TO and %s' % eep2
+        msg = '%s LOG_L between MS_TO and %s' % (extreme, eep2)
+        
         if max_l == -1:
             pf_kw['less_linear_fit'] = bool(np.abs(pf_kw['less_linear_fit']-1))
-            msg = 'Max LOG_L between MS_TO and %s less_linear_fit' % eep2
+            msg = '%s LOG_L between MS_TO and %s less_linear_fit' % (extreme, eep2)
             max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
 
 
@@ -661,7 +680,7 @@ class DefineEeps(object):
         '''
         Will add or replace the index of Track.data to track.iptcri
         '''
-        if hb is True:
+        if hb:
             key_dict = self.ptcri.key_dict_hb
         else:
             key_dict = self.ptcri.key_dict
@@ -699,7 +718,7 @@ class DefineEeps(object):
             return -2
         
         arb_arr = np.arange(0, 1, step_size)
-        if parametric_interp is True:
+        if parametric_interp:
             agenew, xnew, ynew = splev(arb_arr, tckp)
             dxnew, dynew, dagenew = splev(arb_arr, tckp, der=1)
             intp_col = ynew
@@ -719,7 +738,7 @@ class DefineEeps(object):
             nintp_col = ynew
 
         # find the peaks!
-        if less_linear_fit is True:
+        if less_linear_fit:
             if track.mass < 5.:
                 axnew = xnew
                 # calculate slope using polyfit
@@ -735,7 +754,7 @@ class DefineEeps(object):
         else:
             peak_dict = utils.find_peaks(intp_col)
 
-        if get_max is True:
+        if get_max:
             mstr = 'max'
         else:
             mstr = 'min'
@@ -745,7 +764,7 @@ class DefineEeps(object):
             if more_than_one == 'max of max':
                 almost_ind = iextr[np.argmax(intp_col[iextr])]
             elif more_than_one == 'min of min':
-                if parametric_interp is True:
+                if parametric_interp:
                     almost_ind = np.argmax(dydx)
                 else:
                     almost_ind = iextr[np.argmin(intp_col[iextr])]
@@ -759,7 +778,7 @@ class DefineEeps(object):
                 print(mess_err)
             return -1
 
-        if parametric_interp is True:
+        if parametric_interp:
             # closest point in interpolation to data
             ind, dif = utils.closest_match2d(almost_ind,
                                              track.data[col][inds][non_dupes],
@@ -811,7 +830,7 @@ class DefineEeps(object):
             'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
                                                                        track.Y)
 
-        if hb is True and len(ptcri.please_define_hb) > 0:
+        if hb and len(ptcri.please_define_hb) > 0:
             # Initialize iptcri for HB
             track.iptcri = np.zeros(len(eep_obj.eep_list_hb), dtype=int)
             self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
@@ -871,7 +890,7 @@ class DefineEeps(object):
         note the dimensionality of tckp will change if using parametric_interp
         '''
         just_two = False
-        if parametric is False:
+        if not parametric:
             just_two = True
             
         non_dupes = self.remove_dupes(track.data[xcol][inds],
@@ -902,7 +921,7 @@ class DefineEeps(object):
         if yfunc is not None:
             ydata = eval('%s(ydata)' % yfunc)
         
-        if parametric is True:
+        if parametric:
             paradata = track.data[paracol][inds][non_dupes]
             if parafunc is not None:
                 paradata = eval('%s(paradata)' % parafunc)

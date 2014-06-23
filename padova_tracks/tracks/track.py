@@ -9,21 +9,28 @@ class Track(object):
     '''
     Padova stellar evolution track object.
     '''
-    def __init__(self, filename, match=False):
+    def __init__(self, filename, match=False, agb=False, hb=False):
         '''
         filename [str] the path to the PMS or PMS.HB file
         '''
         (self.base, self.name) = os.path.split(filename)
-        if match is True:
-            self.load_match_track(filename)
-        else:
-            self.load_track(filename)
-
-        self.filename_info()
         # will house error string(s)
         self.flag = None
-        self.track_mass()
-        self.check_track()
+        if match:
+            self.load_match_track(filename)
+            self.track_mass(hb=hb)
+            self.filename_info()
+        elif agb:
+            self.load_agb_track(filename)
+        else:
+            self.load_track(filename)
+            self.filename_info()            
+            if self.flag is None:
+                self.track_mass(hb=hb)
+
+        self.info = {}
+        if self.flag is None:
+            self.check_track()
 
     def check_track(self):
         '''check if age decreases'''
@@ -41,18 +48,26 @@ class Track(object):
                 print('offensive inds:', bads)
         return
 
-    def track_mass(self):
+    def track_mass(self, hb=False):
         ''' choose the mass based on the physical track starting points '''
         try:
             good_age, = np.nonzero(self.data.AGE > 0.2)
         except AttributeError:
+            # match tracks have log age
             good_age = [[0]]
         if len(good_age) == 0:
             self.flag = 'unfinished track'
             self.mass = self.data.MASS[-1]
             return self.mass
         self.mass = self.data.MASS[good_age[0]]
-        ext = self.name.split('.')[-1]
+        
+        ind = -1
+        if hb:
+            #extension is .PMS.HB
+            ind = -2
+
+        ext = self.name.split('.')[ind]
+            
         fmass = float(self.name.split('_M')[1].split('.' + ext)[0])
         if self.mass >= 12:
             self.mass = fmass
@@ -90,15 +105,12 @@ class Track(object):
 
     def filename_info(self):
         '''
-        I wish I knew regex...
+        # get Z, Y into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
         '''
-        #(pref, __, smass) = self.name.split('.PMS')[0].split('_')
-        #self.__setattr__[]
-        #get that into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
         Z, Ymore = self.name.split('Z')[1].split('Y')
         Y = ''
         for y in Ymore:
-            if y == '.' or y.isdigit() is True:
+            if y == '.' or y.isdigit():
                 Y += y
             else:
                 break
@@ -134,11 +146,17 @@ class Track(object):
 
         # find the header and footer
         skip_footer = 0
+        begin_track = -1
         for i, l in enumerate(lines):
             if 'BEGIN TRACK' in l:
                 begin_track = i
             skip_footer += len([f for f in footers if f in l])
         
+        if begin_track == -1:
+            self.data = np.array([])
+            self.col_keys = None
+            self.flag = 'load_track error: no begin track'
+
         self.header = lines[:begin_track]
         if skip_footer > 0:
             self.header.append(lines[-skip_footer:])
@@ -163,6 +181,52 @@ class Track(object):
 
         return
 
+    def load_agb_track(self, filename):
+        '''
+        Read Paola's tracks.
+        Cutting out a lot of information that is not needed for MATCH
+        col_keys = ['MODE', 'status', 'NTP', 'AGE', 'MASS', 'LOG_Mdot',
+                    'LOG_L', 'LOG_TE', 'Mcore', 'Y', 'Z', 'PHI_TP', 'CO']
+        usecols = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+        '''
+        def find_thermal_pulses(ntp):
+            ''' find the thermal pulsations'''
+            uniq_tps, uniq_inds = np.unique(ntp, return_index=True)
+            tps = np.array([np.nonzero(ntp == u)[0] for u in uniq_tps])
+            return tps
+        
+        def find_quiessent_points(tps, phi):
+            '''
+            The quiescent phase is the the max phase in each TP,
+            i.e., closest to 1'''
+            if tps.size == 1:
+                qpts = np.argmax(phi)
+            else:
+                qpts = np.unique([tp[np.argmax(phi[tp])] for tp in tps])
+            return qpts
+        
+        col_keys = ['MODE', 'status', 'NTP', 'AGE', 'MASS', 'LOG_Mdot',
+                    'LOG_L', 'LOG_TE', 'Mcore', 'Y', 'Z', 'PHI_TP', 'CO']
+        usecols = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+
+        data = np.genfromtxt(filename, names=col_keys, usecols=usecols)
+        self.data = data.view(np.recarray)
+
+        if self.data.NTP.size == 1:
+            self.flag = 'no abg tracks'
+            return
+        self.Z = self.data.Z[0]
+        self.Y = self.data.Y[0]
+        self.mass = self.data.MASS[0]
+        self.col_keys = col_keys
+        
+        # The first line in the agb track is 1. This isn't a quiescent stage.
+        self.data.PHI_TP[0] = -99.
+
+        self.tps = find_thermal_pulses(self.data.NTP)
+        self.qpts = find_quiessent_points(self.tps, self.data.PHI_TP)
+        return
+
     def add_to_col_keys(self, col_keys, additional_col_line):
         '''
         If fromHR2mags was run, A new line "Additional information Added:..."
@@ -182,3 +246,5 @@ class Track(object):
         ma = np.max(arr)
         mi = np.min(arr)
         return (ma, mi)
+
+

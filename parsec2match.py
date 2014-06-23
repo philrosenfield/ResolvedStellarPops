@@ -1,15 +1,23 @@
+'''
+Interpolate PARSEC tracks for use in MATCH.
+This code calls padova_tracks which does three main things:
+1) Redefines some equivalent evolutionary points (EEPs) from PARSEC
+2) Interpolates the tracks so they all have the same number of points between
+   defined EEPs.
+3) 
+'''
 from __future__ import print_function
 from copy import deepcopy
+import numpy as np
+import os
 import pprint
 import sys
-import os
-import numpy as np
-import matplotlib.pyplot as plt
+
 from ResolvedStellarPops.fileio import fileIO
+from ResolvedStellarPops.padova_tracks.eep.define_eep import DefineEeps
+from ResolvedStellarPops.padova_tracks.eep.critical_point import critical_point
 from ResolvedStellarPops.padova_tracks.match import TracksForMatch
 from ResolvedStellarPops.padova_tracks.match import CheckMatchTracks
-from ResolvedStellarPops.padova_tracks.eep.critical_point import critical_point
-from ResolvedStellarPops.padova_tracks.eep.define_eep import DefineEeps
 
 def parsec2match(input_obj):
     '''do an entire set and make the plots'''
@@ -23,28 +31,39 @@ def parsec2match(input_obj):
         
         tfm = TracksForMatch(inps)
 
-        if inps.from_p2m is False:
+        if not inps.from_p2m:
             # find the parsec2match eeps for these tracks.
             tfm = define_eeps(tfm, inps)
         
-        if inps.diag_plot is True:
-            # make diagnostic plots using new ptcri file
-            inps.ptcri_file = None
-            inps.from_p2m = True
-            inps = load_ptcri(inps)
-            tfm.diag_plots(xcols=['LOG_TE', 'AGE'],
-                           pat_kw={'ptcri': inps.ptcri,
-                                   'extra': 'parsec'})
+            if inps.diag_plot:
+                # make diagnostic plots using new ptcri file
+                inps.ptcri_file = None
+                inps.from_p2m = True
+                inps = load_ptcri(inps)
+                pat_kw = {'ptcri': inps.ptcri, 'extra': 'parsec'}
+                xcols = ['LOG_TE', 'AGE']
+                if inps.hb:
+                    tfm.diag_plots(xcols=xcols, hb=inps.hb, pat_kw=pat_kw)
+                else:
+                    #tfm.diag_plots(xcols=xcols, pat_kw=pat_kw)
+                    tfm.diag_plots(xcols=xcols, pat_kw=pat_kw,
+                                   mass_split=None)
 
         # do the match interpolation (produce match output files)
-        if inps.do_interpolation is True:
+        if inps.do_interpolation:
+            if not hasattr(inps, 'ptcri'):
+                inps.ptcri_file = None
+                inps.from_p2m = True
+                inps = load_ptcri(inps)
             inps.flag_dict = tfm.match_interpolation(inps)
 
             # check the match interpolation
             cmt = CheckMatchTracks(inps)
-            pprint.pprint(cmt.match_info)
-            if inps.diag_plot is True:
-                cmt.diag_plots(pat_kw={'extra': 'match'})
+            if inps.diag_plot:
+                pat_kw = {'extra': 'match', 'plot_dir': inps.outfile_dir}
+                #cmt.diag_plots(pat_kw=pat_kw, hb=inps.hb)
+                cmt.diag_plots(pat_kw=pat_kw, hb=inps.hb, mass_split=None)
+
     print('DONE')
     return
 
@@ -78,14 +97,17 @@ def set_prefixs(inputs):
 def load_ptcri(inputs):
     '''load the ptcri file, either sandro's or mine'''
     # find the ptcri file
-    if inputs.from_p2m is True:
-        sandro = True
-        search_term = 'p2m*%s*dat' % inputs.prefix
+    if inputs.from_p2m:
+        sandro = False
+        search_term = 'p2m_p*'
+        if inputs.hb:
+            search_term = 'p2m_hb*'         
         print('reading ptcri from saved p2m file.')
     else:
-        sandro = False
-        search_term = 'pt*%s*dat' % inputs.prefix
+        sandro = True
+        search_term = 'pt*'
 
+    search_term += '%s*dat' % inputs.prefix
     if inputs.ptcri_file is not None:
         inputs.ptcri_file = inputs.ptcri_file
     else:
@@ -103,34 +125,33 @@ def define_eeps(tfm, inputs):
                'diag_plot': inputs.diag_plot,
                'debug': inputs.debug}
 
-    # Whether or not HB is happening
-    hbswitch = np.unique([inputs.hb_only, inputs.hb])
-    for i in range(len(hbswitch)):
-        crit_kw['hb'] = hbswitch[i]
-        track_str = 'tracks'
-        defined = inputs.ptcri.please_define
-        if hbswitch[i] is True:
-            track_str = 'hbtracks'
-            defined = inputs.ptcri.please_define_hb
-        tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
-                  for track in tfm.tracks]
-        
-        # write log file
-        info_file = os.path.join(inputs.tracks_dir,
-                                 'define_eeps_%s.log' % inputs.prefix.lower())
-        with open(info_file, 'w') as out:
-            for t in tracks:
-                out.write('# %.3f\n' % t.mass)
-                if t.flag is not None:
-                    out.write(t.flag)
-                else:
-                    [out.write('%s: %s\n' % (ptc, t.info[ptc]))
-                     for ptc in defined]
-                
-        if inputs.from_p2m is False:
-            inputs.ptcri.save_ptcri(tracks, hb=hbswitch[i])
+    crit_kw['hb'] = inputs.hb
+    track_str = 'tracks'
+    defined = inputs.ptcri.please_define
+    filename = 'define_eeps_%s.log'
+    if inputs.hb:
+        track_str = 'hbtracks'
+        defined = inputs.ptcri.please_define_hb
+        filename = 'define_eeps_hb_%s.log'
+    # load critical points calles de.define_eep
+    tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
+              for track in tfm.__getattribute__(track_str)]
+    
+    # write log file
+    info_file = os.path.join(inputs.tracks_dir, inputs.prefix,
+                             filename % inputs.prefix.lower())
+    with open(info_file, 'w') as out:
+        for t in tracks:
+            out.write('# %.3f\n' % t.mass)
+            if t.flag is not None:
+                out.write(t.flag)
+            else:
+                [out.write('%s: %s\n' % (ptc, t.info[ptc])) for ptc in defined]
+            
+    if not inputs.from_p2m:
+        inputs.ptcri.save_ptcri(tracks, hb=inputs.hb)
 
-        tfm.__setattr__(track_str, tracks)
+    tfm.__setattr__(track_str, tracks)
     return tfm
 
 
@@ -163,7 +184,6 @@ def initialize_inputs():
     input_dict =  {'track_search_term': '*F7_*PMS',
                    'hbtrack_search_term':'*F7_*HB',
                    'from_p2m': False,
-                   'hb_only': False,
                    'masses': None,
                    'do_interpolation': True,
                    'debug': False,
@@ -176,13 +196,14 @@ def initialize_inputs():
                    'plot_dir': None,
                    'outfile_dir': None,
                    'diag_plot': False,
-                   'match': False}
+                   'match': False,
+                   'agb': False}
     return input_dict
 
 if __name__ == '__main__':
     inp_obj = fileIO.InputFile(sys.argv[1], default_dict=initialize_inputs())
 
-    if inp_obj.debug is True:
+    if inp_obj.debug:
         import pdb
         pdb.set_trace()
 
