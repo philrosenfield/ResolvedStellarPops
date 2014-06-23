@@ -147,7 +147,7 @@ def load_input(filename):
     # do we have a list?
     for key in d.keys():
         # float
-        if type(d[key]) == float:
+        if type(d[key]) == float or type(d[key]) == int:
             continue
         # list:
         temp = d[key].split(',')
@@ -338,10 +338,10 @@ class Table(object):
         self.base, self.name = os.path.split(name)
 
     def get_row(self, i):
-        return self.data[i, :]
+        return self.data[i]
 
     def get_col(self, key):
-        return self.data[:, self.key_dict[key]]
+        return self.data[key]
 
 
 def get_files(src, search_string):

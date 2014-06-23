@@ -7,7 +7,7 @@ First crack at porting version and at cleaning internal recipes
 """
 from . import angst_tables
 from . import tools
-from . import galaxies
+from .galaxies import *
 from . import graphics
 from . import fileio
 from . import match

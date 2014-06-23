@@ -121,7 +121,7 @@ def make_match_param(gal, more_gal_kw=None):
     more_gal_kw = more_gal_kw or {}
 
     # load parameters
-    inp = io.input_parameters(default_dict=match_param_default_dict())
+    inp = fileio.input_parameters(default_dict=match_param_default_dict())
 
     # add parameteres
     cmin = gal.color.min()
@@ -598,7 +598,7 @@ def call_match(param, phot, fake, out, msg, flags=['zinc', 'PADUA_AGB'],
 
     bg_file = check_for_bg_file(param)
 
-    [io.ensure_file(f) for f in (param, phot, fake)]
+    [fileio.ensure_file(f) for f in (param, phot, fake)]
 
     cmd = ' '.join((calcsfh, param, phot, fake, out))
     cmd += ' -' + ' -'.join(flags)
@@ -840,7 +840,7 @@ def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
         #                               'filter2': gal.filter2})
         # save plot
         if figname is None:
-            figname = io.replace_ext(cmdgrid, '.png')
+            figname = fileio.replace_ext(cmdgrid, '.png')
         plt.savefig(figname, dpi=300)
         plt.close()
         logger.info('%s wrote %s' % (match_light.__name__, figname))

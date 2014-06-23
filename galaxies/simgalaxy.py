@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pylab as plt
 
-from ..fileio import fileIO
+from .. import fileio
 from .. import match
 from .. import trilegal
 from .. import graphics
@@ -29,7 +29,7 @@ class SimGalaxy(StarPop):
             self.base = trilegal_out.base
             self.name = trilegal_out.name
         else:
-            self.data = io.read_table(trilegal_out)
+            self.data = fileio.read_table(trilegal_out)
             self.base, self.name = os.path.split(trilegal_out)
 
         self.filter1 = filter1
@@ -47,54 +47,54 @@ class SimGalaxy(StarPop):
         absmag = False
 
         try:
-            dmod = self.data.get_col('m-M0')[0]
+            dmod = self.data['m-M0'][0]
         except KeyError:
             dmod = np.nan
         if dmod == 0.:
             absmag = True
         if absmag is True:
-            self.Mag1 = self.data.get_col(self.filter1)
-            self.Mag2 = self.data.get_col(self.filter2)
+            self.Mag1 = self.data[self.filter1]
+            self.Mag2 = self.data[self.filter2]
             self.Color = self.Mag1 - self.Mag2
         else:
-            self.mag1 = self.data.get_col(self.filter1)
-            self.mag2 = self.data.get_col(self.filter2)
+            self.mag1 = self.data[self.filter1]
+            self.mag2 = self.data[self.filter2]
             self.color = self.mag1 - self.mag2
         try:
-            self.stage = self.data.get_col('stage')
+            self.stage = self.data.stage
         except KeyError:
-            self.stage = np.zeros(len(self.data.get_col('Gc'))) - 1.
-        pass
+            self.stage = np.zeros(len(self.data.Gc)) - 1.
+            pass
 
     def burst_duration(self):
         '''
         for calculating ages of bursts
         '''
-        lage = self.data.get_col('logAge')
+        lage = self.data['logAge']
         self.burst_length, = np.diff((10 ** np.min(lage), 10 ** np.max(lage)))
 
     def get_fits(self):
         match_out_dir = os.path.join(os.path.split(self.base)[0], 'match',
                                      'output')
         fit_file_name = '%s_%s_%s.fit' % (self.ID, self.mix, self.model_name)
-        fit_file, =  fileIO.get_files(match_out_dir, fit_file_name)
+        fit_file, =  fileio.get_files(match_out_dir, fit_file_name)
         self.chi2, self.fit = match.get_fit(fit_file)
 
     def load_ast_corrections(self):
         try:
-            diff1 = self.data.get_col('%s_cor' % self.filter1)
-            diff2 = self.data.get_col('%s_cor' % self.filter2)
+            diff1 = self.data['%s_cor' % self.filter1]
+            diff2 = self.data['%s_cor' % self.filter2]
 
             if self.get_header().count('cor') > 3:
                 self.filter3, self.filter4 = self.get_header().replace('_cor', '').split()[-2:]
-                diff3 = self.data.get_col('%s_cor' % self.filter3)
-                diff4 = self.data.get_col('%s_cor' % self.filter4)
+                diff3 = self.data['%s_cor' % self.filter3]
+                diff4 = self.data['%s_cor' % self.filter4]
 
         except KeyError:
             # there may not be AST corrections... everything is recovered
             print('no ast corrections. Everything recovered?')
             # makes self.rec all inds.
-            self.rec = range(len(self.data.get_col('m-M0')))
+            self.rec = range(len(self.data['m-M0']))
             return 0
         recovered1, = np.nonzero(abs(diff1) < 90.)
         recovered2, = np.nonzero(abs(diff2) < 90.)
@@ -138,14 +138,14 @@ class SimGalaxy(StarPop):
         C star: C/O >= 1, Mdot <=-5, and TPAGB flag
         '''
         if not hasattr(self, 'rec'):
-            self.rec = np.arange(len(self.data.get_col('C/O')))
+            self.rec = np.arange(len(self.data['C/O']))
         try:
-            co = self.data.get_col('C/O')[self.rec]
+            co = self.data['C/O'][self.rec]
         except KeyError as e:
             print('no agb stars... trilegal ran w/o -a flag?')
             raise e
 
-        logl = self.data.get_col('logL')[self.rec]
+        logl = self.data['logL'][self.rec]
         self.imstar, = np.nonzero((co <= 1) & (logl >= 3.3) &
                                   (self.stage[self.rec] == trilegal.get_stage_label('TPAGB')))
 
@@ -396,7 +396,7 @@ class SimGalaxy(StarPop):
         builds a histogram of some attribute (mass, logl, etc)
         slice_inds will cut the full array, and stage will limit to only that stage.
         '''
-        data = self.data.get_col(attr)
+        data = self.data[attr]
         if stage is not None:
             istage_s = 'i%s' % stage.lower()
             if not hasattr(self, istage_s):
