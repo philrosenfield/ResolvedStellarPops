@@ -20,7 +20,7 @@ class SimGalaxy(StarPop):
     attributes.
     '''
     def __init__(self, trilegal_out, filter1, filter2, photsys=None,
-                 count_offset=0.0, table_data=False):
+                 count_offset=0.0, table_data=False, only_keys=None):
 
         StarPop.__init__(self)
 
@@ -29,8 +29,11 @@ class SimGalaxy(StarPop):
             self.base = trilegal_out.base
             self.name = trilegal_out.name
         else:
-            self.data = fileio.read_table(trilegal_out)
             self.base, self.name = os.path.split(trilegal_out)
+            data = fileio.readfile(trilegal_out, only_keys=only_keys)
+            self.key_dict = dict(zip(list(data.dtype.names),
+                                     range(len(list(data.dtype.names)))))
+            self.data = data.view(np.recarray)
 
         self.filter1 = filter1
         self.filter2 = filter2
@@ -47,7 +50,7 @@ class SimGalaxy(StarPop):
         absmag = False
 
         try:
-            dmod = self.data['m-M0'][0]
+            dmod = self.data.mM0[0]
         except KeyError:
             dmod = np.nan
         if dmod == 0.:
@@ -65,6 +68,12 @@ class SimGalaxy(StarPop):
         except KeyError:
             self.stage = np.zeros(len(self.data.Gc)) - 1.
             pass
+
+    def get_row(self, i):
+        return self.data[i]
+
+    def get_col(self, key):
+        return self.data[key]
 
     def burst_duration(self):
         '''
