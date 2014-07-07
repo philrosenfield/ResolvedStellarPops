@@ -263,4 +263,4 @@ def galaxy_metallicity(gal, target, **kwargs):
 
 
 def get_fake(target, fake_loc='.'):
-    return io.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]
+    return fileio.get_files(fake_loc, '*%s*.matchfake' % target.upper())[0]

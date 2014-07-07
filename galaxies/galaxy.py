@@ -73,7 +73,7 @@ class Galaxy(StarPop):
                 self.filter2 = filter2
 
         if filetype is None:
-            self.data = io.readfile(fname)
+            self.data = fileio.readfile(fname)
             if not None in [self.filter1, self.filter2]:
                 self.mag1 = self.data[self.filter1]
                 self.mag2 = self.data[self.filter2]
@@ -83,7 +83,7 @@ class Galaxy(StarPop):
             self.data = self.data.view(np.recarray)
 
         elif 'fits' in filetype:
-            hdu = io.pyfits.open(fname)
+            hdu = fileio.pyfits.open(fname)
             if photsys is not None:
                 ext = self.photsys.upper().split('_')[0]
             else:
@@ -128,7 +128,7 @@ class Galaxy(StarPop):
             hdu.close()
 
         elif filetype == 'tagged_phot':
-            self.data = io.read_tagged_phot(fname)
+            self.data = fileio.read_tagged_phot(fname)
             self.mag1 = self.data['mag1']
             self.mag2 = self.data['mag2']
             self.stage = self.data['stage']
@@ -146,7 +146,7 @@ class Galaxy(StarPop):
             if band is None:
                 raise ValueError('Must supply band, uv, ir, acs')
 
-            hdu = io.pyfits.open(fname)
+            hdu = fileio.pyfits.open(fname)
             self.data = hdu[1].data
             self.header = hdu[0].header
             ext = band
@@ -163,7 +163,7 @@ class Galaxy(StarPop):
             hdu.close()
 
         elif filetype == 'agbsnap':
-            data = io.pyfits.getdata(fname)
+            data = fileio.pyfits.getdata(fname)
             self.propid, self.target, _, self.filter1, self.filter2, \
                 self.filter3, self.filter4 = self.name.split('.')[0].split('_')
 

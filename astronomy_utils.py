@@ -137,12 +137,12 @@ def hess_plot(hess, fig=None, ax=None, colorbar=False, filter1=None,
     return ax
 
 
-def parse_mag_tab(photsys, filter, bcdir=None):
+def parse_mag_tab(photsys, filt, bcdir=None):
     if not bcdir:
         try:
             bcdir = os.environ['BCDIR']
         except KeyError:
-            logger.error('need bcdir environmental variable, or to pass it to parse_mag_tab')
+            print('error need bcdir environmental variable, or to pass it to parse_mag_tab')
 
     #photsys = photsys.lower()
 
@@ -153,15 +153,15 @@ def parse_mag_tab(photsys, filter, bcdir=None):
     mags = tab[1].strip().split()
     Alam_Av = map(float, tab[3].strip().split())
     try:
-        Alam_Av[mags.index(filter)]
+        Alam_Av[mags.index(filt)]
     except ValueError:
-        logger.error('%s not in list' % filter)
-        logger.errot(tab_mag, mags)
-    return Alam_Av[mags.index(filter)]
+        print('error %s not in list' % filt)
+        print('error', tab_mag, mags)
+    return Alam_Av[mags.index(filt)]
 
 
-def Av2Alambda(Av, photsys, filter):
-    Alam_Av = parse_mag_tab(photsys, filter)
+def Av2Alambda(Av, photsys, filt):
+    Alam_Av = parse_mag_tab(photsys, filt)
     Alam = Alam_Av * Av
     return Alam
 
@@ -191,7 +191,7 @@ def Mag2mag(Mag, filterx, photsys, **kwargs):
         Alam_Av = parse_mag_tab(photsys, filterx)
         A = Alam_Av * Av
     if dmod == 0. and A == 0.:
-        logger.warning('Mag2mag did nothing.')
+        print('warning Mag2mag did nothing.')
     return Mag+dmod+A
 
 

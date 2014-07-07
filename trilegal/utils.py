@@ -84,7 +84,7 @@ class PadovaIsoch(object):
 
     def plot_padova_isoch(self, figname=None, masses=None):
         if figname is None:
-            figname = io.replace_ext(self.ptcri_file, '.png')
+            figname = fileio.replace_ext(self.ptcri_file, '.png')
         figtitle = os.path.split(self.ptcri_file)[1].replace('_', '\_')
 
         if masses is None:
@@ -181,7 +181,7 @@ def change_galaxy_input(galaxy_input, **kwargs):
     if no kwargs are given, will write None as object_mass and object_sfr_file.
     see galaxy_input_dict()-
     '''
-    input_pars = io.input_parameters(galaxy_input_dict())
+    input_pars = fileio.input_parameters(galaxy_input_dict())
     input_pars.add_params(kwargs)
     input_pars.write_params(galaxy_input, galaxy_input_fmt())
 
@@ -468,7 +468,7 @@ class Trilegal_SFH(object):
         if filename == 'default':
             base_dir = os.path.split(self.sfh_file)[0]
             new_dir = '_'.join([base_dir, 'adj/'])
-            io.ensure_dir(new_dir)
+            fileio.ensure_dir(new_dir)
             with open(os.path.join(new_dir, 'readme'), 'a') as out:
                 out.write('SFH file %s adjusted from %s.' %
                           (os.path.split(self.sfh_file)[1], self.sfh_file))

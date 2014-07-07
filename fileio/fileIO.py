@@ -147,7 +147,7 @@ def load_input(filename):
     # do we have a list?
     for key in d.keys():
         # float
-        if type(d[key]) == float:
+        if type(d[key]) == float or type(d[key]) == int:
             continue
         # list:
         temp = d[key].split(',')
@@ -173,7 +173,7 @@ def load_input(filename):
 
 
 def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
-             string_length=16):
+             string_length=16, only_keys=None):
     '''
     reads a file as a np array, uses the comment char and col_key_line
     to get the name of the columns.
@@ -186,12 +186,17 @@ def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
         with open(filename, 'r') as f:
             lines = f.readlines()
         col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
+    usecols = range(len(col_keys))
+
+    if only_keys is not None:
+        usecols = list(np.sort([col_keys.index(i) for i in only_keys]))
+        col_keys = list(np.array(col_keys)[usecols])
 
     dtype = [(c, '<f8') for c in col_keys]
     if string_column is not None:
         dtype[string_column] = (col_keys[string_column], '|S%i' % string_length)
     data = np.genfromtxt(filename, dtype=dtype, invalid_raise=False,
-                         skip_header=col_key_line + 1)
+                         usecols=usecols, skip_header=col_key_line + 1)
     return data
 
 
@@ -338,10 +343,10 @@ class Table(object):
         self.base, self.name = os.path.split(name)
 
     def get_row(self, i):
-        return self.data[i, :]
+        return self.data[i]
 
     def get_col(self, key):
-        return self.data[:, self.key_dict[key]]
+        return self.data[key]
 
 
 def get_files(src, search_string):
