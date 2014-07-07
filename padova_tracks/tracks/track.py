@@ -181,7 +181,7 @@ class Track(object):
 
         return
 
-    def load_agb_track(self, filename):
+    def load_agb_track(self, filename, cut=True):
         '''
         Read Paola's tracks.
         Cutting out a lot of information that is not needed for MATCH
@@ -209,6 +209,22 @@ class Track(object):
                     'LOG_L', 'LOG_TE', 'Mcore', 'Y', 'Z', 'PHI_TP', 'CO']
         usecols = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
 
+        f = open(filename)
+        line1 = f.readline()
+        line2 = f.readline()
+        
+        if 'information' in line2:
+            line1 = line1.replace('L_*', 'LOG_L')
+            line1 = line1.replace('step', 'MODE')
+            line1 = line1.replace('T_*', 'LOG_TE') 
+            line1 = line1.replace('M_*', 'MASS')
+            line1 = line1.replace('age/yr', 'AGE')
+            line1 = line1.replace('dM/dt', 'LOG_Mdot')
+            line1 = line1.replace('M_c', 'Mcore')
+            col_keys = line1.strip().replace('#', '').replace('lg', '').split()    
+            col_keys = self.add_to_col_keys(col_keys, line2)
+            usecols = list(np.arange(len(col_keys)))
+        
         data = np.genfromtxt(filename, names=col_keys, usecols=usecols)
         self.data = data.view(np.recarray)
 
@@ -238,7 +254,7 @@ class Track(object):
 
     def maxmin(self, col, inds=None):
         '''
-        returns the max and min of a column in self.data. use inds to index.
+        return the max and min of a column in self.data, inds to slice.
         '''
         arr = self.data[col]
         if inds is not None:

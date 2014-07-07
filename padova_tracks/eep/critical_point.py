@@ -28,7 +28,7 @@ class Eep(object):
                            'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
                            'AGB_LY2']
         if eep_lengths_hb is None:
-            eep_lengths_hb = [150, 100, 80, 100, 80, 80, 80, 100, 100]
+            eep_lengths_hb = [150, 100, 60, 100, 80, 80, 80, 100, 100]
 
         self.eep_list = eep_list
         self.nticks = eep_lengths
