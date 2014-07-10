@@ -53,7 +53,7 @@ class Galaxy(StarPop):
         if self.dmod is not None and self.photsys is not None:
             self.convert_mag(dmod=self.dmod, Av=self.Av, target=self.target)
 
-    def load_data(self, fname, filetype=None, hla=True, angst=True, ext=None,
+    def load_data(self, fname, filetype=None, hla=False, angst=False, ext=None,
                   band=None, photsys=None, filter1=None, filter2=None):
 
         if hla is True:
@@ -96,8 +96,11 @@ class Galaxy(StarPop):
                 else:
                     print('I do not know the photsys.')
             self.data = hdu[1].data
-            self.ra = self.data['ra']
-            self.dec = self.data['dec']
+            try:
+                self.ra = self.data['ra']
+                self.dec = self.data['dec']
+            except KeyError:
+                pass
 
             if filetype == 'fitstable':
                 self.header = hdu[0].header
@@ -183,7 +186,8 @@ class Galaxy(StarPop):
             self.data = data
         else:
             raise TypeError('bad filetype')
-        self.color = self.mag1 - self.mag2
+        if hasattr(self, 'mag1'):
+            self.color = self.mag1 - self.mag2
 
     def trgb_av_dmod(self):
         '''

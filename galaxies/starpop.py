@@ -177,9 +177,9 @@ class StarPop(object):
             data_names = ['data', 'mag1', 'mag2', 'color', 'stage', 'ast_mag1',
                           'ast_mag2', 'ast_color', 'rec']
         for data_name in data_names:
-            if hasattr(data_name):
+            if hasattr(self, data_name):
                 self.__delattr__(data_name)
-            if hasattr(data_name.title()):
+            if hasattr(self, data_name.title()):
                 self.__delattr__(data_name.title())
 
     def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False,
@@ -420,32 +420,38 @@ class StarPop(object):
 
         return left_in_right, right_in_left, poission_noise, float(len(all_inds)), color_sep
 
-    def stars_in_region(self, mag2, mag_dim, mag_bright, mag1=None,
-                        verts=None, col_min=None, col_max=None):
+    def stars_in_region(self, *args, **kwargs):
         '''
-        counts stars in a region. Give mag2 and the mag2 limits.
-        If col_min, col_max, and verts are none, will just give all stars
-        between those mag limits (if no color info is used mag2 can actually
-        be mag1.)
-        If verts are given (Nx2) array, will use those, otherwise will build
-        a polygon from col_* and mag_* limits.
-
-        Returns indices inside.
+        counts stars in a region.
+        see :func: stars_in_region
         '''
-        if verts is None:
-            if col_min is None:
-                inds = utils.between(mag2, mag_dim, mag_bright)
-            else:
-                verts = np.array([[col_min, mag_dim],
-                                  [col_min, mag_bright],
-                                  [col_max, mag_bright],
-                                  [col_max, mag_dim],
-                                  [col_min, mag_dim]])
+        return stars_in_region(*args, **kwargs)
 
-                points = np.column_stack((mag1 - mag2, mag2))
-                inds, = np.nonzero(utils.points_inside_poly(points, verts))
-        return inds
+def stars_in_region(mag2, mag_dim, mag_bright, mag1=None,
+                    verts=None, col_min=None, col_max=None):
+    '''
+    counts stars in a region. Give mag2 and the mag2 limits.
+    If col_min, col_max, and verts are none, will just give all stars
+    between those mag limits (if no color info is used mag2 can actually
+    be mag1.)
+    If verts are given (Nx2) array, will use those, otherwise will build
+    a polygon from col_* and mag_* limits.
 
+    Returns indices inside.
+    '''
+    if verts is None:
+        if col_min is None:
+            inds = utils.between(mag2, mag_dim, mag_bright)
+        else:
+            verts = np.array([[col_min, mag_dim],
+                              [col_min, mag_bright],
+                              [col_max, mag_bright],
+                              [col_max, mag_dim],
+                              [col_min, mag_dim]])
+
+            points = np.column_stack((mag1 - mag2, mag2))
+            inds, = np.nonzero(utils.points_inside_poly(points, verts))
+    return inds
 
 def plot_cmd(starpop, color, mag, ax=None, xlim=None, ylim=None, xlabel=None,
              ylabel=None, contour_kwargs={}, scatter_kwargs={}, plot_kwargs={},
@@ -540,7 +546,7 @@ def plot_cmd(starpop, color, mag, ax=None, xlim=None, ylim=None, xlabel=None,
 
         ncolbin = int(np.diff((np.nanmin(color), np.nanmax(color))) / hist_bin_res_c)
         nmagbin = int(np.diff((np.nanmin(mag), np.nanmax(mag))) / hist_bin_res_m)
-        print(ncolbin, nmagbin)
+        #print(ncolbin, nmagbin)
 
         scatter_contour(color, mag, bins=[ncolbin, nmagbin], levels=levels,
                         threshold=threshold, log_counts=log_counts,
