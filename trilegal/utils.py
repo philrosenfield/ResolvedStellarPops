@@ -677,6 +677,43 @@ class IsoTrack2(object):
 # get the EEPS too?? I donno what you need the data for besides plotting...
 
 
+def read_leos_tracks(fname):
+    data = np.genfromtxt(fname, usecols=(1,2,3,4,5),
+                         names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
+    return data.view(np.recarray)
+
+def run_cmd(infile, mode, option1s, option2s, option3s):
+    '''
+    Only works for single interpolation mode.
+    Leo's cmd code has user based input. To run in batch mode I'm using pexpect.
+    To exend this to other modes, need to find the queries from Leo, or just
+    find the ":" and use them...
+    for now, option1s = masses option2s = zs option3s = filenames
+    all must be the same length (list or array).
+    '''
+    import pexpect
+    import time
+    cmdroot = os.environ['CMDROOT']
+    cmd = '%scode/main %s' % (cmdroot, infile)
+    child = pexpect.spawn(cmd)
+    # wait for the tracks to be read
+    time.sleep(45)
+    # the last option in cmd_2.3 is #35 ... could find some other string
+    found = child.expect(['35', pexpect.EOF])
+    if found == 0:
+        for i in range(len(option1s)):
+            child.send('%i\n' % mode)
+            found = child.expect(['Mass', pexpect.EOF])
+            if found == 0:
+                child.send('%s\n' % option1s[i])
+            found = child.expect(['Z', pexpect.EOF])
+            if found == 0:
+                child.send('%s\n' % option2s[i])
+            found = child.expect(['file'])
+            if found == 0:
+                child.send('%s\n' % option3s[i])
+        child.send('100000\n')
+
 def read_ptcri(ptcri_file):
     d = {}
     lines = open(ptcri_file, 'r').readlines()
