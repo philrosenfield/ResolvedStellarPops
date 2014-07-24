@@ -1,15 +1,12 @@
 from __future__ import print_function
 import numpy as np
-import matplotlib.pylab as plt
-from ..graphics.GraphicsUtils import discrete_colors
 import os
 from eep import DefineEeps
 from eep import critical_point
 from tracks import TrackSet
 from scipy.interpolate import splev
 from tracks import TrackDiag
-from tracks import Track
-import pprint
+
 max_mass = 120.
 
 class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
@@ -29,13 +26,13 @@ class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
             tracks = self.hbtracks
 
         self.check_tracks(tracks)
-        
+
     def check_tracks(self, tracks):
         '''
         check the tracks for identical ages and monotontically increasing ages
         test results go into self.match_info dictionary with keys set by
         M%.3f % track.mass and filled with a list of strings with the info.
-        
+
         if the track has already been flagged, not test occurs.
         '''
         self.match_info = {}
@@ -63,7 +60,7 @@ class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
                     match_info.append([np.array(self.eep_list)[bad_inds],
                                        t.data.logAge[bads]])
                     self.flag_dict['M%.3f' % t.mass] = 'age decreases on track'
-                bads1, = np.nonzero(np.diff(t.data.logAge) == 0)                
+                bads1, = np.nonzero(np.diff(t.data.logAge) == 0)
                 if len(bads1) != 0:
                     if not key in self.match_info:
                         self.match_info[key] = []
@@ -93,8 +90,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         # to pass the flags to another class
         flag_dict = {}
         info_dict = {}
-        trackss = []
-        eep = critical_point.Eep()
         if not inputs.hb:
             tracks = self.tracks
             filename = 'match_interp_%s.log'
@@ -166,7 +161,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         ndefined_ptcri = len(np.nonzero(track.iptcri >= 0)[0])
         #if not ptcri.get_ptcri_name(ndefined_ptcri) == 'TPAGB':
         #    ndefined_ptcri
-        
+
         for i in range(ndefined_ptcri-1):
             this_eep = ptcri.get_ptcri_name(i, **ptcri_kw)
             next_eep = ptcri.get_ptcri_name(i+1, **ptcri_kw)
@@ -179,7 +174,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             mess = '%.3f %s=%i %s=%i' % (track.mass, this_eep, ithis_eep,
                                          next_eep, inext_eep)
-            
+
             if i != 0 and track.iptcri[i+1] == 0:
                 # except for PMS_BEG which == 0, skip if no iptcri.
                 # this is not an error, just the end of the track.
@@ -195,7 +190,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 track.info[mess] = \
                     'there are %i inds between these eeps.' % len(inds)
                 continue
-            
+
             agenew, lnew, tenew = self.interpolate_along_track(track, inds,
                                                           nticks[i], mess=mess,
                                                           diag_plot=diag_plot)
@@ -230,7 +225,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                                        parafunc='np.log10')
         if len(non_dupes) <= 3:        
             track.info[mess] = 'linear interpolation'
-
         arb_arr = np.linspace(0, 1, nticks + 1)
         lagenew, tenew, lnew = splev(arb_arr, tckp)
         test = np.diff(lagenew) > 0
