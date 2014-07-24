@@ -108,7 +108,7 @@ class DefineEeps(object):
         ms_tmin, ims_to = self.add_ms_eeps(track)
         
         self.add_sg_rg_eeps(track)
-        
+
         ihe_beg = 0
         self.add_eep(track, 'HE_BEG', ihe_beg, message='Initializing')
         cens = self.add_cen_eeps(track)
@@ -594,19 +594,22 @@ class DefineEeps(object):
         return ms_tmin, ms_to
 
     def add_sg_rg_eeps(self, track):
+        msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
+        
         # first shot, uses the last LOG_L min after the MS_TO before RG_BMP1
         imin_l = self.add_rg_minl_eep(track)
         
-        
-        if imin_l == -1:
+        # using sandro's rgbase as a guide, imin_l should be close.
+        if imin_l == -1 or (np.abs(imin_l - track.sptcri[7]) > 100):
             # try using the min of the LOG_L mins between MS_TO and RG_BMP1
             imin_l = self.add_rg_minl_eep(track, more_than_one='min of min')
 
-        if imin_l == -1:
+        if imin_l == -1 or (imin_l - msto < 10):
             # ok, try to do SG_MAXL first, though typically the issues
             # in RG_MAXL are on the RG_BMP1 side ...
             print('failed to find RG_MINL before SG_MAXL')
             imax_l = self.add_sg_maxl_eep(track, eep2='RG_BMP1')
+            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL')
         else:
             # find the SG_MAXL between MS_TO and RG_MINL
             imax_l = self.add_sg_maxl_eep(track)
@@ -681,6 +684,7 @@ class DefineEeps(object):
         rg_minl = track.iptcri[self.ptcri.get_ptcri_name('RG_MINL', sandro=False)]
         
         if np.abs(rg_minl - max_l) < 10:
+            import pdb; pdb.set_trace()
             inds = self.ptcri.inds_between_ptcris(track, 'MS_TO', eep2,
                                                   sandro=False)
             non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
