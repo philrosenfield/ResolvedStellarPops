@@ -54,16 +54,16 @@ class TrackSet(object):
     def find_masses(self, track_search_term, hb=False, agb=False):
         track_names = fileIO.get_files(self.tracks_base, track_search_term)
         fname, ext = fileIO.split_file_extention(track_names[0]) 
+        mstr = '_M'
         if hb:
             track_names = np.array([t for t in track_names if 'HB' in t])
             # ...PMS.HB
             fname, ext2 = fileIO.split_file_extention(fname)
-            ext = '.%s%s' % (ext2, ext)        
+            ext = '.%s.%s' % (ext2, ext)
         else:
             # ...PMS
             track_names = np.array([t for t in track_names if not 'HB' in t])
             ext = '.' + ext
-            mstr = '_M'
         if agb:
             # Paola's tracks agb_0.66_Z0.00010000_ ... .dat
             ext = '_Z'

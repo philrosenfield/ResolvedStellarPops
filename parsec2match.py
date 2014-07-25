@@ -76,9 +76,10 @@ def set_prefixs(inputs):
     # tracks location
     tracks_dir = inputs.tracks_dir
     if inputs.prefixs == 'all':
-        # find all dirs in tracks dir
+        # find all dirs in tracks dir skip .DS_Store and crap
         prefixs = [d for d in os.listdir(tracks_dir)
-                   if os.path.isdir(os.path.join(tracks_dir, d))]
+                   if os.path.isdir(os.path.join(tracks_dir, d))
+                   and not d.startswith('.')]
     elif inputs.prefixs is not None:
         # some subset listed in the input file (seperated by comma)
         prefixs = inputs.prefixs

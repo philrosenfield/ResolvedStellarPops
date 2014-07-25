@@ -1,5 +1,5 @@
 import os
-import fileIO
+import fileio
 
 def add_comments_to_header(tracks_base, prefix, search_term):
     '''

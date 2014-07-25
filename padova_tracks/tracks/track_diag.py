@@ -14,6 +14,45 @@ from ResolvedStellarPops import utils
 
 from ..eep.critical_point import Eep
 
+def offset_axlims(track, xcol, ycol, ax, inds=None):
+    xmax, xmin = track.maxmin(xcol, inds=inds)
+    ymax, ymin = track.maxmin(ycol, inds=inds)
+
+    if np.diff((xmin, xmax)) == 0:
+        xmin -= 0.1
+        xmax += 0.1
+
+    if np.diff((ymin, ymax)) == 0:
+        ymin -= 0.5
+        ymax += 0.5
+
+    offx = 0.05
+    offy = 0.1
+    ax.set_xlim(xmax + offx, xmin - offx)
+    ax.set_ylim(ymin - offy, ymax + offy)
+    return ax
+
+
+def plot_match(track, xcol, ycol, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    for col in [xcol, ycol]:
+        if col == 'LOG_L':
+            tmp = (4.77 - track.match_data.T[3]) / 2.5
+        if 'age' in col.lower():
+            tmp = track.match_data.T[2]
+            if not 'log' in col.lower():
+                tmp = 10 ** tmp
+        if col == 'LOG_TE':
+            tmp = track.match_data.T[2]
+        if col == xcol:
+            x = tmp
+        if col == ycol:
+            y = tmp
+    ax.plot(x, y, lw=4, color='green', alpha=0.3)
+    return ax
+
+
 class TrackDiag(object):
     '''a class for plotting tracks'''
     def __init__(self):
@@ -184,9 +223,7 @@ class TrackDiag(object):
     def plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
                          plot_dir=None, extra='', xcol='LOG_TE', ycol='LOG_L',
                          ax=None, ptcri=None):
-        '''
-        plot all tracks and annotate eeps
-        '''
+        '''plot all tracks and annotate eeps'''
         extra += '_%s' % xcol
         if eep_lengths is not None:
             inds = np.insert(np.cumsum(eep_lengths), 0, 1)
@@ -300,7 +337,7 @@ class TrackDiag(object):
         for i, (label, x, y) in enumerate(zip(labels, xdata[inds],
                                               ydata[inds])):
             # varies the labels placement... default is 20, 20
-            if khd is True:
+            if khd:
                 ax.vlines(x, 0, 1, label=label)
                 y = 0.75
             if box:
@@ -310,21 +347,19 @@ class TrackDiag(object):
                             bbox=bbox, arrowprops=arrowprops)
         return ax
 
-    def check_ptcris(self, track, ptcri, hb=False, plot_dir=None, sandro_plot=False,
-                    xcol='LOG_TE', ycol='LOG_L'):
+    def check_ptcris(self, track, ptcri, hb=False, plot_dir=None,
+                     sandro_plot=False, xcol='LOG_TE', ycol='LOG_L'):
         '''
         plot of the track, the interpolation, with each eep labeled
         '''
-        all_inds, = np.nonzero(track.data.AGE > 0.2)
         if track.flag is not None:
             return
-        
-        #iptcri = ptcri.data_dict['M%.3f' % track.mass]
+
+        all_inds, = np.nonzero(track.data.AGE > 0.2)
         iptcri = track.iptcri
         defined, = np.nonzero(iptcri>0)
         ptcri_kw = {'sandro': False, 'hb': hb}
-        #last = ptcri.get_ptcri_name(int(iptcri[-1]), **ptcri_kw)
-        last = ptcri.get_ptcri_name(len(defined)-1, **ptcri_kw)
+        last = ptcri.get_ptcri_name(len(defined) - 1, **ptcri_kw)
         if not hb:
             plots = [['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG'],
                      ['MS_BEG', 'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL'],
@@ -332,81 +367,54 @@ class TrackDiag(object):
                      ['RG_TIP', 'HE_BEG', 'YCEN_0.550', 'YCEN_0.500',
                       'YCEN_0.400'],
                      ['YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100'],
-                     ['YCEN_0.100', 'YCEN_0.000', 'TPAGB']]
+                     ['YCEN_0.100', 'YCEN_0.005', 'YCEN_0.000', 'TPAGB']]
         else:
             plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
                      'YCEN_0.100', 'YCEN_0.005'],
-                     ['YCEN_0.005', 'AGB_LY1', 'AGB_LY2']]
+                     ['YCEN_0.005', 'TPAGB']]
 
         for i, plot in enumerate(plots):
             if last in plot:
                 nplots = i + 1
+        nplots += 1
 
         line_pltkw = {'color': 'black'}
         point_pltkw = {'marker': 'o', 'ls': ''}
-        (fig, axs) = setup_multiplot(nplots,
-                                     subplots_kwargs={'figsize': (12, 8)})
+        fig, axs = setup_multiplot(nplots, subplots_kwargs={'figsize': (12, 8)})
 
         for i, ax in enumerate(np.ravel(axs)):
-            if i == len(plots):
-                continue
-            inds = [ptcri.get_ptcri_name(cp, **ptcri_kw) for cp in plots[i]]
-            inds = iptcri[inds][np.nonzero(iptcri[inds])[0]]
-            if np.sum(inds) == 0:
-                continue
-
+            if i < len(plots):
+                inds = [ptcri.get_ptcri_name(cp, **ptcri_kw) for cp in plots[i]]
+                inds = iptcri[inds][np.nonzero(iptcri[inds])[0]]          
+                if np.sum(inds) == 0:
+                    continue
+                
             ax = self.plot_track(track, xcol, ycol, ax=ax, inds=all_inds,
                                  reverse_x=True, plt_kw=line_pltkw)
-            ax = self.plot_track(track, xcol, ycol, ax=ax, inds=inds,
-                                 plt_kw=point_pltkw, annotate=True, ainds=inds,
-                                 hb=hb, ptcri=ptcri)
+            if i < len(plots):
+                ax = self.plot_track(track, xcol, ycol, ax=ax, inds=inds,
+                                     plt_kw=point_pltkw, annotate=True,
+                                     ainds=inds, hb=hb, ptcri=ptcri)
 
-            if hasattr(self, 'match_data'):
-                # over plot the match interpolation
-                for col in [xcol, ycol]:
-                    if col == 'LOG_L':
-                        tmp = (4.77 - self.match_data.T[3]) / 2.5
-                    if 'age' in col.lower():
-                        tmp = self.match_data.T[2]
-                        if 'log' in col.lower():
-                            tmp = 10 ** tmp
-                    if col == 'LOG_TE':
-                        tmp = self.match_data.T[2]
-                    if col == xcol:
-                        x = tmp
-                    if col == ycol:
-                        y = tmp
+            if hasattr(track, 'match_data'):
+                # overplot the match interpolation
+                ax = plot_match(track, xcol, ycol, ax=ax)
 
-                ax.plot(x, y, lw=2, color='green')
+            if i < len(plots):
+                ax = offset_axlims(track, xcol, ycol, ax, inds=inds)
+            else:
+                ax = offset_axlims(track, xcol, ycol, ax)
 
-            xmax, xmin = track.maxmin(xcol, inds=inds)
-            ymax, ymin = track.maxmin(ycol, inds=inds)
-
-            if np.diff((xmin, xmax)) == 0:
-                xmin -= 0.1
-                xmax += 0.1
-
-            if np.diff((ymin, ymax)) == 0:
-                ymin -= 0.5
-                ymax += 0.5
-
-            offx = 0.05
-            offy = 0.1
-            ax.set_xlim(xmax + offx, xmin - offx)
-            ax.set_ylim(ymin - offy, ymax + offy)
-            #ax.set_xlim(goodlimx)
-            #ax.set_ylim(goodlimy)
             ax.set_xlabel('$%s$' % xcol.replace('_', r'\! '), fontsize=20)
             ax.set_ylabel('$%s$' % ycol.replace('_', r'\! '), fontsize=20)
             if 'age' in xcol:
                 ax.set_xscale('log')
+
         title = 'M = %.3f Z = %.4f Y = %.4f' % (track.mass, track.Z, track.Y)
         fig.suptitle(title, fontsize=20)
+        extra = ''
         if hb:
-            extra = '_HB'
-        else:
-            extra = ''
-
+            extra += '_HB'
         extra += '_%s' % xcol
 
         figname = 'ptcri_Z%g_Y%g_M%.3f%s.png' % (track.Z, track.Y, track.mass,

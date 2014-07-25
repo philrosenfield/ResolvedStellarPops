@@ -25,10 +25,9 @@ class Eep(object):
         if eep_list_hb is None:
             eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
                            'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
-                           'YCEN_0.005', 'YCEN_0.000', 'AGB_LY1',
-                           'AGB_LY2']
+                           'YCEN_0.005', 'YCEN_0.000', 'TPAGB']
         if eep_lengths_hb is None:
-            eep_lengths_hb = [150, 100, 80, 100, 80, 80, 80, 100, 100]
+            eep_lengths_hb = [150, 100, 60, 100, 80, 80, 80, 101]
 
         self.eep_list = eep_list
         self.nticks = eep_lengths
@@ -43,8 +42,8 @@ class critical_point(object):
     ones to define. Definitions of new eeps are in the Track class.
     '''
     def __init__(self, filename, sandro=True):
-        self.load_ptcri(filename, sandro=sandro)
         self.base, self.name = os.path.split(filename)
+        self.load_ptcri(filename, sandro=sandro)
         self.get_args_from_name(filename)
 
     def get_args_from_name(self, filename):
@@ -102,10 +101,9 @@ class critical_point(object):
 
     def load_ptcri(self, filename, sandro=True):
         '''
-        reads the ptcri*dat file. If there is an eep_obj, it will flag the
-        missing eeps in the ptcri file and only read the eeps that match both
-        the eep_list and the ptcri file.
-        should be part of eep...
+        Read the ptcri*dat file.
+        Initialize Eep
+        Flag the missing eeps in the ptcri file.
         '''
         with open(filename, 'r') as f:
             lines = f.readlines()
@@ -131,12 +129,13 @@ class critical_point(object):
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
             ptcris = data[i][3:].astype(int)
-            check = np.nonzero(np.diff(ptcris[ptcris>0]) <= 3)[0]
+            check = np.nonzero(np.diff(ptcris[ptcris > 0]) < 3)[0]
             if len(check) > 0:
-                for c in check:
-                    print('ptcri file M=%.3f: fewer than 3 tracks points between' % self.masses[i],
-                          col_keys[c], col_keys[c+1])
-                continue
+                if self.masses[i] <= 12.:
+                    pass
+                    #[print('%s M=%.3f: fewer than 2 points between' % (self.name, self.masses[i]),
+                    #       col_keys[c], col_keys[c+1]) for c in check]
+                    #continue
             data_dict[str_mass] = ptcris
 
         self.data_dict = data_dict
