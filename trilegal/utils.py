@@ -401,8 +401,11 @@ class Trilegal_SFH(object):
             self.sfh_file = lines[-3].split()[0]
             self.current_sfh_file = self.sfh_file[:]
             self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
+        try:
+            self.age, self.sfr, z = np.loadtxt(self.sfh_file, unpack=True)
+        except ValueError:
+            self.age, self.sfr, z, self.zdisp = np.loadtxt(self.sfh_file, unpack=True)
 
-        self.age, self.sfr, z = np.loadtxt(self.sfh_file, unpack=True)
         # should I do this with dtype?
         self.z_raw = z
         self.z = np.round(z, 4)
@@ -495,6 +498,10 @@ class Trilegal_SFH(object):
 
         print 'wrote %s' % filename
 
+    def boost_split(self):
+        boost_ages, = np.nonzero(1.4 <= self.age/1e9 <= 1.8)
+        boost_z = 0.001
+        boost_table = ''
 
 def find_photsys_number(photsys, filter1):
     '''
@@ -554,12 +561,6 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
                 print >> sys.stderr, 'TRILEGAL was terminated successfully'
         except OSError, err:
             print >> sys.stderr, 'TRILEGAL failed:', err
-        #p = subprocess.Popen(cmd, shell=True, executable='/bin/bash',
-        #                     stdout=subprocess.PIPE)
-        #p.wait()
-
-        #if loud is True:
-        #    print '\n'.join([l.strip() for l in p.communicate()])
 
     logger.info('done.')
 
@@ -597,8 +598,10 @@ def get_stage_label(region):
                'TPAGB', 'POSTAGB', 'WD']
     if type(region) == int:
         stage_lab = regions[region]
-    if type(region) == str:
+    elif type(region) == str:
         stage_lab = regions.index(region.upper())
+    else:
+        print 'must supply int or str'
     return stage_lab
 
 
@@ -682,7 +685,7 @@ def read_leos_tracks(fname):
                          names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
     return data.view(np.recarray)
 
-def run_cmd(infile, mode, option1s, option2s, option3s):
+def run_cmd(infile, mode, option1s, option2s, option3s, force=False):
     '''
     Only works for single interpolation mode.
     Leo's cmd code has user based input. To run in batch mode I'm using pexpect.
@@ -690,6 +693,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s):
     find the ":" and use them...
     for now, option1s = masses option2s = zs option3s = filenames
     all must be the same length (list or array).
+    force will overwrite a file if it already exists.
     '''
     import pexpect
     import time
@@ -702,6 +706,8 @@ def run_cmd(infile, mode, option1s, option2s, option3s):
     found = child.expect(['35', pexpect.EOF])
     if found == 0:
         for i in range(len(option1s)):
+            if os.path.isfile(option3s[i]) or not force:
+                continue
             child.send('%i\n' % mode)
             found = child.expect(['Mass', pexpect.EOF])
             if found == 0:
@@ -713,6 +719,9 @@ def run_cmd(infile, mode, option1s, option2s, option3s):
             if found == 0:
                 child.send('%s\n' % option3s[i])
         child.send('100000\n')
+    else:
+       import pdb; pdb.set_trace()
+
 
 def read_ptcri(ptcri_file):
     d = {}
