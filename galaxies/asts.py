@@ -8,6 +8,7 @@ logger = logging.getLogger()
 
 from scipy.interpolate import interp1d
 from subprocess import PIPE, Popen
+import pyfits
 
 from .. import trilegal
 from ..fileio import fileIO
@@ -140,35 +141,41 @@ def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
 class ASTs(object):
     '''
     class for reading and using artificial stars.
-    If *filename* is not a matchfake file, MUST create a new method to read in
-    artificial stars.
-    for load_fake:
-    mag1 is assumed to be mag1in
-    mag2 is assumed to be mag2in
-    mag1diff is assumed to be mag1in-mag1out
-    mag2diff is assumed to be mag2in-mag2out
-    filename is assumed as matchfake:
-    PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_
-    this is how attributes target, filter1, and filter2 are assigned.
 
     '''
-    def __init__(self, filename):
+    def __init__(self, filename, filter1=None, filter2=None, filt_extra=''):
+        '''
+        if filename has 'match' in it will assume this is a matchfake file.
+        if filename has .fits extention will assume it's a binary fits table.
+        '''
         self.base, self.name = os.path.split(filename)
-        try:
-            __, self.target, self.filter1, self.filter2, _ = \
-                self.name.split('_')
-        except:
+        self.filter1 = filter1
+        self.filter2 = filter2
+        self.filt_extra = filt_extra
+
+        self.parse_pipeline(filename)
+        self.read_file(filename)
+                
+    def parse_pipeline(self, filename):
+        '''
+        target, filter1, and filter2 are assigned:
+        PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_    
+        '''
+        if None in [self.filter1, self.filter2]:
             try:
-                self.target, self.filter1, filter2 = self.name.split('_')
-                self.filter2 = filter2.split('.')[0]
+                __, self.target, self.filter1, self.filter2, _ = \
+                    self.name.split('_')
             except:
                 try:
-                    __, self.target, __, self.filter1, self.filter2, _ = \
-                        self.name.split('_')
+                    self.target, self.filter1, filter2 = self.name.split('_')
+                    self.filter2 = filter2.split('.')[0]
                 except:
-                    pass
-        self.load_fake(filename)
-
+                    try:
+                        __, self.target, __, self.filter1, self.filter2, _ = \
+                            self.name.split('_')
+                    except:
+                        pass
+           
     def recovered(self, threshold=9.99):
         '''
         find indicies of stars with magdiff < threshold
@@ -194,14 +201,38 @@ class ASTs(object):
         self.hess = astronomy_utils.hess(self.colordiff, mag, binsize,
                                          **hess_kw)
 
-    def load_fake(self, filename):
-        '''read MATCH fake file into attributes'''
-        names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
-        self.data = np.genfromtxt(filename, names=names)
-        # unpack into attribues
-        for name in names:
-            self.__setattr__(name, self.data[name])
+    def read_file(self, filename):
+        '''
+        read MATCH fake file into attributes
+        mag1 is assumed to be mag1in
+        mag2 is assumed to be mag2in
+        mag1diff is assumed to be mag1in-mag1out
+        mag2diff is assumed to be mag2in-mag2out
+        '''
+        if 'match' in filename:
+            names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
+            self.data = np.genfromtxt(filename, names=names)
+            # unpack into attribues
+            for name in names:
+                self.__setattr__(name, self.data[name])
+        elif filename.endswith('.fits'):
+            assert not None in [self.filter1, self.filter2], \
+                'Must specify filter strings'
+            self.data = pyfits.getdata(filename)
+            self.mag1 = self.data['%s_IN' % self.filter1]
+            self.mag2 = self.data['%s_IN' % self.filter2]
+            mag1out = self.data['%s%s' % (self.filter1, self.filt_extra)]
+            mag2out = self.data['%s%s' % (self.filter2, self.filt_extra)]
+            self.mag1diff = self.mag1 - mag1out
+            self.mag2diff = self.mag2 - mag2out
+        else:
+            print(filename, 'not supported')
 
+    def write_matchfake(self, newfile):
+        '''write matchfake file'''
+        dat = np.array([self.mag1, self.mag2, self.mag1diff, self.mag2diff]).T
+        np.savetxt(newfile, dat, fmt='%.3f')
+        
     def bin_asts(self, binsize=0.2, bins=None):
         '''
         bin the artificial star tests
@@ -420,3 +451,18 @@ class ASTs(object):
             comp2 = search_arr[ifin2][cut_ind2:][icomp2]
 
         return comp1, comp2
+
+    def ast_plots(self):
+        ''' not finished... plot some interesting stuff '''
+        assert filename.endswith('fits'), 'must be a fits table to make plots'
+        # mag1 vs X; mag2 vs X; x vs x
+        for attr in ['SNR', 'SHARP', 'ROUND', 'CROWD', 'CHI']:
+            fig, axs = plt.subplots(ncols=2, figsize=(12,8))
+            for i, filt in enumerate([self.filter1, self.filter2]):
+                ykey = '%s_%s' % (filt, attr)
+                xkey = '%s%s' % (filt, self.filt_extra)
+                x = self.data[xkey][ast.data[xkey]<90]
+                y = self.data[ykey][ast.data[xkey]<90]
+                axs[i].plot(x, y, '.', color='k') 
+                axs[i].set_xlabel(xkey.replace('_', '\ '))
+                axs[i].set_ylabel(ykey.replace('_', '\ '))

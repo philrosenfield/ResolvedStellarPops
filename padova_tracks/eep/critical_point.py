@@ -204,4 +204,4 @@ class critical_point(object):
                 ptcri_str = ' '.join(['%5d' % p for p in track.iptcri])
                 f.write(linefmt % (i+1, track.mass, ptcri_str,
                                    os.path.join(track.base, track.name)))
-        print('wrote %s' % filename)
+        #print('wrote %s' % filename)

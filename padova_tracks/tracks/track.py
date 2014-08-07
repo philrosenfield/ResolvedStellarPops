@@ -13,9 +13,11 @@ class Track(object):
         '''
         filename [str] the path to the PMS or PMS.HB file
         '''
+        
         (self.base, self.name) = os.path.split(filename)
         # will house error string(s)
         self.flag = None
+        self.info = {}
         if match:
             self.load_match_track(filename)
             self.track_mass(hb=hb)
@@ -27,8 +29,7 @@ class Track(object):
             self.filename_info()            
             if self.flag is None:
                 self.track_mass(hb=hb)
-
-        self.info = {}
+        
         if self.flag is None:
             self.check_track()
 
@@ -161,8 +162,8 @@ class Track(object):
         if skip_footer > 0:
             self.header.append(lines[-skip_footer:])
         else:
-            print('load_track warning: No footer unfinished track? %s'
-                  % filename)
+            self.info['load_track warning'] = \
+                'No footer unfinished track? %s' % filename
 
         col_keys = lines[begin_track + 1].replace('#', '').strip().split()
         begin_track_skip = 2

@@ -10,7 +10,7 @@ import copy
 # from low mass and below XCEN = 0.3 for MS_TMIN
 low_mass = 1.25
 # from high mass and above find MS_BEG in this code
-high_mass = 20.
+high_mass = 13.
 
 class DefineEeps(object):
     '''
@@ -85,7 +85,7 @@ class DefineEeps(object):
         
         self.check_pms_beg(track)
         
-        # set all to zero
+        # initalize to zero
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
         
@@ -134,9 +134,7 @@ class DefineEeps(object):
         return
 
     def check_pms_beg(self, track):
-        #print('check PMS mass, age of PMS_BEG, age')
-        #print(track.mass, track.data.AGE[track.sptcri[0]],
-        #      track.data.AGE[np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0]])
+        '''check age of PMS_BEG'''
         if track.data.AGE[track.sptcri[0]] <= 0.2:
             self.add_eep(track, 'PMS_BEG',
                          np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0],
@@ -258,11 +256,12 @@ class DefineEeps(object):
                                 rg_minl, rg_bmp1, rg_bmp2, rg_tip,
                                 heb_beg], cens, [fin]))
         test, = np.nonzero(np.diff(eeps) <= 0)
+
         if len(test) > 0:
             print('High mass tracks are not monotonically increasing M=%.3f' % track.mass)
             #import pdb; pdb.set_trace()
 
-        if cens[-1] > fin:
+        if cens[-1] >= fin:
             print('final point on track is cut before final ycen M=%.3f' % track.mass)
 
         return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens, [fin]))
@@ -346,9 +345,11 @@ class DefineEeps(object):
         return icens
 
     def add_hb_beg(self, track):
-        # this is just the first line of the track with age > 0.2 yr.
-        # it could be placed in the load_track method. However, because
-        # it is an not physically meaningful eep, I'm keeping it here.
+        '''
+        this is just the first line of the track with age > 0.2 yr.
+        it could be placed in the load_track method. However, because
+        it is not a physically meaningful eep, I'm keeping it here.
+        '''
         ainds, = np.nonzero(track.data['AGE'] > 0.2)
         hb_beg = ainds[0]
         eep_name = 'HB_BEG'
@@ -594,6 +595,15 @@ class DefineEeps(object):
         return ms_tmin, ms_to
 
     def add_sg_rg_eeps(self, track):
+        '''
+        The SG_MAXL and RG_MINL are EEPs that are based on the morphology
+        on the HRD. Unfortunately, the morphology of the HRD in this region
+        changes drastically across the mass and metallicity parameter space.
+        
+        This function calls add_sg_maxl_eep and add_rg_minl_eep in different
+        ways to pull out the correct values of each. 
+        '''
+
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         
         # first shot, uses the last LOG_L min after the MS_TO before RG_BMP1
@@ -607,7 +617,7 @@ class DefineEeps(object):
         if imin_l == -1 or (imin_l - msto < 10):
             # ok, try to do SG_MAXL first, though typically the issues
             # in RG_MAXL are on the RG_BMP1 side ...
-            print('failed to find RG_MINL before SG_MAXL')
+            # print('failed to find RG_MINL before SG_MAXL')
             imax_l = self.add_sg_maxl_eep(track, eep2='RG_BMP1')
             imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL')
         else:
@@ -621,12 +631,11 @@ class DefineEeps(object):
             imax_l = self.add_sg_maxl_eep(track, eep2='RG_BMP1')
             imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL')
         
-        if imin_l == -1:
-            import pdb; pdb.set_trace()
+        #if imin_l == -1:
+            #import pdb; pdb.set_trace()
 
-        if np.round(track.data.XCEN[imin_l], 4) > 0 and imin_l > 0:
-            #print('XCEN at RG_MINL should be zero if low mass (M=%.4f). %.4f' %
-            #             (track.mass, track.data.XCEN[min_l]))
+        if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
+            # give up...
             imin_l = track.sptcri[7]
             msg = 'XCEN > 0 and low mass. Reset RG_MINL and adopted Sandro\'s RG_BASE'
             self.add_eep(track, 'RG_MINL', imin_l, message=msg)
@@ -643,6 +652,7 @@ class DefineEeps(object):
         min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
         msg = '%s Min LOG_L between %s and RG_BMP1' % (more_than_one, eep1)
         msg += ' with parametric interp'
+
         if min_l == -1 or track.mass < low_mass:
             # try without parametric interp and with less linear fit
             pf_kw.update({'parametric_interp': False, 'less_linear_fit': True})
@@ -666,25 +676,28 @@ class DefineEeps(object):
             extreme = 'first'
         else:
             extreme = 'max of max'
+        
+        if eep2 != 'RG_MINL':
+            # we already tried the extremes above
+            extreme = 'last'
+
         pf_kw = {'get_max': True, 'sandro': False, 'more_than_one': extreme,
                  'parametric_interp': False, 'less_linear_fit': False}
 
-        if eep2 != 'RG_MINL':
-            extreme = 'last'
-            pf_kw['mess_err'] = 'Problem with SG_MAXL %.3f' % track.mass
         
         max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
         msg = '%s LOG_L between MS_TO and %s' % (extreme, eep2)
         
-        if max_l == -1:
+        rg_minl = track.iptcri[self.ptcri.get_ptcri_name('RG_MINL', sandro=False)]
+        
+        if max_l == -1 or np.abs(rg_minl - max_l) < 10:
             pf_kw['less_linear_fit'] = bool(np.abs(pf_kw['less_linear_fit']-1))
             msg = '%s LOG_L between MS_TO and %s less_linear_fit' % (extreme, eep2)
             max_l = self.peak_finder(track, 'LOG_L', 'MS_TO', eep2, **pf_kw)
         
-        rg_minl = track.iptcri[self.ptcri.get_ptcri_name('RG_MINL', sandro=False)]
-        
         if np.abs(rg_minl - max_l) < 10:
-            import pdb; pdb.set_trace()
+            # still an issue?!
+            #import pdb; pdb.set_trace()
             inds = self.ptcri.inds_between_ptcris(track, 'MS_TO', eep2,
                                                   sandro=False)
             non_dupes = self.remove_dupes(track.data.LOG_TE[inds],
@@ -710,13 +723,16 @@ class DefineEeps(object):
         return max_l
 
     def first_check():
+        ''' wip: toward eleminating the use of Sandro's eeps '''
         for i in range(70):
             ind = [ farther(inds1, i, 5)]
     
     def farther(arr, ind, dist):
+        ''' wip: toward eleminating the use of Sandro's eeps '''
         return arr[np.nonzero(np.abs(arr - arr[ind]) > dist)[0]]
 
     def recursive_farther(arr, dist, n):
+        ''' wip: toward eleminating the use of Sandro's eeps '''
         saved = [arr[0]]
         for i in range(n):
             if i == 0:
@@ -777,7 +793,8 @@ class DefineEeps(object):
         if (age_diff/age) > tol:
             print('possible bad age match for eep.')
             print('frac diff, mass, eep_name, age, final track age')
-            print('%g' % (age_diff/age), track.mass, eep_name, '%g' % age, '%g' % track.data.AGE[-1])
+            print('%g' % (age_diff/age), track.mass, eep_name,
+                  '%g' % age, '%g' % track.data.AGE[-1])
         self.add_eep(track, eep_name, iage, message=msg)
 
     def add_eep(self, track, eep_name, ind, hb=False, message='no info'):
@@ -805,7 +822,8 @@ class DefineEeps(object):
         if type(eep1) != str:
             inds = np.arange(eep1, eep2)
         else:
-            inds = self.ptcri.inds_between_ptcris(track, eep1, eep2, sandro=sandro)
+            inds = self.ptcri.inds_between_ptcris(track, eep1, eep2,
+                                                  sandro=sandro)
 
         if len(inds) < ind_tol:
             # sometimes there are not enough inds to interpolate
@@ -814,49 +832,47 @@ class DefineEeps(object):
             return 0
 
         # use age, so logl(age), logte(age) for parametric interpolation
-        tckp, step_size, non_dupes = self._interpolate(track, inds,
-                                                       parametric=parametric_interp)
+        tckp, step_size, non_dupes = \
+            self._interpolate(track, inds, parametric=parametric_interp)
         
         if step_size == -1:
             # sometimes there are not enough inds to interpolate 
-            return -2
+            return 0
         
         arb_arr = np.arange(0, 1, step_size)
         if parametric_interp:
             agenew, xnew, ynew = splev(arb_arr, tckp)
             dxnew, dynew, dagenew = splev(arb_arr, tckp, der=1)
             intp_col = ynew
+            nintp_col = xnew
             dydx = dxnew / dynew
             if col == 'LOG_TE':
                 intp_col = xnew
+                nintp_col = ynew
                 dydx = dynew / dxnew
         else:
             # interpolate logl, logte.
             xnew, ynew = splev(arb_arr, tckp)
-
-        if col == 'LOG_L':
             intp_col = ynew
             nintp_col = xnew
-        else:
-            intp_col = xnew
-            nintp_col = ynew
+            if col == 'LOG_TE':
+                intp_col = xnew
+                nintp_col = ynew
 
         # find the peaks!
         if less_linear_fit:
             if track.mass < 5.:
                 axnew = xnew
                 # calculate slope using polyfit
-                p = np.polyfit(nintp_col, intp_col, 1)
-                m = p[0]
-                b = p[1]
+                m, b = np.polyfit(nintp_col, intp_col, 1)
             else:
                 axnew = np.arange(nintp_col.size)
                 m = (intp_col[-1] - intp_col[0]) / (axnew[-1] - axnew[0])
                 b = axnew[0]
             # subtract linear fit, find peaks
-            peak_dict = utils.find_peaks(intp_col - (m * axnew + b))
-        else:
-            peak_dict = utils.find_peaks(intp_col)
+            intp_col = intp_col - (m * axnew + b)
+            
+        peak_dict = utils.find_peaks(intp_col)
 
         if get_max:
             mstr = 'max'
@@ -1010,7 +1026,8 @@ class DefineEeps(object):
             if len(non_dupes) <= 3:
                 #print('fewer than 3 non_dupes, linear interpolation')
                 k = 1
-
+        if len(non_dupes) <= 2:
+            return -1, -1, -1
         xdata = track.data[xcol][inds][non_dupes]
         ydata = track.data[ycol][inds][non_dupes]
         

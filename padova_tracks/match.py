@@ -118,9 +118,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     plot_dir = os.path.join(inputs.plot_dir, xcol.lower())
                     if not os.path.isdir(plot_dir):
                         os.makedirs(plot_dir)
-                    self.check_ptcris(track, plot_dir=plot_dir,
-                                      xcol=xcol, hb=inputs.hb,
-                                      ptcri=inputs.ptcri)
+                    self.check_ptcris(track, inputs.ptcri, plot_dir=plot_dir,
+                                      xcol=xcol, hb=inputs.hb)
 
         logfile = os.path.join(inputs.outfile_dir, filename % self.prefix.lower())
         with open(logfile, 'w') as out:
@@ -195,9 +194,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                                           nticks[i], mess=mess,
                                                           diag_plot=diag_plot)
             if type(agenew) is int:
-                track.info[mess] = 'too few inds to interpolate, skipping track'
-                print(mess)
-                continue  ## should actually return ... debugging.
+                return
+                #continue  ## should actually return ... debugging.
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)
             Age = np.append(Age, agenew)
@@ -223,6 +221,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         '''
         tckp, step_size, non_dupes = self._interpolate(track, inds, s=0,
                                                        parafunc='np.log10')
+        if type(non_dupes) is int:
+            track.info[mess] = 'not enough points for interpolation'
+            return -1, -1, -1
         if len(non_dupes) <= 3:        
             track.info[mess] = 'linear interpolation'
         arb_arr = np.linspace(0, 1, nticks + 1)

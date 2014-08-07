@@ -10,7 +10,6 @@ from __future__ import print_function
 from copy import deepcopy
 import numpy as np
 import os
-import pprint
 import sys
 
 from ResolvedStellarPops.fileio import fileIO
@@ -34,20 +33,21 @@ def parsec2match(input_obj):
         if not inps.from_p2m:
             # find the parsec2match eeps for these tracks.
             tfm = define_eeps(tfm, inps)
-        
+
             if inps.diag_plot:
                 # make diagnostic plots using new ptcri file
                 inps.ptcri_file = None
                 inps.from_p2m = True
                 inps = load_ptcri(inps)
-                pat_kw = {'ptcri': inps.ptcri, 'extra': 'parsec'}
+                pat_kw = {'ptcri': inps.ptcri}
                 xcols = ['LOG_TE', 'AGE']
                 if inps.hb:
-                    tfm.diag_plots(xcols=xcols, hb=inps.hb, pat_kw=pat_kw)
+                    tfm.diag_plots(tfm.hbtracks, xcols=xcols, hb=inps.hb,
+                                   pat_kw=pat_kw, extra='parsec',
+                                   plot_dir=inps.tracks_dir)
                 else:
                     #tfm.diag_plots(xcols=xcols, pat_kw=pat_kw)
-                    tfm.diag_plots(xcols=xcols, pat_kw=pat_kw,
-                                   mass_split=None)
+                    tfm.diag_plots(tfm.tracks, xcols=xcols, pat_kw=pat_kw)
 
         # do the match interpolation (produce match output files)
         if inps.do_interpolation:
@@ -60,10 +60,12 @@ def parsec2match(input_obj):
             # check the match interpolation
             cmt = CheckMatchTracks(inps)
             if inps.diag_plot:
-                pat_kw = {'extra': 'match', 'plot_dir': inps.outfile_dir}
-                #cmt.diag_plots(pat_kw=pat_kw, hb=inps.hb)
-                cmt.diag_plots(pat_kw=pat_kw, hb=inps.hb, mass_split=None)
-
+                if inps.hb:
+                    cmt.diag_plots(cmt.hbtracks, hb=inps.hb, extra='match',
+                                   plot_dir=inps.outfile_dir)
+                else:
+                    cmt.diag_plots(cmt.tracks, extra='match',
+                                   plot_dir=inps.outfile_dir)
     print('DONE')
     return
 
@@ -103,7 +105,7 @@ def load_ptcri(inputs):
         search_term = 'p2m_p*'
         if inputs.hb:
             search_term = 'p2m_hb*'         
-        print('reading ptcri from saved p2m file.')
+        #print('reading ptcri from saved p2m file.')
     else:
         sandro = True
         search_term = 'pt*'
@@ -200,6 +202,90 @@ def initialize_inputs():
                    'match': False,
                    'agb': False}
     return input_dict
+
+
+def prepare_makemod(inputs):
+    import subprocess
+    zsun = 0.02
+    prefixs = set_prefixs(inputs)
+    zs = np.unique(np.array([p.split('Z')[1].split('_')[0] for p in prefixs],
+                            dtype=float))
+    
+    # limits of metallicity grid
+    modelIZmin = np.int(np.floor(np.log10(np.min(zs) / zsun) * 10))
+    modelIZmax = np.int(np.ceil(np.log10(np.max(zs) / zsun) * 10))
+    
+    # metallicities
+    zs_str = ','.join(map(str,zs))
+    # max number of characters needed for directory names
+    FNZ = np.max([len(p) for p in prefixs]) + 1.
+    
+    # directories
+    prefix_str = '\"%s\"' % '\",\"'.join(prefixs)
+    
+    # masses
+    masses = np.array(np.unique(np.concatenate(
+        [[os.path.split(t)[1].split('_M')[1].replace('.PMS', '')
+          for t in fileIO.get_files(os.path.join(inputs.tracks_dir, p), '*.PMS')]
+           for p in prefixs])), dtype=float)
+    masses = np.sort(masses)
+    masses_str = ','.join(map(str,masses))
+    #print(masses_str)
+
+
+    result = subprocess.check_output('wc %s/*dat' % os.path.join(inputs.tracks_dir, p, 'match'), shell=True)
+    npt_low, npt_hb, npt_ms, tot = np.sort(np.unique(np.array([r.split()[0] for r in result.split('\n')[:-2]], dtype=float))) - 1
+    npt_tr = tot - npt_ms - npt_hb
+    mdict = {'npt_low': npt_low,
+             'npt_hb': npt_hb,
+             'npt_tr': npt_tr,
+             'npt_ms': npt_ms,
+             'masses_str': masses_str,
+             'prefix_str': prefix_str,
+             'FNZ': FNZ,
+             'zs_str': zs_str,
+             'modelIZmax': modelIZmax,
+             'modelIZmin': modelIZmin,
+             'zsun': zsun}
+    print(makemod_fmt() % mdict)
+
+def makemod_fmt():
+    return """
+const double Zsun = %(zsun).2f;
+const double Z[] = {%(zs_str)s};
+static const int NZ = sizeof(Z)/sizeof(double);
+const char FNZ[NZ][%(FNZ)i] = {%(prefix_str)s};
+
+const double M[] = {%(masses_str)s};
+static const int NM = sizeof(M)/sizeof(double);
+
+// limits of age and metallicity coverage
+static const int modelIZmin = %(modelIZmin)i;
+static const int modelIZmax = %(modelIZmax)i;
+
+// number of values along isochrone (in addition to logTe and Mbol)
+static const int NHRD=3;
+
+// range of Mbol and logTeff
+static const double MOD_L0 = -8.0;
+static const double MOD_LF = 13.0;
+static const double MOD_T0 = 3.30;
+static const double MOD_TF = 5.00;
+
+static const int ML0 = 9; // number of mass loss steps
+//static const int ML0 = 0; // number of mass loss steps
+static const double ACC = 3.0; // CMD subsampling
+
+// Number of points along tracks
+static const int NPT_LOW = %(npt_low)i; // low-mass tracks points
+static const int NPT_MS = %(npt_ms)i; // MS tracks points
+static const int NPT_TR = %(npt_tr)i; // transition MS->HB points
+static const int NPT_HB = %(npt_hb)i; // HB points
+
+cd ..; make PARSEC; cd PARSEC; ./makemod
+"""
+
+
 
 if __name__ == '__main__':
     inp_obj = fileIO.InputFile(sys.argv[1], default_dict=initialize_inputs())
