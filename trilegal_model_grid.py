@@ -272,14 +272,14 @@ class model_grid(object):
         return sub_grid
 
 
-class sf_stitcher(rsp.trilegal.rsp.trilegal_sfh, model_grid):
+class sf_stitcher(rsp.trilegal.trilegal_sfh, model_grid):
     '''
     inherits from rsp.trilegal sfh and model_grid.
     '''
     def __init__(self, sfr_file, filter1, filter2, galaxy_input=False,
                  indict={}):
         model_grid.__init__(self, **indict)
-        rsp.trilegal.rsp.trilegal_sfh.__init__(self, sfr_file,
+        rsp.trilegal.trilegal_sfh.__init__(self, sfr_file,
                                             galaxy_input=galaxy_input)
         # put back into msun/year (see MatchUtils.process_sfh or something)
         self.sfr = self.sfr * 1e-3
