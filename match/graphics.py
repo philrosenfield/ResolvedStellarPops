@@ -88,7 +88,7 @@ def forceAspect(ax, aspect=1):
                       (extent[3] - extent[2])) / aspect)
 
 
-def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
+def pgcmd(filename, labels=None, figname=None, out_dir=None,
           axis_labels='default', filter1=None, filter2=None):
     '''
     produces the image that pgcmd.pro makes
@@ -119,8 +119,7 @@ def pgcmd(filename, labels=None, saveplot=False, out_dir=None,
     [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_all]
     grid.axes_all[0].xaxis.label.set_visible(True)
 
-    if saveplot:
-        figname = filename.split('.')[0] + '.png'
+    if figname is not None:
         if out_dir is not None:
             figname = os.path.join(out_dir, os.path.split(figname)[1])
         plt.savefig(figname, dpi=300)
@@ -144,5 +143,7 @@ if __name__ == "__main__":
     filename = args[1]
     filter1 = args[2]
     filter2 = args[3]
+    figname = filename + '.png'
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
-    pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels, saveplot=True)
+    pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels,
+          figname=figname)
