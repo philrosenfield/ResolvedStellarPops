@@ -16,7 +16,7 @@ __all__ = ['HRD', 'PadovaIsoch', 'IsoTrack2', 'Trilegal_SFH',
            'galaxy_input_fmt', 'get_args', 'get_label_stage', 'get_loop_data',
            'get_stage_label', 'read_cmd_input_file', 'read_isotrack_file',
            'read_loop_from_ptrci', 'read_ptcri', 'read_ptcri2', 'run_trilegal',
-           'string_in_lines', 'write_spread', 'write_trilegal_sim' ]
+           'string_in_lines', 'write_spread', 'write_trilegal_sim', 'trilegal_sfh']
 
 try:
     from collections import namedtuple
