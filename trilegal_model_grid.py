@@ -111,7 +111,7 @@ class model_grid(object):
         gal_inppars.write_params(galaxy_input, rsp.trilegal.galaxy_input_fmt())
         return
 
-    def make_grid(self, ages=None, zs=None, run_rsp.trilegal=True, galaxy_inkw={},
+    def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
                   over_write=False, clean_up=True):
         '''
         go through each age, metallicity step and make a single age
@@ -144,11 +144,11 @@ class model_grid(object):
                 self.write_sfh_file(sfh_file, to, tf, z)
                 self.make_galaxy_input(sfh_file, galaxy_input,
                                        galaxy_inkw=galaxy_inkw)
-                if run_rsp.trilegal is True:
+                if run_trilegal is True:
                     if os.path.isfile(output) and over_write is False:
                         print 'not over writting %s' % output
                     else:
-                        rsp.trilegal.run_rsp.trilegal(self.cmd_input,
+                        rsp.trilegal.run_trilegal(self.cmd_input,
                                                    galaxy_input, output)
 
         if clean_up is True:
@@ -439,7 +439,7 @@ class sf_stitcher(rsp.trilegal.rsp.trilegal_sfh, model_grid):
 
         logger.info('build_model_cmd wrote %s' % match_bg)
 
-    def check_grid(self, object_mass=None, run_rsp.trilegal=True,
+    def check_grid(self, object_mass=None, run_trilegal=True,
                    max_sfr_inc_frac=0.2, sfr_arr=None):
         '''
         why is this here, not in model grid class? Because I want it to be
@@ -498,8 +498,8 @@ class sf_stitcher(rsp.trilegal.rsp.trilegal_sfh, model_grid):
             self.make_galaxy_input(sfh_file, galaxy_input,
                                    galaxy_inkw=galaxy_inkw)
             # run rsp.trilegal
-            if run_rsp.trilegal is True:
-                rsp.trilegal.run_rsp.trilegal(self.cmd_input, galaxy_input,
+            if run_trilegal is True:
+                rsp.trilegal.run_trilegal(self.cmd_input, galaxy_input,
                                            output)
             else:
                 print to, tf, self.grid_sfr[i], sfr_arr[i]
