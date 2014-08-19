@@ -853,3 +853,121 @@ def read_cmd_input_file(filename):
         for c, dat in zip(comment, data):
             d[c.strip().replace(' ', '_')] = utils.is_numeric(dat)
     return d
+
+
+class trilegal_sfh(object):
+    def __init__(self, filename, galaxy_input=True):
+        '''
+        file can be galaxy input file for trilegal or trilegal age, sfr, z
+        file.
+        '''
+        if galaxy_input is True:
+            self.galaxy_input = filename
+            self.current_galaxy_input = filename
+        else:
+            self.sfh_file = filename
+            self.current_sfh_file = filename
+        self.load_sfh()
+
+    def load_sfh(self):
+        if not hasattr(self, 'sfh_file'):
+            with open(self.galaxy_input, 'r') as f:
+                lines = f.readlines()
+            self.sfh_file = lines[-3].split()[0]
+            self.current_sfh_file = self.sfh_file[:]
+            self.galaxy_input_sfh_line = ' '.join(lines[-3].split()[1:])
+
+        self.age, self.sfr, z = np.loadtxt(self.sfh_file, unpack=True)
+        # should I do this with dtype?
+        self.z_raw = z
+        self.z = np.round(z, 4)
+
+    def __format_cut_age(self, cut1_age):
+        '''
+        takes the > or < out of the string, and makes it in yrs.
+        '''
+        flag = cut1_age[0]
+        yrfmt = 1.
+        possible_yrmfts = {'Gyr': 1e9, 'Myr': 1e6, 'yr': 1.}
+        for py, yrfmt in sorted(possible_yrmfts.items(),
+                                key=lambda (k, v): (v, k), reverse=True):
+            if py in str(cut1_age):
+                import matplotlib
+                if matplotlib.cbook.is_numlike(flag):
+                    cut1_age = float(cut1_age.replace(py, ''))
+                    flag = ''
+                else:
+                    cut1_age = float(cut1_age.replace(py, '').replace(flag, ''))
+                cut1_age *= yrfmt
+        return cut1_age, flag
+
+    def increase_sfr(self, factor, cut_age, over_write_galaxy_input=True):
+        '''
+        cut_age is in Myr.
+        '''
+        new_fmt = '%s_inc%i.dat'
+        new_file = new_fmt % (self.sfh_file.replace('.dat', ''), factor)
+        if over_write_galaxy_input is True:
+            galaxy_input = self.galaxy_input
+        else:
+            galaxy_input = new_fmt % (self.galaxy_input.replace('.dat', ''),
+                                      factor)
+
+        # copy arrays to not overwrite attributes
+        sfr = self.sfr[:]
+        age = self.age[:]
+        z = self.z[:]
+
+        # convert cut_age to yr
+        cut_age *= 1e6
+
+        inds, = np.nonzero(age <= (cut_age))
+        sfr[inds] *= factor
+        np.savetxt(new_file, np.array([age, sfr, z]).T)
+        # update galaxy_input file
+        print 'this is broken!!!!!'
+        #lines[-3] = '%s %s \n' % (new_file, self.galaxy_input_sfh_line)
+        #logger.debug('new line: %s' % lines[-3])
+        #with open(galaxy_input, 'w') as out:
+        #    [out.write(l) for l in lines]
+
+        self.current_galaxy_input = galaxy_input
+        self.current_sfh_file = new_file
+        return self.current_galaxy_input
+
+    def adjust_value(self, val_str, str_operation, filename='default'):
+        '''
+        do some operation to a value.
+        '''
+        val = self.__getattribute__(val_str)
+        if filename == 'default':
+            base_dir = os.path.split(self.sfh_file)[0]
+            new_dir = '_'.join([base_dir, 'adj/'])
+            fileIO.ensure_dir(new_dir)
+            with open(os.path.join(new_dir, 'readme'), 'a') as out:
+                out.write('SFH file %s adjusted from %s.' %
+                          (os.path.split(self.sfh_file)[1], self.sfh_file))
+                out.write('\n     operation: %s %s.\n' % (val_str,
+                                                          str_operation))
+            filename = os.path.join(new_dir, os.path.split(self.sfh_file)[1])
+
+        newval = np.array([eval('%.4f %s' % (v, str_operation)) for v in val])
+        self.write_sfh(filename, val_dict={val_str: newval})
+
+    def write_sfh(self, filename, val_dict=None):
+        '''
+        write the sfh file either give age, sfr, or z or will use
+        self.age self.sfr or self.z
+        '''
+        val_dict = val_dict or {}
+        default_dict = {'age': self.age, 'sfr': self.sfr, 'z': self.z}
+        new_dict = dict(default_dict.items() + val_dict.items())
+
+        np.savetxt(filename, np.array((new_dict['age'],
+                                       new_dict['sfr'],
+                                       new_dict['z'])).T,
+                   fmt='%.3f %g %.4f')
+
+        print 'wrote %s' % filename
+
+
