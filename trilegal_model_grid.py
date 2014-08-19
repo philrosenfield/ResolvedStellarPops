@@ -1,6 +1,4 @@
-import trilegal
-import galaxies
-import fileio
+import ResolvedStellarPops as rsp
 import numpy as np
 import itertools
 import sys
@@ -30,7 +28,7 @@ class model_grid(object):
 
         assert cmd_input is not None, 'need cmd_input file'
         assert photsys is not None, 'need photsys'
-        assert filter is not None, 'need filter for trilegal galaxy input'
+        assert filter is not None, 'need filter for rsp.trilegal galaxy input'
 
         self.__mix_model(cmd_input)
         self.photsys = photsys
@@ -49,7 +47,7 @@ class model_grid(object):
         if location is None:
             location = os.getcwd()
         else:
-            fileio.ensure_dir(location)
+            rsp.fileio.ensure_dir(location)
         self.location = location
 
     def write_sfh_file(self, filename, to, tf, z):
@@ -74,7 +72,7 @@ class model_grid(object):
     def __mix_model(self, cmd_input):
         '''
         separate mix and model from string. If I knew regex, this could
-        be in trilegal utils and not needed. sigh.
+        be in rsp.trilegal utils and not needed. sigh.
         '''
         self.cmd_input = cmd_input
         string = os.path.split(cmd_input)[1].replace('.dat','').split('_')
@@ -99,8 +97,8 @@ class model_grid(object):
         '''
         first_dict = {'filter1': self.filter,
                       'photsys': self.photsys}
-        gal_inppars = fileio.input_parameters(trilegal.galaxy_input_dict(**first_dict))
-        (mag_num, mag_file) = trilegal.find_photsys_number(self.photsys,
+        gal_inppars = rsp.fileio.input_parameters(rsp.trilegal.galaxy_input_dict(**first_dict))
+        (mag_num, mag_file) = rsp.trilegal.find_photsys_number(self.photsys,
                                                                 self.filter)
         default_kw = {'object_sfr_file': sfr_file,
                       'object_mass': self.object_mass,
@@ -110,10 +108,10 @@ class model_grid(object):
 
         kwargs = dict(default_kw.items() + galaxy_inkw.items())
         gal_inppars.add_params(kwargs)
-        gal_inppars.write_params(galaxy_input, trilegal.galaxy_input_fmt())
+        gal_inppars.write_params(galaxy_input, rsp.trilegal.galaxy_input_fmt())
         return
 
-    def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
+    def make_grid(self, ages=None, zs=None, run_rsp.trilegal=True, galaxy_inkw={},
                   over_write=False, clean_up=True):
         '''
         go through each age, metallicity step and make a single age
@@ -146,11 +144,11 @@ class model_grid(object):
                 self.write_sfh_file(sfh_file, to, tf, z)
                 self.make_galaxy_input(sfh_file, galaxy_input,
                                        galaxy_inkw=galaxy_inkw)
-                if run_trilegal is True:
+                if run_rsp.trilegal is True:
                     if os.path.isfile(output) and over_write is False:
                         print 'not over writting %s' % output
                     else:
-                        trilegal.run_trilegal(self.cmd_input,
+                        rsp.trilegal.run_rsp.trilegal(self.cmd_input,
                                                    galaxy_input, output)
 
         if clean_up is True:
@@ -159,10 +157,10 @@ class model_grid(object):
         os.chdir(here)
 
     def get_grid(self, search_string):
-        sub_grid = fileio.get_files(self.location, search_string)
+        sub_grid = rsp.fileio.get_files(self.location, search_string)
 
     def load_grid(self, check_empty=False):
-        grid = fileio.get_files(self.location, '%s*dat' % self.out_pref)
+        grid = rsp.fileio.get_files(self.location, '%s*dat' % self.out_pref)
 
         if check_empty is True:
             # this was happening when I tried to cancel a run mid way, and
@@ -206,13 +204,13 @@ class model_grid(object):
             fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %.3f %i'
 
         for file in self.grid:
-            tab = fileio.read_table(file)
+            tab = rsp.fileio.read_table(file)
             if len(tab.key_dict.keys()) == len(cols):
                 continue
             col_vals = [tab.key_dict[c] for c in cols if c in tab.key_dict.keys()]
             vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
             new_tab = np.delete(tab.data_array, vals, axis=1)
-            fileio.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
+            rsp.fileio.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
 
     def split_on_val(self, string, val):
         return float(os.path.split(string)[1].split('_')[val])
@@ -274,14 +272,14 @@ class model_grid(object):
         return sub_grid
 
 
-class sf_stitcher(trilegal.trilegal_sfh, model_grid):
+class sf_stitcher(rsp.trilegal.rsp.trilegal_sfh, model_grid):
     '''
-    inherits from trilegal sfh and model_grid.
+    inherits from rsp.trilegal sfh and model_grid.
     '''
     def __init__(self, sfr_file, filter1, filter2, galaxy_input=False,
                  indict={}):
         model_grid.__init__(self, **indict)
-        trilegal.trilegal_sfh.__init__(self, sfr_file,
+        rsp.trilegal.rsp.trilegal_sfh.__init__(self, sfr_file,
                                             galaxy_input=galaxy_input)
         # put back into msun/year (see MatchUtils.process_sfh or something)
         self.sfr = self.sfr * 1e-3
@@ -327,7 +325,7 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
             self.sfr_arr = sfr_arr
 
         split_on_age = False
-        these_gals = self.sgals.galaxies
+        these_gals = self.sgals.rsp.galaxies
 
         if hasattr(self, 'sfr_inds'):
             if not os.path.isfile(spread_old_ages) or over_write is True:
@@ -336,7 +334,7 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
                 obg = open(spread_old_ages, 'w')
             else:
                 logging.info('using a subset galaxy bins')
-                these_gals = self.sgals.galaxies[self.sfr_inds]
+                these_gals = self.sgals.rsp.galaxies[self.sfr_inds]
                 assert len(these_gals) == len(sfr_arr), \
                     'sfr bins and grid are different lengths'
 
@@ -441,13 +439,13 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
 
         logger.info('build_model_cmd wrote %s' % match_bg)
 
-    def check_grid(self, object_mass=None, run_trilegal=True,
+    def check_grid(self, object_mass=None, run_rsp.trilegal=True,
                    max_sfr_inc_frac=0.2, sfr_arr=None):
         '''
         why is this here, not in model grid class? Because I want it to be
-        limited to a sfr file, so I don't go crazy with sim galaxies sizes.
+        limited to a sfr file, so I don't go crazy with sim rsp.galaxies sizes.
 
-        this will run trilegal at a higher mass to make sure there is at least
+        this will run rsp.trilegal at a higher mass to make sure there is at least
         as much sf in a time bin as there is estimated in the sfr file.
 
         this should be tricked into using not only the processed sfr file
@@ -469,7 +467,7 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
         self.grid_sfr = []
         ages = np.array([])
         zs = np.array([])
-        for i, sgal in enumerate(self.sgals.galaxies):
+        for i, sgal in enumerate(self.sgals.rsp.galaxies):
             sgal.burst_duration()
             grid_sfr = sgal.sum_m_ini / sgal.burst_length
             self.grid_sfr.append(grid_sfr)  # Msun/year
@@ -499,9 +497,9 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
             self.write_sfh_file(sfh_file, to, tf, z)
             self.make_galaxy_input(sfh_file, galaxy_input,
                                    galaxy_inkw=galaxy_inkw)
-            # run trilegal
-            if run_trilegal is True:
-                trilegal.run_trilegal(self.cmd_input, galaxy_input,
+            # run rsp.trilegal
+            if run_rsp.trilegal is True:
+                rsp.trilegal.run_rsp.trilegal(self.cmd_input, galaxy_input,
                                            output)
             else:
                 print to, tf, self.grid_sfr[i], sfr_arr[i]
@@ -549,11 +547,11 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
         assert len(sfr) == len(sub_grid_files), \
             'sfr and grid length is not the same'
 
-        # load all grid files as sim galaxies.
+        # load all grid files as sim rsp.galaxies.
 
-        sgals = [galaxies.simgalaxy(sgf, self.filter1, self.filter2,
+        sgals = [rsp.galaxies.simgalaxy(sgf, self.filter1, self.filter2,
                  photsys=self.photsys) for sgf in sub_grid_files]
-        self.sgals = galaxies.galaxies(sgals)
+        self.sgals = rsp.galaxies.rsp.galaxies(sgals)
 
         # not sure why this gets unsorted, but best to be careful...
 
@@ -573,22 +571,22 @@ class sf_stitcher(trilegal.trilegal_sfh, model_grid):
 
         assert hasattr(self, 'sgals'), 'need sgals initialized'
 
-        names = [self.sgals.galaxies[i].name for i in
-                 range(len(self.sgals.galaxies))]
+        names = [self.sgals.rsp.galaxies[i].name for i in
+                 range(len(self.sgals.rsp.galaxies))]
         val = self.key_map(key)
         sinds = [names.index(x) for x in sorted(names, key=lambda n: \
                  float(n.split('_')[val]))]
         self.sgals.galaxy_names = np.array(names)[sinds]
-        self.sgals.galaxies = np.array(self.sgals.galaxies)[sinds]
+        self.sgals.rsp.galaxies = np.array(self.sgals.rsp.galaxies)[sinds]
         self.sort_inds = sinds
 
 if __name__ == '__main__':
     input_file = sys.argv[1]
-    indict = fileio.load_input(input_file)
+    indict = rsp.fileio.load_input(input_file)
     if not 'cmd_input' in indict.keys():
         cmd_input_src = indict['cmd_input_src']
         cmd_input_fmt = indict['cmd_input_fmt']
-        cmd_inputs = fileio.get_files(cmd_input_src, cmd_input_fmt)
+        cmd_inputs = rsp.fileio.get_files(cmd_input_src, cmd_input_fmt)
     else:
         cmd_inputs = [indict['cmd_input']]
     #import pdb
@@ -596,7 +594,7 @@ if __name__ == '__main__':
     base = indict['location']
     for cmd_input in cmd_inputs:
         indict['cmd_input'] = cmd_input
-        fileio.ensure_file(indict['cmd_input'])
+        rsp.fileio.ensure_file(indict['cmd_input'])
         # adding a directory in location for the sims.
         location = os.path.split(cmd_input.replace('.dat', '').replace('cmd_input_', ''))[1]
         indict['location'] = os.path.join(base, location)
