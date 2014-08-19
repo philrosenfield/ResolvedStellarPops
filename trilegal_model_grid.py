@@ -97,7 +97,7 @@ class model_grid(object):
         '''
         first_dict = {'filter1': self.filter,
                       'photsys': self.photsys}
-        gal_inppars = rsp.fileio.input_parameters(rsp.trilegal.galaxy_input_dict(**first_dict))
+        gal_inppars = rsp.fileio.InputParameters(rsp.trilegal.galaxy_input_dict(**first_dict))
         (mag_num, mag_file) = rsp.trilegal.find_photsys_number(self.photsys,
                                                                 self.filter)
         default_kw = {'object_sfr_file': sfr_file,
