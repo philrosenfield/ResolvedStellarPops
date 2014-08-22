@@ -112,7 +112,7 @@ class model_grid(object):
         return
 
     def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
-                  over_write=False, clean_up=True):
+                  over_write=False, clean_up=False):
         '''
         go through each age, metallicity step and make a single age
         cmd

@@ -685,7 +685,8 @@ def read_leos_tracks(fname):
                          names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
     return data.view(np.recarray)
 
-def run_cmd(infile, mode, option1s, option2s, option3s, force=False):
+def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
+            force=False):
     '''
     Only works for single interpolation mode.
     Leo's cmd code has user based input. To run in batch mode I'm using pexpect.
@@ -704,20 +705,50 @@ def run_cmd(infile, mode, option1s, option2s, option3s, force=False):
     time.sleep(45)
     # the last option in cmd_2.3 is #35 ... could find some other string
     found = child.expect(['35', pexpect.EOF])
+    if mode == 33:
+        # 33 -> Prints a single interpolated track ?
+        opt1 = 'Mass'
+        opt2 = 'Z'
+        opt3 = 'file'
+        fnames = option3s
+        opt4 = None
+    elif mode == 3:
+        # 3 -> Scrive sequenza isocrone in metalicita' ?
+        opt1 = 'file'
+        opt2 = 'eta'
+        opt3 = 'Zmin'
+        fnames = option1s
+        opt4 = 'Bertelli'
+        
+    elif mode == 2:
+        opt1 = 'file'
+        opt2 = 'Z'
+        opt3 = 'eta'
+        fnames = option1s
+        opt4 = 'Bertelli'
+        
+    else:
+        print 'mode %i not supported' % mode
+        sys.exit()
     if found == 0:
         for i in range(len(option1s)):
-            if os.path.isfile(option3s[i]) or not force:
+            if os.path.isfile(fnames[i]) or not force:
                 continue
             child.send('%i\n' % mode)
-            found = child.expect(['Mass', pexpect.EOF])
+            found = child.expect([opt1, pexpect.EOF])
             if found == 0:
                 child.send('%s\n' % option1s[i])
-            found = child.expect(['Z', pexpect.EOF])
+            found = child.expect([opt2, pexpect.EOF])
             if found == 0:
                 child.send('%s\n' % option2s[i])
-            found = child.expect(['file'])
+            found = child.expect([opt3])
             if found == 0:
                 child.send('%s\n' % option3s[i])
+            if opt4 is not None:
+                found = child.expect([opt4])
+                if found == 0:
+                    child.send('%s\n' % option4s[i])
+                
         child.send('100000\n')
     else:
        import pdb; pdb.set_trace()
