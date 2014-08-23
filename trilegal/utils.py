@@ -708,13 +708,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
     '''
     import pexpect
     import time
-    cmdroot = os.environ['CMDROOT']
-    cmd = '%scode/main %s' % (cmdroot, infile)
-    child = pexpect.spawn(cmd)
-    # wait for the tracks to be read
-    time.sleep(45)
-    # the last option in cmd_2.3 is #35 ... could find some other string
-    found = child.expect(['35', pexpect.EOF])
+    
     if mode == 33:
         # 33 -> Prints a single interpolated track ?
         opt1 = 'Mass'
@@ -739,9 +733,18 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
         print 'mode %i not supported' % mode
         sys.exit()
 
+    cmdroot = os.environ['CMDROOT']
+    cmd = '%scode/main %s' % (cmdroot, infile)
+    child = pexpect.spawn(cmd)
+    child.logfile = sys.stdout
+    # wait for the tracks to be read
+    time.sleep(45)
+    # the last option in cmd_2.3 is #35 ... could find some other string
+    found = child.expect(['35', pexpect.EOF])
+    
     if found == 0:
         for i in range(len(option1s)):
-            if os.path.isfile(fnames[i]) or not force:
+            if os.path.isfile(fnames[i]) and not force:
                 print 'not overwriting %s' % fnames[i]
                 continue
             child.send('%i\n' % mode)
