@@ -221,10 +221,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         '''
         tckp, step_size, non_dupes = self._interpolate(track, inds, s=0,
                                                        parafunc='np.log10')
+        
         if type(non_dupes) is int:
             track.info[mess] = 'not enough points for interpolation'
             return -1, -1, -1
-        if len(non_dupes) <= 3:        
+        if len(non_dupes) <= 3:
             track.info[mess] = 'linear interpolation'
         arb_arr = np.linspace(0, 1, nticks + 1)
         lagenew, tenew, lnew = splev(arb_arr, tckp)

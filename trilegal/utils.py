@@ -688,13 +688,23 @@ def read_leos_tracks(fname):
 def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
             force=False):
     '''
-    Only works for single interpolation mode.
-    Leo's cmd code has user based input. To run in batch mode I'm using pexpect.
-    To exend this to other modes, need to find the queries from Leo, or just
-    find the ":" and use them...
-    for now, option1s = masses option2s = zs option3s = filenames
-    all must be the same length (list or array).
+    Only works for a few modes: 2, 3, and 33 (see code)
+    Uses pexpect to run Leo's cmd code in batch mode (needs interactive user based input)
+    To exend this to other modes use cmd interactively and hardcode options.
+
+    all options must string arrays of the same length.
     force will overwrite a file if it already exists.
+
+    mode 2: Write a sequence of isochrones in age
+        option1s = filenames option2s = Z option3s = log age min, max, dt
+        option4s = kinds of isocrhone table (probably want 5, with crit pts)
+    
+    mode 3: Write a sequence of isochrones in age
+        option1s = filenames option2s = age option3s = log zmin, max, dz
+        option4s = kinds of isocrhone table (probably want 5, with crit pts)
+
+    mode 33: (print a single interpolated track)
+        option1s = masses option2s = zs option3s = filenames
     '''
     import pexpect
     import time
@@ -719,20 +729,20 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
         opt3 = 'Zmin'
         fnames = option1s
         opt4 = 'Bertelli'
-        
     elif mode == 2:
         opt1 = 'file'
         opt2 = 'Z'
         opt3 = 'eta'
         fnames = option1s
         opt4 = 'Bertelli'
-        
     else:
         print 'mode %i not supported' % mode
         sys.exit()
+
     if found == 0:
         for i in range(len(option1s)):
             if os.path.isfile(fnames[i]) or not force:
+                print 'not overwriting %s' % fnames[i]
                 continue
             child.send('%i\n' % mode)
             found = child.expect([opt1, pexpect.EOF])

@@ -21,7 +21,7 @@ class Eep(object):
                          'YCEN_0.000', 'TPAGB']
         if eep_lengths is None:
             eep_lengths = [60, 60, 80, 199, 100, 100, 70, 370, 30, 400,
-                           10, 150, 100, 60, 100, 80, 80, 80, 100]
+                           30, 150, 100, 60, 100, 80, 80, 80, 100]
         if eep_list_hb is None:
             eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
                            'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',

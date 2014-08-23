@@ -151,9 +151,10 @@ def plot_track(track, xcol, ycol, reverse_x=False, reverse_y=False,
 
     if add_ptcris:
         # very simple ... use annotate for the fancy boxes
-        iptcri = track.iptcri
         if sandro:
             iptcri = track.sptcri
+        else:
+            iptcri = track.iptcri
         ax.plot(xdata[iptcri], ydata[iptcri], 'o', color='k')
         if ptcri_inds:
             [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in iptcri]

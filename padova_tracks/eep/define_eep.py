@@ -214,7 +214,7 @@ class DefineEeps(object):
         '''
         I'm currently not doing shit with this...
         # there are instabilities in massive tracks that are on the verge or
-        # returning to the hot side (Teff>10,000) of the HRD before C_BUR.
+        # returning to the hot side (Teff>10,000) of the HRD before TPAGB.
         # The following is designed to cut the tracks before the instability.
         # If the star is M>55. and the last model doesn't reach Teff = 10**4,
         # The track is cut at the max LOG_L after the MS_TO, otherwise, that
@@ -1026,7 +1026,7 @@ class DefineEeps(object):
             if len(non_dupes) <= 3:
                 #print('fewer than 3 non_dupes, linear interpolation')
                 k = 1
-        if len(non_dupes) <= 2:
+        if len(non_dupes) <= 1:
             return -1, -1, -1
         xdata = track.data[xcol][inds][non_dupes]
         ydata = track.data[ycol][inds][non_dupes]
