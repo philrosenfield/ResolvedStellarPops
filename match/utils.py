@@ -70,8 +70,12 @@ def read_match_old(filename):
 
 def read_binned_sfh(filename):
     '''
-    reads the *.zc.sfh file from match, the one created using HMC from
-    Dolphin 2013. Not sure what one of the cols is, so I have it a lixo.
+    reads the file created using zcombine or HybridMC from match
+    into a np.recarray.
+    
+    NOTE
+    calls genfromtext up to 3 times. There may be a better way to figure out
+    how many background lines/what if there is a header... (it's a small file)
     '''
     dtype = [('lagei', '<f8'),
              ('lagef', '<f8'),
@@ -91,11 +95,71 @@ def read_binned_sfh(filename):
     try:
         data = np.genfromtxt(filename, dtype=dtype)
     except ValueError:
-        data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
-                             skip_footer=2)
+        try:
+            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                 skip_footer=1)
+        except ValueError:
+            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                 skip_footer=2)
     return data.view(np.recarray)
 
+class MatchSFH(object):
+    '''
+    load the match sfh solution as a class with attributes set by the
+    best fits from the sfh file.
+    '''
+    def __init__(self, filename):
+        self.base, self.name = os.path.split(filename)
+        self.data = read_binned_sfh(filename)
+        self.load_match_header(filename)
+    
+    def load_match_header(self, filename):
+        '''
+        assumes header is from line 0 to 6 and sets footer to be the final
+        line of the file
+        
+        header formatting is important:
+        Line # format requirement
+        first  Ends with "= %f (%s)"
+        N      is the string "Best fit:\n"
+        N+1    has ',' separated strings of "%s=%f+%f-%f"
+        last   is formatted "%s %f %f %f"
+        '''
+        def set_value_err_attr(key, attr, pattr, mattr):
+            '''
+            set attributes [key], [key]_perr, [key]_merr
+            to attr, pattr, mattr (must be floats)
+            '''
+            self.__setattr__(key, float(attr))
+            self.__setattr__(key + '_perr', float(pattr))
+            self.__setattr__(key + '_merr', float(mattr))
 
+        with open(filename, 'r') as infile:
+            lines = infile.readlines()
+        
+        self.header = lines[0:6]
+        self.footer = lines[-1]
+        best_fit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
+        self.best_fit = float(best_fit)
+        self.match_out = fout.split(')')[0]
+        
+        try:
+            iline = self.header.index('Best fit:\n') + 1
+        except ValueError:
+            print('Need Best fit line to assign attributes')
+            raise ValueError
+
+        line = self.header[iline].strip().replace(' ', '').split(',')
+        for l in line:
+            key, attrs = l.split('=')
+            attr, pmattr = attrs.split('+')
+            pattr, mattr = pmattr.split('-')
+            set_value_err_attr(key, attr, pattr, mattr)
+        # the final line has totalSF
+        key, attr, pattr, mattr = self.header[-1].strip().split()
+        set_value_err_attr(key, attr, pattr, mattr)
+        return
+        
 def make_phot(gal, fname='phot.dat'):
     '''
     makes phot.dat input file for match, a list of V and I mags.

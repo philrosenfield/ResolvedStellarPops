@@ -9,8 +9,9 @@ import copy
 #from ..mass_config import low_mass
 # from low mass and below XCEN = 0.3 for MS_TMIN
 low_mass = 1.25
+inte_mass = 12.
 # from high mass and above find MS_BEG in this code
-high_mass = 13.
+high_mass = 19.
 
 class DefineEeps(object):
     '''
@@ -107,7 +108,6 @@ class DefineEeps(object):
         # Intermediate mass tracks
         ms_tmin, ims_to = self.add_ms_eeps(track)
         
-        self.add_sg_rg_eeps(track)
 
         ihe_beg = 0
         self.add_eep(track, 'HE_BEG', ihe_beg, message='Initializing')
@@ -122,6 +122,9 @@ class DefineEeps(object):
             # should now make sure all other eeps are 0.
             [self.add_eep(track, cp, 0, message='no He EEPs')
              for cp in self.ptcri.please_define[5:]]
+
+        self.add_sg_rg_eeps(track)
+
 
     def hb_eeps(self, track, diag_plot=True, plot_dir=None):
         '''
@@ -603,11 +606,14 @@ class DefineEeps(object):
         This function calls add_sg_maxl_eep and add_rg_minl_eep in different
         ways to pull out the correct values of each. 
         '''
-
+        if track.mass > inte_mass:
+            eep2 = 'HE_BEG'
+        else:
+            eep2 = 'RG_BMP1'
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         
         # first shot, uses the last LOG_L min after the MS_TO before RG_BMP1
-        imin_l = self.add_rg_minl_eep(track)
+        imin_l = self.add_rg_minl_eep(track, eep2=eep2)
         
         # using sandro's rgbase as a guide, imin_l should be close.
         if imin_l == -1 or (np.abs(imin_l - track.sptcri[7]) > 100):
@@ -618,8 +624,8 @@ class DefineEeps(object):
             # ok, try to do SG_MAXL first, though typically the issues
             # in RG_MAXL are on the RG_BMP1 side ...
             # print('failed to find RG_MINL before SG_MAXL')
-            imax_l = self.add_sg_maxl_eep(track, eep2='RG_BMP1')
-            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL')
+            imax_l = self.add_sg_maxl_eep(track, eep2=eep2)
+            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
         else:
             # find the SG_MAXL between MS_TO and RG_MINL
             imax_l = self.add_sg_maxl_eep(track)
@@ -628,42 +634,45 @@ class DefineEeps(object):
         # the L min after the MS_TO is much easier to find than the RG Base.
         #import pdb; pdb.set_trace()
         if imax_l <= 0:
-            imax_l = self.add_sg_maxl_eep(track, eep2='RG_BMP1')
-            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL')
+            imax_l = self.add_sg_maxl_eep(track, eep2=eep2)
+            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
         
         #if imin_l == -1:
             #import pdb; pdb.set_trace()
 
         if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
-            # give up...
-            imin_l = track.sptcri[7]
-            msg = 'XCEN > 0 and low mass. Reset RG_MINL and adopted Sandro\'s RG_BASE'
-            self.add_eep(track, 'RG_MINL', imin_l, message=msg)
-
+            if track.mass <= inte_mass:
+                # give up...
+                imin_l = track.sptcri[7]
+                msg = 'XCEN > 0 and low mass. Reset RG_MINL and adopted Sandro\'s RG_BASE'
+                self.add_eep(track, 'RG_MINL', imin_l, message=msg)
+            if track.mass > inte_mass:
+                import pdb; pdb.set_trace()
         return
 
-    def add_rg_minl_eep(self, track, eep1='MS_TO', more_than_one='last'):
+    def add_rg_minl_eep(self, track, eep1='MS_TO', eep2='RG_BMP1',
+                        more_than_one='last'):
         '''
         The MIN L before the RGB for high mass or the base of the
         RGB for low mass.
         '''
         # find min_l with parametric interp and using the more_than_one min.
         pf_kw = {'sandro': False, 'more_than_one': more_than_one}
-        min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
-        msg = '%s Min LOG_L between %s and RG_BMP1' % (more_than_one, eep1)
+        min_l = self.peak_finder(track, 'LOG_L', eep1, eep2, **pf_kw)
+        msg = '%s Min LOG_L between %s and %s' % (more_than_one, eep1, eep2)
         msg += ' with parametric interp'
 
         if min_l == -1 or track.mass < low_mass:
             # try without parametric interp and with less linear fit
             pf_kw.update({'parametric_interp': False, 'less_linear_fit': True})
             msg = msg.replace('parametric interp', 'less linear fit')
-            min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
+            min_l = self.peak_finder(track, 'LOG_L', eep1, eep2, **pf_kw)
 
         if min_l == -1:
             # try without parametric interp and without less linear fit
             pf_kw.update({'less_linear_fit': False})
             msg = msg.replace('less linear fit', '')
-            min_l = self.peak_finder(track, 'LOG_L', eep1, 'RG_BMP1', **pf_kw)
+            min_l = self.peak_finder(track, 'LOG_L', eep1, eep2, **pf_kw)
 
         self.add_eep(track, 'RG_MINL', min_l, message=msg)
         return min_l

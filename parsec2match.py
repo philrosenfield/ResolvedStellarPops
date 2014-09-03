@@ -32,7 +32,11 @@ def parsec2match(input_obj):
 
         if not inps.from_p2m:
             # find the parsec2match eeps for these tracks.
-            tfm = define_eeps(tfm, inps)
+            ptcri_file = load_ptcri(inps, find=True, from_p2m=True)
+            if not inps.overwrite_ptcri and os.path.isfile(ptcri_file):
+                print('not overwriting %s' % ptcri_file)
+            else:
+                tfm = define_eeps(tfm, inps)
 
             if inps.diag_plot:
                 # make diagnostic plots using new ptcri file
@@ -95,12 +99,19 @@ def set_prefixs(inputs):
     del inputs.prefixs
     assert type(prefixs) == list, 'prefixs must be a list'
     return prefixs
+    
 
-
-def load_ptcri(inputs):
-    '''load the ptcri file, either sandro's or mine'''
+def load_ptcri(inputs, find=False, from_p2m=False):
+    '''
+    load the ptcri file, either sandro's or mine
+    if find is True, just return the file name, otherwise, return inputs with
+    ptcri and ptcri_file attributes set.
+    
+    if from_p2m is True, force find/load my ptcri file regardless
+    of inputs.from_p2m value.
+    '''
     # find the ptcri file
-    if inputs.from_p2m:
+    if inputs.from_p2m or from_p2m:
         sandro = False
         search_term = 'p2m_p*'
         if inputs.hb:
@@ -112,12 +123,16 @@ def load_ptcri(inputs):
 
     search_term += '%s*dat' % inputs.prefix
     if inputs.ptcri_file is not None:
-        inputs.ptcri_file = inputs.ptcri_file
+        ptcri_file = inputs.ptcri_file
     else:
-        inputs.ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc, search_term)
-        
-    inputs.ptcri = critical_point(inputs.ptcri_file, sandro=sandro)
-    return inputs
+        ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc, search_term)
+    
+    if find:
+        return ptcri_file
+    else:
+        inputs.ptcri_file = ptcri_file
+        inputs.ptcri = critical_point(inputs.ptcri_file, sandro=sandro)
+        return inputs
 
 
 def define_eeps(tfm, inputs):
@@ -200,7 +215,9 @@ def initialize_inputs():
                    'outfile_dir': None,
                    'diag_plot': False,
                    'match': False,
-                   'agb': False}
+                   'agb': False,
+                   'overwrite_ptcri': True,
+                   'overwrite_match': True}
     return input_dict
 
 

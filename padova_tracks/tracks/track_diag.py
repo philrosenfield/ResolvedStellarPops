@@ -53,7 +53,7 @@ def plot_match(track, xcol, ycol, ax=None):
     ax.plot(x, y, lw=4, color='green', alpha=0.3)
     return ax
     
-def quick_hrd(track, ax=None, inds=None, reverse_x=False):
+def quick_hrd(track, ax=None, inds=None, reverse='x'):
     '''
     make an hrd.
     written for interactive use (usually in pdb)
@@ -62,18 +62,55 @@ def quick_hrd(track, ax=None, inds=None, reverse_x=False):
     if ax is None:
         plt.figure()
         ax = plt.axes()
-        reverse_x = True
+        reverse = 'x'
         
     ax.plot(track.data.LOG_TE, track.data.LOG_L, color='k')
     if inds is not None:
         ax.plot(track.data.LOG_TE[inds], track.data.LOG_L[inds], 'o')
     
-    if reverse_x:
+    if 'x' in reverse:
         ax.set_xlim(ax.get_xlim()[::-1])
     return ax
 
+def check_eep_hrd(tracks, ptcri_loc, between_ptcris=[0, -2], sandro=True):
+    from .track_set import TrackSet
+    if type(tracks[0]) is str:
+        from .track import Track
+        tracks = [Track(t) for t in tracks]
+    td = TrackDiag()
+    ts = TrackSet()
+    ts.tracks = tracks
+    if not hasattr(tracks[0], 'sptcri'):
+        ts._load_ptcri(ptcri_loc, sandro=True)
+    if not hasattr(tracks[0], 'iptcri'):
+        ts._load_ptcri(ptcri_loc, sandro=False)
+
+    zs = np.unique([t.Z for t in tracks])
+    axs = [plt.subplots()[1] for i in range(len(zs))]
+    [axs[list(zs).index(t.Z)].set_title(t.Z) for t in tracks]
+    
+    for t in tracks:
+        ax = axs[list(zs).index(t.Z)]
+        plot_track(t, 'LOG_TE', 'LOG_L', sandro=sandro, ax=ax,
+                   between_ptcris=between_ptcris, add_ptcris=True,
+                   add_mass=True)
+
+        ptcri_names = Eep().eep_list[between_ptcris[0]: between_ptcris[1] + 1]
+        td.annotate_plot(t, ax, 'LOG_TE', 'LOG_L', ptcri_names=ptcri_names) 
+        
+    [ax.set_xlim(ax.get_xlim()[::-1]) for ax in axs]
+    return ts, axs
+
 def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
-                   convert_mag_kw={}, xnorm=None, ynorm=None):
+                   convert_mag_kw={}, norm=''):
+    '''
+    convert a string column name to data
+    
+    returns xdata, ydata
+    
+    norm 'xy', 'x', 'y' for which or both axis to normalize
+    can also pass xdata, ydata to normalize or if its a cmd
+    '''
     if ydata is None:
         ydata = track.data[ycol]
 
@@ -96,25 +133,32 @@ def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
         else:
             xdata = track.data[xcol]
 
-    if xnorm:
+    if 'x' in norm:
         xdata /= np.max(xdata)
 
-    if ynorm:
+    if 'y' in norm:
         ydata /= np.max(ydata)
         
     return xdata, ydata
 
 
-def plot_track(track, xcol, ycol, reverse_x=False, reverse_y=False,
+def plot_track(track, xcol, ycol, reverse='',
                ax=None, inds=None, plt_kw={}, clean=False,
                sandro=False, cmd=False, convert_mag_kw={},
-               xdata=None, ydata=None, hb=False, xnorm=False, ynorm=False,
+               xdata=None, ydata=None, norm='',
                arrows=False, yscale='linear', xscale='linear',
-               ptcri_inds=False, ptcri=None, add_ptcris=False):
+               ptcri_inds=False, add_ptcris=False, between_ptcris=[0, -1],
+               add_mass=False):
     '''
     ainds is passed to annotate plot, and is to only plot a subset of crit
     points.
     sandro = True will plot sandro's ptcris.
+    
+    plot helpers:
+    reverse 'xy', 'x', or 'y' will flip that axis
+    ptcri_inds bool will annotate ptcri numbers
+    add_ptcris will mark plot using track.iptcri or track.sptcri
+    
     '''
     if type(track) == str:
         from .track import Track
@@ -135,18 +179,26 @@ def plot_track(track, xcol, ycol, reverse_x=False, reverse_y=False,
         # non-physical inds go away.
         inds, = np.nonzero(track.data.AGE > 0.2)
 
-    xdata, ydata = column_to_data(track, xcol, ycol, cmd=cmd, xnorm=xnorm,
-                                  ynorm=ynorm, convert_mag_kw=convert_mag_kw)
+    xdata, ydata = column_to_data(track, xcol, ycol, cmd=cmd, norm=norm,
+                                  convert_mag_kw=convert_mag_kw)
 
     if inds is not None:
         ax.plot(xdata[inds], ydata[inds], **plt_kw)
     else:
-        ax.plot(xdata, ydata, **plt_kw)
+        if not hasattr(track, 'sptcri') or not hasattr(track, 'iptcri'):
+            ax.plot(xdata, ydata, **plt_kw)
+        else:
+            if sandro:
+                iptcri = track.sptcri
+            else:
+                iptcri = track.iptcri
+            pinds = np.arange(iptcri[between_ptcris[0]], iptcri[between_ptcris[1]])
+            ax.plot(xdata[pinds], ydata[pinds], **plt_kw)
 
-    if reverse_x:
+    if 'x' in reverse:
         ax.set_xlim(ax.get_xlim()[::-1])
 
-    if reverse_y:
+    if 'y' in reverse:
         ax.set_ylim(ax.get_ylim()[::-1])
 
     if add_ptcris:
@@ -155,12 +207,18 @@ def plot_track(track, xcol, ycol, reverse_x=False, reverse_y=False,
             iptcri = track.sptcri
         else:
             iptcri = track.iptcri
-        ax.plot(xdata[iptcri], ydata[iptcri], 'o', color='k')
+        pinds = iptcri[between_ptcris[0]: between_ptcris[1] + 1]
+        ax.plot(xdata[pinds], ydata[pinds], 'o', color='k')
         if ptcri_inds:
-            [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in iptcri]
+            [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in pinds]
+    
+    if add_mass:
+        ax.annotate(r'$%g$' % track.mass, (xdata[iptcri[5]], ydata[iptcri[5]]),
+                    fontsize=10)
 
     if arrows:
         # hard coded to be 10 equally spaced points...
+        inds, = np.nonzero(track.data.AGE > 0.2)
         ages = np.linspace(np.min(track.data.AGE[inds]),
                            np.max(track.data.AGE[inds]), 10)
         indz, _ = zip(*[utils.closest_match(i, track.data.AGE[inds])
@@ -384,7 +442,7 @@ class TrackDiag(object):
         fig.subplots_adjust(left=0.08, right=0.98, bottom=0.08, wspace=0.1)
         for i, ax in enumerate(axs.ravel()[:nplots]):
             self.plot_track(track, xcol, ycol, ax=ax, inds=all_inds,
-                            reverse_x=True, plt_kw=line_pltkw)
+                            reverse='x', plt_kw=line_pltkw)
             self.plot_track(track, xcol, ycol, ax=ax, inds=iptcri[iptcri>0],
                             plt_kw=point_pltkw)
 
@@ -431,7 +489,7 @@ class TrackDiag(object):
         return axs
     
     def plot_sandro_ptcri(self, track, plot_dir=None, ptcri=None):
-        ax = self.plot_track(track, 'LOG_TE', 'LOG_L', reverse_x=1,
+        ax = self.plot_track(track, 'LOG_TE', 'LOG_L', reverse='x',
                              inds=np.nonzero(track.data.AGE > 0.2)[0])
 
         ax = self.plot_track(track, 'LOG_TE', 'LOG_L', ax=ax, annotate=True,

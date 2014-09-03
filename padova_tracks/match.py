@@ -7,7 +7,6 @@ from tracks import TrackSet
 from scipy.interpolate import splev
 from tracks import TrackDiag
 
-max_mass = 120.
 
 class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
     '''
@@ -96,6 +95,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         else:
             tracks = self.hbtracks
             filename = 'match_interp_hb_%s.log'
+        
+        if inputs.outfile_dir is None or inputs.outfile_dir == 'default':
+            outfile_dir = track.base
 
         for track in tracks:
             flag_dict['M%.3f' % track.mass] = track.flag
@@ -106,8 +108,12 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 continue
 
             # interpolate tracks for match
-            self.prepare_track(track, inputs.ptcri,
-                               outfile_dir=inputs.outfile_dir,
+            outfile = os.path.join(inputs.outfile_dir,
+                               'match_%s.dat' % track.name.replace('.PMS', ''))
+            if not inputs.overwrite_match and os.path.isfile(outfile):
+                print('not overwriting %s' % outfile)
+                continue
+            self.prepare_track(track, inputs.ptcri, outfile,
                                diag_plot=inputs.diag_plot, hb=inputs.hb)
 
             info_dict['M%.3f' % track.mass] = track.info
@@ -121,7 +127,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     self.check_ptcris(track, inputs.ptcri, plot_dir=plot_dir,
                                       xcol=xcol, hb=inputs.hb)
 
-        logfile = os.path.join(inputs.outfile_dir, filename % self.prefix.lower())
+        logfile = os.path.join(inputs.outfile_dir,
+                               filename % self.prefix.lower())
         with open(logfile, 'w') as out:
             for m, d in info_dict.items():
                 try:
@@ -134,13 +141,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     out.write('%s: %s\n' % (k, v))
         return flag_dict
 
-    def prepare_track(self, track, ptcri, outfile='default', hb=False,
-                      outfile_dir=None, diag_plot=False):
-        if outfile == 'default':
-            if outfile_dir is None or outfile_dir == 'default':
-                outfile_dir = track.base
-        outfile = os.path.join(outfile_dir,
-                               'match_%s.dat' % track.name.replace('.PMS', ''))
+    def prepare_track(self, track, ptcri, outfile, hb=False, diag_plot=False):
         header = '# logAge Mass logTe Mbol logg C/O \n'
 
         if hb:

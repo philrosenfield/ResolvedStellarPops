@@ -12,7 +12,7 @@ from .track import Track
 from .track_diag import TrackDiag
 from ..eep.critical_point import critical_point
 
-max_mass = 120.
+max_mass = 1000.
 td = TrackDiag()
 
 class TrackSet(object):
@@ -131,14 +131,14 @@ class TrackSet(object):
                                  if t.flag is None])
         return
 
-    def all_inds_of_eep(self, eep_name):
+    def all_inds_of_eep(self, eep_name, sandro=True):
         '''
         get all the ind for all tracks of some eep name, for example
         want ms_to of the track set? set eep_name = point_c if sandro==True.
         '''
         inds = []
         for track in self.tracks:
-            check = self.ptcri.load_sandro_eeps(track)
+            check = self.ptcri.load_eeps(track, sandro=sandro)
             if check == -1:
                 inds.append(-1)
                 continue
@@ -149,3 +149,21 @@ class TrackSet(object):
             data_ind = track.sptcri[eep_ind]
             inds.append(data_ind)
         return inds
+
+    def _load_ptcri(self, ptcri_loc, sandro=True, hb=False):
+        '''load ptcri file for each track in trackset'''
+        if sandro:
+            search_term = 'pt*'
+        else:
+            search_term = 'p2m*'
+            if hb:
+                search_term += '_hb*'      
+        for track in self.tracks:
+            pt_search = search_term + 'Z%g_*' % track.Z
+            ptcri_file, = fileIO.get_files(ptcri_loc, pt_search)
+            ptcri = critical_point(ptcri_file, sandro=sandro)
+            if sandro:
+                ptcri.load_eeps(track, sandro=sandro)
+            new_key = 'ptcri_Z%g' % track.Z
+            self.__setattr__(new_key.replace('0.', ''), ptcri)
+        return
