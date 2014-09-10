@@ -138,12 +138,30 @@ def read_match_cmd(filename):
     return cmd
 
 if __name__ == "__main__":
+    '''
+    calls pgcmd
+    the labes for the plots are taken from the filename... this is hard coded
+    labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
+    I want to have the * usage in the command line, so the last two values
+    are the filter names.
+    usage eg:
+    python graphics.py *cmd 'F555W' 'F814W\ (HRC)'
+    '''
     import sys
     args = sys.argv
-    filename = args[1]
-    filter1 = args[2]
-    filter2 = args[3]
-    figname = filename + '.png'
+    filename = args[1:-2]
+    filter1 = args[-2]
+    filter2 = args[-1]
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
-    pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels,
-          figname=figname)
+
+    if type(filename) == str:
+        filenames = [filename]
+    else:
+        filenames = filename
+
+    olabels = labels
+    for filename in filenames:
+        figname = filename + '.png'
+        labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
+        pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels,
+              figname=figname)

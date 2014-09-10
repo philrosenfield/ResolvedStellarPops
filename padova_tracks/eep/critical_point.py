@@ -21,7 +21,7 @@ class Eep(object):
                          'YCEN_0.000', 'TPAGB']
         if eep_lengths is None:
             eep_lengths = [60, 60, 80, 199, 100, 100, 70, 370, 30, 400,
-                           30, 150, 100, 60, 100, 80, 80, 80, 100]
+                           40, 150, 100, 60, 100, 80, 80, 80, 100]
         if eep_list_hb is None:
             eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
                            'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
@@ -129,13 +129,13 @@ class critical_point(object):
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
             ptcris = data[i][3:].astype(int)
-            check = np.nonzero(np.diff(ptcris[ptcris > 0]) < 3)[0]
-            if len(check) > 0:
-                if self.masses[i] <= 12.:
-                    pass
-                    #[print('%s M=%.3f: fewer than 2 points between' % (self.name, self.masses[i]),
-                    #       col_keys[c], col_keys[c+1]) for c in check]
-                    #continue
+            #check = np.nonzero(np.diff(ptcris[ptcris > 0]) < 3)[0]
+            #if len(check) > 0:
+            #    if self.masses[i] <= 12.:
+            #        pass
+            #        #[print('%s M=%.3f: fewer than 2 points between' % (self.name, self.masses[i]),
+            #        #       col_keys[c], col_keys[c+1]) for c in check]
+            #        #continue
             data_dict[str_mass] = ptcris
 
         self.data_dict = data_dict
@@ -175,6 +175,7 @@ class critical_point(object):
                                 for m in ptcri])
         else:
             track.iptcri = ptcri
+        track.ptcri_file = os.path.join(self.base, self.name)
         return track
 
     def save_ptcri(self, tracks, filename=None, hb=False):

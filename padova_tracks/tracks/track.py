@@ -72,7 +72,7 @@ class Track(object):
         fmass = float(self.name.split('_M')[1].split('.' + ext)[0])
         if self.mass >= 12:
             self.mass = fmass
-        elif self.mass != fmass:
+        elif np.abs(self.mass - fmass) > 0.005:
             print('filename has M=%.4f track has M=%.4f' % (fmass, self.mass))
             self.flag = 'inconsistent mass'
         return self.mass
@@ -134,49 +134,74 @@ class Track(object):
 
     def load_track(self, filename):
         '''
-        reads PMS file into a record array. Stores header as string self.header
-
-        this could be optimized, right now it reads the file twice
-        '''
-        # possible strings you can find in the footer, add to this list as
-        # Sandro adds more 
-        footers = ['Comp Time', 'EXCEED', 'carbon burning', 'REACHED', 'STOP']
+        reads PMS file into a record array. Stores header and footer as
+        list of strings in self.header
         
-        with open(filename, 'r') as f:
-            lines = f.readlines()
+        if no 'BEGIN TRACK' in file will add message to self.flags
+        
+        if no footers are found will add message to self.info
+        
+        footer strings to search for are hard coded in a list.
+        add to this list by perhaps
+        import os
+        for root, dirs, filenames in os.walk(tracks_dir):
+            for filename in filenames:
+                if filename.endswith('PMS'):
+                    lines = open(os.path.join(root, filename)).readlines()
+                    print lines[-2:]
+        '''
 
-        # find the header and footer
-        skip_footer = 0
+        footers = ['Comp', 'EXCEED', 'burning', 'REACHED', 'STOP', 'END']
+
+        with open(filename, 'r') as infile:
+            lines = infile.readlines()
+
+        # find the header
         begin_track = -1
         for i, l in enumerate(lines):
             if 'BEGIN TRACK' in l:
                 begin_track = i
-            skip_footer += len([f for f in footers if f in l])
-        
+                break
+
+        self.header = lines[:begin_track]
+
         if begin_track == -1:
             self.data = np.array([])
             self.col_keys = None
             self.flag = 'load_track error: no begin track'
+            return
 
-        self.header = lines[:begin_track]
+        # find the footer assuming it's no longer than 3 lines (for speed)
+        skip_footer = 0
+        for l in lines[-3:]:
+            skip_footer += len([f for f in footers if f in l])
+
         if skip_footer > 0:
             self.header.append(lines[-skip_footer:])
         else:
             self.info['load_track warning'] = \
                 'No footer unfinished track? %s' % filename
-
-        col_keys = lines[begin_track + 1].replace('#', '').strip().split()
-        begin_track_skip = 2
         
-        # Hack to read tracks that have been "colored"
-        if 'information' in lines[begin_track + 2]:
-            col_keys = self.add_to_col_keys(col_keys, lines[begin_track + 2])
-            begin_track_skip += 1
+        # find ndarray titles (column keys)
+        begin_track += 1
+        col_keys = lines[begin_track].replace('#', '').strip().split()
+        
+        begin_track += 1
+        
+        # extra line for tracks that have been "colored"
+        if 'information' in lines[begin_track + 1]:
+            begin_track += 1
+            col_keys = self.add_to_col_keys(col_keys, lines[begin_track])
 
-        data = np.genfromtxt(filename, skiprows=begin_track + begin_track_skip,
-                             names=col_keys, skip_footer=skip_footer,
-                             invalid_raise=False)
+        # read data into recarray
+        iend = len(lines) - skip_footer
+        nrows = iend - begin_track
+        dtype = [(c, float) for c in col_keys]
 
+        data = np.ndarray(shape=(nrows,), dtype=dtype)
+        for row, i in enumerate(range(begin_track, iend)):
+            data[row] = tuple(lines[i].split())
+        
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
 
@@ -263,5 +288,3 @@ class Track(object):
         ma = np.max(arr)
         mi = np.min(arr)
         return (ma, mi)
-
-

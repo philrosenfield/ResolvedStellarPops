@@ -8,13 +8,16 @@ __all__ = ['between', 'bin_up', 'brighter', 'closest_match', 'closest_match2d',
            'double_gaussian', 'extrap1d', 'find_peaks', 'gaussian',
            'get_verts', 'hist_it_up', 'inside', 'is_numeric', 'min_dist2d',
            'mp_double_gauss', 'points_inside_poly', 'smooth', 'spread_bins',
-           'count_uncert_ratio']
+           'count_uncert_ratio', 'sort_dict']
+
+
+def sort_dict(dictionary):
+    ''' zip(*sorted(dictionary.items(), key=lambda(k,v):(v,k))) '''
+    return zip(*sorted(dictionary.items(), key=lambda(k,v):(v,k)))
 
 
 def count_uncert_ratio(numerator, denominator):
-    '''
-    combining poisson error for taking a ratio
-    '''
+    ''' combine poisson error to calculate ratio uncertainty'''
     n = float(numerator)
     d = float(denominator)
     return (n / d) * (1./np.sqrt(n) + 1./np.sqrt(d))
@@ -141,9 +144,8 @@ def min_dist2d(xpoint, ypoint, xarr, yarr):
 
 def closest_match2d(ind, x1, y1, x2, y2, normed=False):
     '''
-    finds closest point between of arrays x2[ind], y2[ind] and x1, y1.
-    Just minimizes
-    the radius of a circle.
+    find closest point between of arrays x2[ind], y2[ind] and x1, y1.
+    by minimizing the radius of a circle.
     '''
     if normed is True:
         dist = np.sqrt((x1 / np.max(x1) - x2[ind] / np.max(x2)) ** 2 + (y1 / np.max(y1) - y2[ind] / np.max(y2)) ** 2)
@@ -153,6 +155,7 @@ def closest_match2d(ind, x1, y1, x2, y2, normed=False):
 
 
 def closest_match(num, somearray):
+    '''return closest index and its difference of sumarray to num '''
     index = -1
     somearray = np.nan_to_num(somearray)
     difference = np.abs(num - somearray[0])
@@ -165,7 +168,7 @@ def closest_match(num, somearray):
 
 def between(arr, mdim, mbrt, inds=None):
     '''
-    returns indices between two floats, mdim and mbrt. A quick check exists so
+    return indices between two floats, mdim and mbrt. A quick check exists so
     this will work with regular numbers, not just stupid magnitudes.
     if inds, will return intersection of between and inds
     '''
@@ -180,9 +183,7 @@ def between(arr, mdim, mbrt, inds=None):
 
 
 def inside(x, y, u, v, verts=False, get_verts_args={}):
-    """
-    returns the indices of u, v that are within the boundries of x, y.
-    """
+    ''' return the indices of u, v that are within the boundries of x, y. '''
     if not verts:
         verts = get_verts(x, y, **get_verts_args)
     else:

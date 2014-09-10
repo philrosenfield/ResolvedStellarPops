@@ -130,7 +130,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         logfile = os.path.join(inputs.outfile_dir,
                                filename % self.prefix.lower())
         with open(logfile, 'w') as out:
-            for m, d in info_dict.items():
+            mass, info = zip(*sorted(info_dict.items(),
+                                     key=lambda (k, v): (v, k)))
+            for m, d in zip(mass, info):
                 try:
                     sorted_keys, vals = zip(*sorted(d.items(),
                                             key=lambda (k, v): (v, k)))
@@ -155,7 +157,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         tot_pts = 0
         ptcri_kw = {'sandro': False, 'hb': hb}
         #iptcri = ptcri.data_dict['M%.3f' %  track.mass]
-        track = ptcri.load_eeps(track, sandro=False)
+        track = ptcri.load_eeps(track, sandro=False, hb=hb)
         if track.flag is not None:
             return
         ndefined_ptcri = len(np.nonzero(track.iptcri >= 0)[0])

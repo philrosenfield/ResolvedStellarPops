@@ -73,6 +73,14 @@ def quick_hrd(track, ax=None, inds=None, reverse='x'):
     return ax
 
 def check_eep_hrd(tracks, ptcri_loc, between_ptcris=[0, -2], sandro=True):
+    '''
+    a simple debugging tool.
+    Load in tracks (string or Track obj)
+    give the location of the ptcri file
+    and choose which set of ptcris to plot.
+    returns the track set and the axs (one for each Z)
+    
+    '''
     from .track_set import TrackSet
     if type(tracks[0]) is str:
         from .track import Track
@@ -108,8 +116,8 @@ def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
     
     returns xdata, ydata
     
-    norm 'xy', 'x', 'y' for which or both axis to normalize
-    can also pass xdata, ydata to normalize or if its a cmd
+    norm: 'xy', 'x', 'y' for which or both axis to normalize
+    can also pass xdata, ydata to normalize or if its a cmd (Mag2mag only)
     '''
     if ydata is None:
         ydata = track.data[ycol]
@@ -141,6 +149,14 @@ def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
         
     return xdata, ydata
 
+def add_ptcris(track, between_ptcris, sandro=False):
+    '''return track.[s or i ]ptcri indices between between_ptcris'''
+    if sandro:
+        iptcri = track.sptcri
+    else:
+        iptcri = track.iptcri
+    pinds = iptcri[between_ptcris[0]: between_ptcris[1] + 1]
+    return pinds
 
 def plot_track(track, xcol, ycol, reverse='',
                ax=None, inds=None, plt_kw={}, clean=False,
@@ -203,11 +219,7 @@ def plot_track(track, xcol, ycol, reverse='',
 
     if add_ptcris:
         # very simple ... use annotate for the fancy boxes
-        if sandro:
-            iptcri = track.sptcri
-        else:
-            iptcri = track.iptcri
-        pinds = iptcri[between_ptcris[0]: between_ptcris[1] + 1]
+        pinds = add_ptcris(track, between_ptcris, sandro=sandro)
         ax.plot(xdata[pinds], ydata[pinds], 'o', color='k')
         if ptcri_inds:
             [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in pinds]
@@ -362,7 +374,8 @@ class TrackDiag(object):
         return ax
 
     def annotate_plot(self, track, ax, xcol, ycol, ptcri_names=[],
-                      sandro=False, hb=False, box=True, khd=False):
+                      sandro=False, hb=False, box=True, khd=False,
+                      xdata=None, ydata=None, inds=None, **kwargs):
         '''
         if a subset of ptcri inds are used, set them in inds. If you want
         sandro's ptcri's sandro=True, will also change the face color of the
@@ -383,21 +396,24 @@ class TrackDiag(object):
 
         ptcri_kw = {'sandro': sandro, 'hb': hb}
         pts = [eep_list.index(i) for i in ptcri_names]
-        inds = iptcri[pts]
-
+        pinds = iptcri[pts]
+        if inds is not None:
+            pinds = map(int, np.concatenate([[i for i, ind in enumerate(inds)
+                                              if ind == p] for p in pinds]))
         labs = ['$%s$' % p.replace('_', r'\ ') for p in ptcri_names]
 
-        xdata, ydata = column_to_data(track, xcol, ycol)
+        xdata, ydata = column_to_data(track, xcol, ycol, xdata=xdata,
+                                      ydata=ydata)
         
         if box:
             # label stylings
             bbox = dict(boxstyle='round, pad=0.2', fc=fc, alpha=0.2)
             arrowprops = dict(arrowstyle='->', connectionstyle='arc3, rad=0')
 
-        for i, (lab, x, y) in enumerate(zip(labs, xdata[inds], ydata[inds])):
+        for i, (lab, x, y) in enumerate(zip(labs, xdata[pinds], ydata[pinds])):
             # varies the labels placement... default is 20, 20
             if khd:
-                ax.vlines(x, 0, 1, label=lab)
+                ax.vlines(x, 0, 1, label=lab, **kwargs)
                 y = 0.75
             if box:
                 xytext = ((-1.) ** (i - 1.) * 20, (-1.) ** (i + 1.) * 20)
@@ -456,7 +472,8 @@ class TrackDiag(object):
                 #ainds = track.iptcri[track.iptcri>0]
                 if np.sum(inds) == 0:
                     continue
-                self.annotate_plot(track, ax, xcol, ycol, ptcri_names=plots[i])
+                self.annotate_plot(track, ax, xcol, ycol, ptcri_names=plots[i],
+                                   hb=hb)
                 ax = offset_axlims(track, xcol, ycol, ax, inds=inds)
             else:
                 ax = offset_axlims(track, xcol, ycol, ax)           
@@ -504,99 +521,156 @@ class TrackDiag(object):
         plt.close()
         return
 
-    def kippenhahn(self, track, col_keys=None, heb_only=True, ptcri=None):
-        track.calc_core_mu()
-
-        fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True, figsize=(8, 8))
-        import matplotlib.gridspec as gridspec
-        gs = gridspec.GridSpec(8, 2)
-        sm_axs = [plt.subplot(gs[i, 0:]) for i in range(4)]
-        ax2 = plt.subplot(gs[4:, 0:])
-
-        #ax3 = plt.subplot(gs[0:, -1])
+    def kippenhahn(self, track, col_keys=None, heb_only=True, ptcri=None,
+                   four_tops=False, xscale='linear', between_ptcris=[0,-2],
+                   khd_dict=None, ax=None, norm='', annotate=False,
+                   legend=False, fusion=True, convection=True):
+        pinds = add_ptcris(track, between_ptcris, sandro=False)
         if heb_only:
             # Core HeB:
             inds, = np.nonzero((track.data.LY > 0) & (track.data.QHE1 == 0))
         else:
-            inds = np.arange(len(track.data.LY))
-        # AGE IN Myr
-        xdata = track.data.AGE[inds]/1e6
+            inds = np.arange(pinds[pinds>0][0], pinds[pinds>0][-1])
+        
+        pinds = add_ptcris(track, between_ptcris, sandro=False)
+        xdata = track.data.AGE[inds]
+        
+        if xscale == 'linear':
+            # AGE IN Myr
+            xdata /= 1e6
+            xlab = '$Age\ (Myr)$'
+        elif 'x' in norm:
+            xdata = xdata/np.max(xdata)
+            xlab = '$fractional\ Age$'
+        else:
+            xlab = '$\log Age\ (yr)$'
+        
+        
+        if four_tops:
+            track.calc_core_mu()
+            fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True,
+                                                figsize=(8, 8))
+            import matplotlib.gridspec as gridspec
+            gs = gridspec.GridSpec(8, 2)
+            sm_axs = [plt.subplot(gs[i, 0:]) for i in range(4)]
+            ax = plt.subplot(gs[4:, 0:])
+            ycols = ['LOG_TE', '', 'LOG_RHc', 'LOG_Pc']
+            ycolls = ['$\log T_{eff}$', '$\mu_c$', '$\\rho_c$', '$\log P_c$']
 
-        ycols = ['LOG_TE', '', 'LOG_RHc', 'LOG_Pc']
-        ycolls = ['$\log T_{eff}$', '$\mu_c$', '$\\rho_c$', '$\log P_c$']
-
-        for smax, ycol, ycoll in zip(sm_axs, ycols, ycolls):
-            if len(ycol) == 0:
-                ydata = track.muc[inds]
-            else:
-                ydata = track.data[ycol][inds]
+            for smax, ycol, ycoll in zip(sm_axs, ycols, ycolls):
+                if len(ycol) == 0:
+                    ydata = track.muc[inds]
+                else:
+                    ydata = track.data[ycol][inds]
+                    smax.plot(xdata, ydata, lw=3, color='black', label=ycoll)
+    
                 smax.plot(xdata, ydata, lw=3, color='black', label=ycoll)
-
-            smax.plot(xdata, ydata, lw=3, color='black', label=ycoll)
-            smax.set_ylabel('$%s$' % ycoll)
-            smax.set_ylim(np.min(ydata), np.max(ydata))
-            smax.yaxis.set_major_locator(MaxNLocator(4))
-            smax.xaxis.set_major_formatter(NullFormatter())
-
+                smax.set_ylabel('$%s$' % ycoll)
+                smax.set_ylim(np.min(ydata), np.max(ydata))
+                smax.yaxis.set_major_locator(MaxNLocator(4))
+                smax.xaxis.set_major_formatter(NullFormatter())
+            axs = np.concatenate([[ax], sm_axs])
+        else:
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(8, 8))
+            axs = [ax]
+        
+        ax.set_xscale(xscale)
         # discontinuities in conv...
         p1 = np.argmin((np.diff(track.data.CF1[inds])))
         p2 = np.argmax(np.diff(track.data.CF1[inds]))
-        zo = 1
-        ax2.fill_between(xdata[:p1], track.data.CI1[inds[:p1]],
-                         track.data.CF1[inds[:p1]],
-                         where=track.data.CF1[inds[:p1]]>0.2,
-                         color='grey', alpha=0.4, zorder=zo)
-        ax2.fill_between(xdata[p2:], track.data.CI1[inds[p2:]],
-                         track.data.CF1[inds[p2:]],
-                         where=track.data.CF1[inds[p2:]]<0.2,
-                         color='grey', alpha=0.4, zorder=zo)
-        ax2.fill_between(xdata, track.data.CI2[inds], track.data.CF2[inds],
-                         color='grey', alpha=0.4)
-        ax2.fill_between(xdata, track.data.QH1[inds], track.data.QH2[inds],
-                         color='navy', label='$H$', zorder=zo)
-        ax2.fill_between(xdata, track.data.QHE1[inds], track.data.QHE2[inds],
-                         color='darkred', label='$^4He$', zorder=zo)
+        zorder = 1
+        # convections
+        if convection:
+            ax.fill_between(xdata[:p1], track.data.CI1[inds[:p1]],
+                             track.data.CF1[inds[:p1]],
+                             where=track.data.CF1[inds[:p1]]>0.2, edgecolor='none',
+                             color='grey', alpha=0.4, zorder=zorder)
+            ax.fill_between(xdata[p2:], track.data.CI1[inds[p2:]],
+                             track.data.CF1[inds[p2:]],
+                             where=track.data.CF1[inds[p2:]]<0.2, edgecolor='none',
+                             color='grey', alpha=0.4, zorder=zorder)
+            ax.fill_between(xdata, track.data.CI2[inds], track.data.CF2[inds],
+                             color='grey', alpha=0.4, edgecolor='none',)
+        if fusion:
+            ax.fill_between(xdata, track.data.QH1[inds], track.data.QH2[inds],
+                             color='blue', label='$H$', zorder=zorder, alpha=0.4,
+                             edgecolor='none',)
+            ax.fill_between(xdata, track.data.QHE1[inds], track.data.QHE2[inds],
+                             color='red', label='$^4He$', zorder=zorder, alpha=0.4,
+                             edgecolor='none',)
 
-        zo = 100
-        rel_cols = ['XC_cen', 'XO_cen', 'YCEN', 'LX', 'LY', 'CONV']
-        rel_collss = [[''] * 6, ['$^{12}C$', '$^{16}O$', '$Y_c$','$L_X$', '$L_Y$', '$core$']]
-        rcolss = [['white'] * 6, ['green', 'purple', 'darkred', 'navy', 'darkred', 'black']]
-        lws = [5, 2]
-        rlsss = [['-'] * 6, ['-', '-', '-', '--', '--', '-']]
-        for rcols, rlss, rel_colls, lw in zip(rcolss, rlsss, rel_collss, lws):
-            zo += 10
-            for rel_col, rel_coll, rcol, rls in zip(rel_cols, rel_colls, rcols, rlss):
-                ax2.plot(xdata, track.data[rel_col][inds], ls=rls, lw=3, color=rcol,
-                         label=rel_coll, zorder = zo)
+        zorder = 100
+        if khd_dict is None:     
+            khd_dict = {'XC_cen': 'green',
+                        'XO_cen': 'purple', 
+                        'YCEN': 'darkred', 
+                        'LX': 'navy', 
+                        'LY': 'darkred',
+                        'CONV':  'black'}
 
-        itmax = p1 + np.argmax(track.data.LOG_TE[inds[p1:]])
-        for ax in np.concatenate([[ax2], sm_axs]):
-            ax.set_xlim(xdata[0], xdata[-1])
-            ylim = ax.get_ylim()
-            [ax.vlines(xdata[i], *ylim, color='grey', lw=2)
-                       for i in [p1, itmax]]
-            ax.set_ylim(ylim)
-            #ax.set_xlim(track.data.AGE[track.ptcri.sptcri[11]], track.data.AGE[track.ptcri.sptcri[13]])
+        # white underneath
+        [ax.plot(xdata, track.data[column][inds], lw=5, color='white')
+         for column in khd_dict.keys()]
+        
+        zorder += 10
+        for col, color in khd_dict.items():
+            ax.plot(xdata, track.data[col][inds], ls=plot_linestyles(col), lw=3,
+                    color=color, label=plot_labels(col), zorder=zorder)
+            zorder += 10
+        
+        ixmax = p1 + np.argmax(track.data.LOG_TE[inds[p1:]])
 
+        if legend:
+            ax.legend(frameon=False, loc=0)
+        
+        ax.set_ylim(0, 1)
+        ax.set_xlabel(xlab, fontsize=18)
+        ax.set_ylabel('$m/M\ or\ f/f_{tot}$', fontsize=18)
+        if annotate:
+            ptcri_names = Eep().eep_list[between_ptcris[0]: between_ptcris[1] + 1]
+            self.annotate_plot(track, ax, '', '', xdata=xdata, ydata=xdata,
+                               ptcri_names=ptcri_names, khd=True, inds=inds,
+                               lw=2) 
+        #[a.set_xlim(xdata[pinds[0]], xdata[pinds[-1]]) for a in axs]
+        
+        #for a in axs:
+        #    a.set_xlim(xdata[0], xdata[-1])
+        #    ylim = a.get_ylim()
+        #    [a.vlines(xdata[i], *ylim, color='grey', lw=2)
+        #              for i in [p1, itmax]]
+        #    a.set_ylim(ylim)
 
-        ax2.legend(frameon=False, loc=6)
-        ax2.set_ylim(0, 1)
-        #ax3.set_xlim(np.max(track.data.LOG_TE[inds]), np.min(track.data.LOG_TE[inds]))
-        #ax3.set_ylim(np.min(track.data.LOG_L[inds]), np.max(track.data.LOG_L[inds]))
-        ax2.set_xlabel('$Age\ (Myr)$')
-        #ax2.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        #ax2.ticklabel_format(style='sci', scilimits=(0,0), axis='x')
-        #sm_axs[0].set_title(os.path.split(track.base)[1].replace('_', '\ ').replace('PH',''))
-        #ax1.set_ylabel('H Shell Abundances')
-        ax2.set_ylabel('$m/M\ or\ f/f_{tot}$')
-        self.annotate_plot(track, ax2, xdata, xdata, ptcri=ptcri, sandro=True,
-                           khd=True)
-        #ax3.set_xlabel('LOG TE')
-        #ax3.set_ylabel('LOG L')
-        #ax3.set_title('$M=%.4f$' % track.mass)
-        #plt.savefig('%s_%s_khd.png' % (track_set, track.name), dpi=300)
-        #fig.subplots_adjust(hspace=0)
-        #ax.plot(track.data.AGE[inds], track.data['LOG_TE'][inds]/np.max(track.data['LOG_TE'][inds]), lw=3, color='black')
-        #ax.plot(track.data.AGE[inds], track.data['CONV'][inds], lw=3, color='grey')
-        #ax.plot(track.data.AGE[inds], track.data['MU'][inds], lw=3, color='brown')
-        return fig, (ax1, ax2, ax3)
+        return axs
+
+def plot_labels(column):
+    if column == 'XC_cen':
+        lab = '$^{12}C$'
+    elif column == 'XO_cen':
+        lab = '$^{16}O$'
+    elif column == 'CONV':
+        lab = r'$\rm{core}$'
+    elif 'CEN' in column:
+        lab = '$%s$' % column.replace('CEN', '_c')
+    elif 'L' in column and len(column) == 2:
+        lab = '$%s$' % '_'.join(column)
+    else:
+        print('%s label format not supported' % column)
+        lab = column
+    return lab
+
+def plot_linestyles(column):
+    if column == 'XC_cen':
+        ls = '-'
+    elif column == 'XO_cen':
+        ls = '-'
+    elif column == 'CONV':
+        ls = '-'
+    elif 'CEN' in column:
+        ls = '-'
+    elif 'L' in column and len(column) == 2:
+        ls = '--'
+    else:
+        print('%s line_style format not supported' % column)
+        ls = '-'
+    return ls

@@ -7,10 +7,11 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from ResolvedStellarPops.fileio import fileIO
+from ResolvedStellarPops.utils import sort_dict
 
 from .track import Track
 from .track_diag import TrackDiag
-from ..eep.critical_point import critical_point
+from ..eep.critical_point import critical_point, Eep
 
 max_mass = 1000.
 td = TrackDiag()
@@ -150,20 +151,53 @@ class TrackSet(object):
             inds.append(data_ind)
         return inds
 
-    def _load_ptcri(self, ptcri_loc, sandro=True, hb=False):
+    def _load_ptcri(self, ptcri_loc, sandro=True, hb=False, search_extra=''):
         '''load ptcri file for each track in trackset'''
+        
         if sandro:
             search_term = 'pt*'
         else:
             search_term = 'p2m*'
+
+        new_keys = []
+        for i, track in enumerate(self.tracks):
+            pt_search =  '%s*%s*Z%g_*' % (search_term, search_extra , track.Z)
+            ptcri_files = fileIO.get_files(ptcri_loc, pt_search)
+            
             if hb:
-                search_term += '_hb*'      
-        for track in self.tracks:
-            pt_search = search_term + 'Z%g_*' % track.Z
-            ptcri_file, = fileIO.get_files(ptcri_loc, pt_search)
-            ptcri = critical_point(ptcri_file, sandro=sandro)
-            if sandro:
-                ptcri.load_eeps(track, sandro=sandro)
-            new_key = 'ptcri_Z%g' % track.Z
-            self.__setattr__(new_key.replace('0.', ''), ptcri)
+                ptcri_files = [p for p in ptcri_files if 'hb' in p]
+            else:
+                ptcri_files = [p for p in ptcri_files if not 'hb' in p]
+            
+            for ptcri_file in ptcri_files:
+                new_key = os.path.split(ptcri_file)[1].replace('0.', '').replace('.dat', '').lower()
+                if os.path.split(track.base)[1] in os.path.split(ptcri_file)[1]:
+                    if not hasattr(self, new_key):
+                        ptcri = critical_point(ptcri_file, sandro=sandro)
+                    else:
+                        ptcri = self.__getattribute__(new_key)
+                    self.tracks[i] = ptcri.load_eeps(track, sandro=sandro)
+                    
+                    new_keys.append(new_key)
+                    self.__setattr__(new_key, ptcri)
+            
+        self.__setattr__('ptcris', list(np.unique(new_keys)))
         return
+
+    def track_summary(self, full=True):
+        assert hasattr(self, 'tracks'), 'Need tracks loaded'
+        assert hasattr(self, 'ptcris'), 'Need ptcris loaded'
+
+        ptcri_name = self.__getattribute__('ptcris')[0]
+        ptcri = self.__getattribute__(ptcri_name)
+        if full:
+            eep_name, _ = sort_dict(ptcri.key_dict)
+            fmt = ' & '.join(eep_name) + ' \\\\ \n'
+            for t in self.tracks:
+                fmt += ' & '.join('{:.3g}'.format(i)
+                                  for i in t.data.AGE[t.iptcri[t.iptcri>0]])
+                fmt += ' \\\\ \n'
+        return fmt
+
+    
+        

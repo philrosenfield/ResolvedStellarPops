@@ -18,16 +18,22 @@ from ResolvedStellarPops.padova_tracks.eep.critical_point import critical_point
 from ResolvedStellarPops.padova_tracks.match import TracksForMatch
 from ResolvedStellarPops.padova_tracks.match import CheckMatchTracks
 
-def parsec2match(input_obj):
+def parsec2match(input_obj, loud=False):
     '''do an entire set and make the plots'''
+    if loud:
+        print('setting prefixs')
     prefixs = set_prefixs(input_obj)
 
     for prefix in prefixs:
         print('Current mix: %s' % prefix)
         inps = set_outdirs(input_obj, prefix)
-    
+        
+        if loud:
+            print('loading ptcri')    
         inps = load_ptcri(inps)
         
+        if loud:
+            print('loading Tracks')
         tfm = TracksForMatch(inps)
 
         if not inps.from_p2m:
@@ -36,6 +42,8 @@ def parsec2match(input_obj):
             if not inps.overwrite_ptcri and os.path.isfile(ptcri_file):
                 print('not overwriting %s' % ptcri_file)
             else:
+                if loud:
+                    print('defining eeps')
                 tfm = define_eeps(tfm, inps)
 
             if inps.diag_plot:
@@ -45,6 +53,8 @@ def parsec2match(input_obj):
                 inps = load_ptcri(inps)
                 pat_kw = {'ptcri': inps.ptcri}
                 xcols = ['LOG_TE', 'AGE']
+                if loud:
+                    print('making parsec diag plots')
                 if inps.hb:
                     tfm.diag_plots(tfm.hbtracks, xcols=xcols, hb=inps.hb,
                                    pat_kw=pat_kw, extra='parsec',
@@ -55,15 +65,23 @@ def parsec2match(input_obj):
 
         # do the match interpolation (produce match output files)
         if inps.do_interpolation:
-            if not hasattr(inps, 'ptcri'):
+            if not hasattr(inps, 'ptcri') or inps.hb:
                 inps.ptcri_file = None
                 inps.from_p2m = True
                 inps = load_ptcri(inps)
+
+            if loud:
+                print('doing match interpolation')
+
             inps.flag_dict = tfm.match_interpolation(inps)
 
             # check the match interpolation
+            if loud:
+                print('checking interpolation')
             cmt = CheckMatchTracks(inps)
             if inps.diag_plot:
+                if loud:
+                    print('making match diag plots')
                 if inps.hb:
                     cmt.diag_plots(cmt.hbtracks, hb=inps.hb, extra='match',
                                    plot_dir=inps.outfile_dir)
@@ -217,7 +235,8 @@ def initialize_inputs():
                    'match': False,
                    'agb': False,
                    'overwrite_ptcri': True,
-                   'overwrite_match': True}
+                   'overwrite_match': True,
+                   'prepare_makemod': False}
     return input_dict
 
 
@@ -306,9 +325,16 @@ cd ..; make PARSEC; cd PARSEC; ./makemod
 
 if __name__ == '__main__':
     inp_obj = fileIO.InputFile(sys.argv[1], default_dict=initialize_inputs())
+    loud = False
+    if len(sys.argv) > 2:
+        loud = True
 
     if inp_obj.debug:
         import pdb
         pdb.set_trace()
 
-    parsec2match(inp_obj)
+    #parsec2match(inp_obj, loud=loud)
+
+    if inp_obj.prepare_makemod:
+        prepare_makemod(inp_obj)
+        

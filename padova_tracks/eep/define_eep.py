@@ -12,31 +12,38 @@ low_mass = 1.25
 inte_mass = 12.
 # from high mass and above find MS_BEG in this code
 high_mass = 19.
+vhigh_mass = 99.
 
 class DefineEeps(object):
     '''
     Define the stages if not simply using Sandro's defaults.
     * denotes stages defined here, otherwise, taken from Sandro's defaults.
-    PMS_BEG*   Beginning of Pre Main Sequence: Replaced by first model
-               older than AGE = 0.2 if Sandro's PMS_BEG has AGE <= 0.2.
-    PMS_MIN    Minimum of Pre Main Sequence
-    PMS_END    End of Pre-Main  Sequence
-    1 MS_BEG*  Starting of the central H-burning phase: Replaced for M>high_mass
-               by Log L min after PMS_END.
-    2 MS_TMIN* First Minimum in Teff for high-mass
-               Xc=0.30 for low-mass stars (BaSTi)
-               For very low mass stars that do not reach Xc=0.30: AGE~=13.7 Gyr
-    3 MS_TO*   Maximum in Teff along the Main Sequence - TURN OFF POINT (BaSTi)
-               For very low mass stars that do not reach the MSTO in 100 Gyr,
-               this is AGE~=100 Gyr or final track age.
-    4 SG_MAXL* Maximum in logL for high-mass or Xc=0.0 for low-mass stars
-                  (BaSTi)
-    5 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
-                  low-mass stars (BaSTi, but found with parametric
-                  interpolation)
-    6 RG_BMP1  The maximum luminosity during the RGB Bump
-    7 RG_BMP2  The minimum luminosity during the RGB Bump
-    8 RG_TIP   Tip of the RGB defined in 3 ways:
+    0 PMS_BEG*   Beginning of Pre Main Sequence
+                  Replaced by first model older than AGE = 0.2
+                  if Sandro's PMS_BEG has AGE <= 0.2.
+    1 PMS_MIN    Minimum of Pre Main Sequence
+    2 PMS_END    End of Pre-Main Sequence
+    3 MS_BEG*  Starting of the central H-burning phase
+                  Replaced by Log L min after PMS_END for M > high_mass.
+    4 MS_TMIN* Calculated one of four possible ways:
+               1) First Minimum in Teff
+               2) For no minimum Teff (M>50, usually >100), halfway in age
+                  between MS_BEG and MS_TO
+               3) Xc=0.30 for low-mass stars (via BaSTi)
+               4) For very low mass stars that never reach Xc=0.30
+                  half the age of the universe ~= 13.7/2 Gyr
+               
+    5 MS_TO*   Maximum in Teff along the Main Sequence - Turn Off (BaSTi)
+               For very low mass stars that never reach the MSTO:
+                  the age of the universe ~= 13.7 Gyr
+    6 SG_MAXL* Maximum in logL for high-mass or Xc=0.0 for low-mass stars
+                  (BaSTi) -- calculated in many different ways, see log files.
+    7 RG_MINL* Minimum in logL for high-mass or Base of the RGB for
+                  low-mass stars (BaSTi)
+                   -- calculated in many different ways, see log files.
+    8 RG_BMP1  The maximum luminosity during the RGB Bump
+    9 RG_BMP2  The minimum luminosity during the RGB Bump
+    10 RG_TIP   Tip of the RGB from Sandro is defined in 3 ways:
                   1) if the last track model still has a YCEN val > 0.1
                      the TRGB is either the min te or the last model, which
                      ever comes first. (low masses)
@@ -44,18 +51,23 @@ class DefineEeps(object):
                      model, TRGB is the min TE where YCEN > 1-Z-0.1.
                   3) if there is still XCEN in the core (very low mass), TRGB
                      is the final track model point.
-    9 HE_BEG*  Start quiescent central He-burning phase
-    10 YCEN_0.550* Central abundance of He equal to 0.55
-    11 YCEN_0.500* Central abundance of He equal to 0.50
-    12 YCEN_0.400* Central abundance of He equal to 0.40
-    13 YCEN_0.200* Central abundance of He equal to 0.20
-    14 YCEN_0.100* Central abundance of He equal to 0.10
-    15 YCEN_0.000* Central abundance of He equal to 0.00
-    16 TPAGB Starting of the central C-burning phase or beginning of TPAGB.
+    11 HE_BEG*  Start quiescent central He-burning phase
+                  LY Min after the TRGB, a dips as the star contracts,
+                    and then ramps up.
+    12 YCEN_0.550* Central abundance of He equal to 0.550
+    13 YCEN_0.500* Central abundance of He equal to 0.500
+    14 YCEN_0.400* Central abundance of He equal to 0.400
+    15 YCEN_0.200* Central abundance of He equal to 0.200
+    16 YCEN_0.100* Central abundance of He equal to 0.100
+    17 YCEN_0.005* Central abundance of He equal to 0.005
+    18 YCEN_0.000* Central abundance of He equal to 0.000
+    19 TPAGB Starting of the central C-burning phase or beginning of TPAGB.
 
-    HB Tracks:
-    AGB_LY1*     Helium (shell) fusion first overpowers hydrogen (shell) fusion
-    AGB_LY2*     Hydrogen wins again (before TPAGB).
+    HB Tracks (start at 11 HE_BEG and are the same up to 19)
+    
+    # ... BUG ... I don't think these are incorporated correctly ....
+    18 AGB_LY1*     Helium (shell) fusion first overpowers hydrogen (shell) fusion
+    19 AGB_LY2*     Hydrogen wins again (before TPAGB).
        **For low-mass HB (<0.485) the hydrogen fusion is VERY low (no atm!),
             and never surpasses helium, this is still a to be done!!
 
@@ -107,7 +119,6 @@ class DefineEeps(object):
 
         # Intermediate mass tracks
         ms_tmin, ims_to = self.add_ms_eeps(track)
-        
 
         ihe_beg = 0
         self.add_eep(track, 'HE_BEG', ihe_beg, message='Initializing')
@@ -122,9 +133,8 @@ class DefineEeps(object):
             # should now make sure all other eeps are 0.
             [self.add_eep(track, cp, 0, message='no He EEPs')
              for cp in self.ptcri.please_define[5:]]
-
+        
         self.add_sg_rg_eeps(track)
-
 
     def hb_eeps(self, track, diag_plot=True, plot_dir=None):
         '''
@@ -142,8 +152,8 @@ class DefineEeps(object):
             self.add_eep(track, 'PMS_BEG',
                          np.nonzero(np.round(track.data['AGE'], 1) > 0.2)[0][0],
                          message='overwritten with age > 0.2')
-        return
-
+        return        
+        
     def add_tpagb_eeps(self, track):
         '''
         three points for each thermal pulse
@@ -188,7 +198,7 @@ class DefineEeps(object):
                      'parametric_interp': False}
             ms_tmin = self.peak_finder(track, 'LOG_TE', start, end, **pf_kw)
 
-            inds = np.arange(start, end)
+            #inds = np.arange(start, end)
             #peak_dict = utils.find_peaks(track.data.LOG_L[inds])
             #if peak_dict['minima_number'] > 2. or peak_dict['maxima_number'] > 2.:
             #    print('MS_BEG-MS_TO minima_number', peak_dict['minima_number'])
@@ -196,6 +206,7 @@ class DefineEeps(object):
             #    track = self.strip_instablities(track, inds)
             #xdata = track.data.LOG_TE[inds]
             #ms_tmin = inds[np.argmin(xdata)]
+
             self.add_eep(track, 'MS_TMIN', ms_tmin, message=message)
             return ms_tmin
         
@@ -214,8 +225,17 @@ class DefineEeps(object):
             msg = 'Min LOG_TE between %s, %s' % ('MS_BEG', 'MS_TO')
             ms_tmin = add_mstmin(track, ms_beg, ms_to, message=msg)
         
+        if ms_tmin ==  -1:
+            msg = 'halfway in age between MS_BEG and MS_TO'
+            halfway = (track.data.AGE[ms_to] + track.data.AGE[ms_beg])/2.
+            ms_tmin = np.argmin(np.abs(track.data.AGE - halfway))
+            self.add_eep(track, 'MS_TMIN', ms_tmin, message=msg)
         '''
-        I'm currently not doing shit with this...
+        I'm currently not doing shit with this... it's such a fast track it
+        wont make a big difference in MATCH.
+        In any case, hopefully MATCH treats these reasons as blurs on a cmd
+        as they should probably be treated...
+        
         # there are instabilities in massive tracks that are on the verge or
         # returning to the hot side (Teff>10,000) of the HRD before TPAGB.
         # The following is designed to cut the tracks before the instability.
@@ -242,6 +262,7 @@ class DefineEeps(object):
         heb_beg  = self.add_quiesscent_he_eep(track, cens[0], start=ms_to)
         self.add_eep(track, 'TPAGB', fin, message='Last track value')
         
+        
         # between ms_to and heb_beg need eeps that are meaningless at high mass:
         _, sg_maxl, rg_minl, rg_bmp1, rg_bmp2, rg_tip, _  = \
             map(int, np.round(np.linspace(ms_to, heb_beg, 7)))
@@ -251,6 +272,7 @@ class DefineEeps(object):
         self.add_eep(track, 'RG_BMP1', rg_bmp1, message=msg)
         self.add_eep(track, 'RG_BMP2', rg_bmp2, message=msg)
         self.add_eep(track, 'RG_TIP', rg_tip, message=msg)
+            
         # there is a switch for high mass tracks in the add_cen_eeps and
         # add_quiesscent_he_eep functions. If the mass is higher than
         # high_mass the functions use MS_TO as the initial EEP for peak_finder.
@@ -637,17 +659,16 @@ class DefineEeps(object):
             imax_l = self.add_sg_maxl_eep(track, eep2=eep2)
             imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
         
-        #if imin_l == -1:
-            #import pdb; pdb.set_trace()
+        if imax_l == -1:
+            msg = 'Adopted Sandro\'s SG_MAXL'
+            imax_l = track.sptcri[6]
+            self.add_eep(track, 'SG_MAXL', imax_l, message=msg)
 
         if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
-            if track.mass <= inte_mass:
-                # give up...
-                imin_l = track.sptcri[7]
-                msg = 'XCEN > 0 and low mass. Reset RG_MINL and adopted Sandro\'s RG_BASE'
-                self.add_eep(track, 'RG_MINL', imin_l, message=msg)
-            if track.mass > inte_mass:
-                import pdb; pdb.set_trace()
+            imin_l = track.sptcri[7]
+            msg = 'Set RG_MINL to Sandro\'s RG_BASE'
+            self.add_eep(track, 'RG_MINL', imin_l, message=msg)
+
         return
 
     def add_rg_minl_eep(self, track, eep1='MS_TO', eep2='RG_BMP1',
@@ -940,8 +961,6 @@ class DefineEeps(object):
         iptcri is the critical point index rel to track.data
         mptcri is the model number of the critical point
 
-        there is a major confusion here... ptcri is a super class or should be
-        track specific? right now it's being copied everywhere. stupido.
         '''
         assert ptcri is not None, \
             'Must supply either a ptcri file or object'
