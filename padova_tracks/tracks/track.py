@@ -101,7 +101,7 @@ class Track(object):
         # fully ionized
         qi = ai/2.
         self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
-                                 for i in range(len(xi))))
+            for i in range(len(xi))))
         return self.muc
 
     def filename_info(self):
@@ -117,6 +117,8 @@ class Track(object):
                 break
         self.Z = float(Z)
         self.Y = float(Y)
+        self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
+                                 for l in self.header if ' ALFOV ' in l])
         return
 
     def load_match_track(self, filename):

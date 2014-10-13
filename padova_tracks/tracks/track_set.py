@@ -24,6 +24,10 @@ class TrackSet(object):
         if inputs is None:
             self.prefix = ''
             return
+
+        self.initialize_tracks(inputs)
+
+    def initialize_tracks(self, inputs):
         self.prefix = inputs.prefix
 
         if not inputs.match:
@@ -51,7 +55,7 @@ class TrackSet(object):
             self.hbtrack_names = []
             self.hbtracks = []
             self.hbmasses = []
-            
+
     def find_masses(self, track_search_term, hb=False, agb=False):
         track_names = fileIO.get_files(self.tracks_base, track_search_term)
         fname, ext = fileIO.split_file_extention(track_names[0]) 
@@ -76,7 +80,7 @@ class TrackSet(object):
         # inds of the masses to use and the correct order
         cut_mass, = np.nonzero(mass <= max_mass)
         morder = np.argsort(mass[cut_mass])
-        
+
         # reorder by mass
         track_names = track_names[cut_mass][morder]
         mass = mass[cut_mass][morder]
@@ -90,9 +94,9 @@ class TrackSet(object):
         If masses is string, it must be have format like:
         '%f < 40' and it will use masses that are less 40.
         '''
-        
+
         track_names, mass = self.find_masses(track_search_term, hb=hb, agb=agb)
-        
+
         assert len(track_names) != 0, \
             'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
 
@@ -112,7 +116,7 @@ class TrackSet(object):
                         pass
         else:
             inds = np.argsort(mass)
-        
+
         track_str = 'track'
         mass_str = 'masses'
 
@@ -128,8 +132,8 @@ class TrackSet(object):
         self.__setattr__(tattr, \
             [Track(t, match=match, agb=agb, hb=hb) for t in track_names[inds]])
         self.__setattr__('%s' % mass_str, \
-            ['%.3f' % t.mass for t in self.__getattribute__(tattr)
-                                 if t.flag is None])
+            np.array([t.mass for t in self.__getattribute__(tattr)
+                      if t.flag is None], dtype=np.float))
         return
 
     def all_inds_of_eep(self, eep_name, sandro=True):
@@ -153,7 +157,7 @@ class TrackSet(object):
 
     def _load_ptcri(self, ptcri_loc, sandro=True, hb=False, search_extra=''):
         '''load ptcri file for each track in trackset'''
-        
+
         if sandro:
             search_term = 'pt*'
         else:
@@ -163,12 +167,12 @@ class TrackSet(object):
         for i, track in enumerate(self.tracks):
             pt_search =  '%s*%s*Z%g_*' % (search_term, search_extra , track.Z)
             ptcri_files = fileIO.get_files(ptcri_loc, pt_search)
-            
+
             if hb:
                 ptcri_files = [p for p in ptcri_files if 'hb' in p]
             else:
                 ptcri_files = [p for p in ptcri_files if not 'hb' in p]
-            
+
             for ptcri_file in ptcri_files:
                 new_key = os.path.split(ptcri_file)[1].replace('0.', '').replace('.dat', '').lower()
                 if os.path.split(track.base)[1] in os.path.split(ptcri_file)[1]:
@@ -177,12 +181,29 @@ class TrackSet(object):
                     else:
                         ptcri = self.__getattribute__(new_key)
                     self.tracks[i] = ptcri.load_eeps(track, sandro=sandro)
-                    
+
                     new_keys.append(new_key)
                     self.__setattr__(new_key, ptcri)
-            
+
         self.__setattr__('ptcris', list(np.unique(new_keys)))
         return
+
+    def load_characteristics(self):
+        attrs = ['Z', 'Y', 'ALFOV']
+        for attr in attrs:
+            self.__setattr__('%ss' % attr,
+                             np.array([t.__getattribute__(attr)
+                                       for t in self.tracks], dtype=np.float))
+
+    def check_header(ts):
+        start = 'ZAMS_FILE'
+        end = 'JINA RATES'
+        headers = [t.header for t in ts.tracks]
+        for k, header in enumerate(headers):
+            istart = [i for i,j in enumerate(header) if start in j][0]
+            iend = [i for i,j in enumerate(header) if end in j][-1]
+            headers[k] = header[istart:iend]
+        # I don't think this is really needed....
 
     def track_summary(self, full=True):
         assert hasattr(self, 'tracks'), 'Need tracks loaded'
@@ -198,6 +219,3 @@ class TrackSet(object):
                                   for i in t.data.AGE[t.iptcri[t.iptcri>0]])
                 fmt += ' \\\\ \n'
         return fmt
-
-    
-        

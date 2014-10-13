@@ -52,11 +52,10 @@ def colorify(data, vmin=None, vmax=None, cmap=plt.cm.Spectral):
     return colors, scalarMap
 
 
-def scatter_contour(x, y,
-                    levels=10, bins=40, threshold=50, log_counts=False,
+def scatter_contour(x, y, levels=10, bins=40, threshold=50, log_counts=False,
                     histogram2d_args={}, plot_args={}, contour_args={},
-                    ax=None):
-    """Scatter plot with contour over dense regions
+                    ax=None, xerr=None, yerr=None):
+    """Scatter plot with contour over dense regions (adapted from astroML)
 
     Parameters
     ----------
@@ -84,6 +83,9 @@ def scatter_contour(x, y,
         keyword arguments passed to pylab.contourf
         see doc string of pylab.contourf for more information
 
+    xerr, yerr : arrays
+        x and y errors passed to pylab.errorbar
+        
     ax : pylab.Axes instance
         the axes on which to plot.  If not specified, the current
         axes will be used
@@ -93,7 +95,8 @@ def scatter_contour(x, y,
 
     # H, xbins, ybins = np.histogram2d(x, y, **histogram2d_args)
     # extent = [xbins[0], xbins[-1], ybins[0], ybins[-1]]
-    H, extent, (xbin, ybins)  = crazy_histogram2d(x, y, bins=bins, **histogram2d_args)
+    H, extent, (xbin, ybins)  = crazy_histogram2d(x, y, bins=bins,
+                                                  **histogram2d_args)
 
     if log_counts:
         H = np.log10(1 + H)
@@ -130,8 +133,16 @@ def scatter_contour(x, y,
         Xplot = X[~points_inside]
 
         ax.scatter(Xplot[:, 0], Xplot[:, 1], **plot_args)
+        if xerr is not None:
+            ax.errorbar(Xplot[:, 0], Xplot[:, 1], fmt=None,
+                        xerr=xerr[~points_inside], yerr=yerr[~points_inside],
+                        capsize=0, ecolor='gray')
     except IndexError:
         ax.scatter(x, y, **plot_args)
+        if xerr is not None:
+            ax.errorbar(x, y, fmt=None, xerr=xerr, yerr=yerr, capsize=0,
+                        ecolor='gray')
+    return fig, ax
 
 
 def latex_float(f, precision=0.2, delimiter=r'\times'):
@@ -158,7 +169,7 @@ def latex_float(f, precision=0.2, delimiter=r'\times'):
         return float_str
 
 
-def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None, reinterp=None):
+def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,reinterp=None):
     """
     Compute the sparse bi-dimensional histogram of two data samples where *x*,
     and *y* are 1-D sequences of the same length. If *weights* is None

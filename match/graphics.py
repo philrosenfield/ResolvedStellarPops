@@ -165,3 +165,4 @@ if __name__ == "__main__":
         labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
         pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels,
               figname=figname)
+        plt.close()

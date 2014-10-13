@@ -158,13 +158,11 @@ def add_ptcris(track, between_ptcris, sandro=False):
     pinds = iptcri[between_ptcris[0]: between_ptcris[1] + 1]
     return pinds
 
-def plot_track(track, xcol, ycol, reverse='',
-               ax=None, inds=None, plt_kw={}, clean=False,
-               sandro=False, cmd=False, convert_mag_kw={},
-               xdata=None, ydata=None, norm='',
-               arrows=False, yscale='linear', xscale='linear',
-               ptcri_inds=False, add_ptcris=False, between_ptcris=[0, -1],
-               add_mass=False):
+def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
+               clean=False, sandro=False, cmd=False, convert_mag_kw={},
+               xdata=None, ydata=None, norm='', arrows=False, yscale='linear',
+               xscale='linear', ptcri_inds=False, add_ptcris=False,
+               between_ptcris=[0, -1], add_mass=False):
     '''
     ainds is passed to annotate plot, and is to only plot a subset of crit
     points.
@@ -176,6 +174,7 @@ def plot_track(track, xcol, ycol, reverse='',
     add_ptcris will mark plot using track.iptcri or track.sptcri
     
     '''
+    plt_kw = plt_kw or {}
     if type(track) == str:
         from .track import Track
         track = Track(track)

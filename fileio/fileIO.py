@@ -14,7 +14,7 @@ __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
            'replace_ext', 'savetxt']
 
 
-class InputParameters(dict):
+class InputParameters(object):
     '''
     need to make a dictionary of all the possible parameters
         (in the ex: rsp.TrilegalUtils.galaxy_input_dict())
@@ -31,40 +31,31 @@ class InputParameters(dict):
     use print inp to see what current values are in cmd line.
     '''
     def __init__(self, default_dict=None):
-        dict.__init__(self)
-        if default_dict is None:
-            print('need a default dict!')
-
-        if len(default_dict) == 0:
-            print('need values in default dictionary.')
-            return -1
-
         self.possible_params(default_dict)
 
-    def possible_params(self, default_dict={}):
+    def possible_params(self, default_dict=None):
         '''
         assign key as attribute name and value as attribute value from
         dictionary
         '''
+        default_dict = default_dict or {}
         [self.__setattr__(k, v) for k, v in default_dict.items()]
 
     def update_params(self, new_dict):
-        '''
-        only overwrite attributes that already exist from dictionary
-        '''
+        '''only overwrite attributes that already exist from dictionary'''
         [self.__setattr__(k, v) for k, v in new_dict.items() if hasattr(self, k)]
 
     def add_params(self, new_dict):
-        '''
-        add or overwrite attributes from dictionary
-        '''
+        '''add or overwrite attributes from dictionary'''
         [self.__setattr__(k, v) for k, v in new_dict.items()]
 
     def write_params(self, new_file, formatter):
+        '''write self.__dict__ to new_file with format from formatter'''
         with open(new_file, 'w') as f:
             f.write(formatter % self.__dict__)
 
     def __str__(self):
+        '''pprint self.__dict__'''
         pprint(self.__dict__)
         return ""
 

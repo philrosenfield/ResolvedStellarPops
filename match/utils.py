@@ -68,6 +68,7 @@ def read_match_old(filename):
     return data.view(np.recarray)
 
 
+
 def read_binned_sfh(filename):
     '''
     reads the file created using zcombine or HybridMC from match
@@ -112,12 +113,12 @@ class MatchSFH(object):
         self.base, self.name = os.path.split(filename)
         self.data = read_binned_sfh(filename)
         self.load_match_header(filename)
-    
+
     def load_match_header(self, filename):
         '''
         assumes header is from line 0 to 6 and sets footer to be the final
         line of the file
-        
+
         header formatting is important:
         Line # format requirement
         first  Ends with "= %f (%s)"
@@ -136,13 +137,13 @@ class MatchSFH(object):
 
         with open(filename, 'r') as infile:
             lines = infile.readlines()
-        
+
         self.header = lines[0:6]
         self.footer = lines[-1]
-        best_fit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
-        self.best_fit = float(best_fit)
+        bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
+        self.bestfit = float(bestfit)
         self.match_out = fout.split(')')[0]
-        
+
         try:
             iline = self.header.index('Best fit:\n') + 1
         except ValueError:
@@ -159,7 +160,18 @@ class MatchSFH(object):
         key, attr, pattr, mattr = self.header[-1].strip().split()
         set_value_err_attr(key, attr, pattr, mattr)
         return
-        
+
+    def plot_bins(self, val='sfr'):
+        '''make SFH bins for plotting'''
+        val = self.data[val]
+        lagei = self.data.lagei
+        lagef = self.data.lagef
+        # double up sfr value
+        vals = np.ravel([(val[i], val[i]) for i in range(len(val))])
+        # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
+        lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
+        return lages, vals
+
 def make_phot(gal, fname='phot.dat'):
     '''
     makes phot.dat input file for match, a list of V and I mags.
@@ -172,12 +184,13 @@ def make_match_param(gal, more_gal_kw=None):
     Make param.sfh input file for match
     see rsp.match_utils.match_param_fmt()
 
-    takes calcsfh search limits to be the photometric limits of the stars in the cmd.
+    takes calcsfh search limits to be the photometric limits of the stars in
+    the cmd.
     gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
     comp50mag2 are there.
 
-    only set up for acs and wfpc, if other photsystems need to check syntax with match
-    filters.
+    only set up for acs and wfpc, if other photsystems need to check syntax
+    with match filters.
 
     All values passed to more_gal_kw overwrite defaults.
     '''
@@ -203,12 +216,14 @@ def make_match_param(gal, more_gal_kw=None):
         print(gal.photsys, gal.name, gal.filter1, gal.filter2)
 
     # default doesn't move dmod or av.
-    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av, 'av2': gal.Av,
-              'V': V, 'I': I, 'Vmax': gal.comp50mag1, 'Imax': gal.comp50mag2,
-              'V-Imin': cmin, 'V-Imax': cmax, 'Vmin': vmin, 'Imin': imin}
+    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av,
+              'av2': gal.Av, 'V': V, 'I': I, 'Vmax': gal.comp50mag1,
+              'Imax': gal.comp50mag2, 'V-Imin': cmin, 'V-Imax': cmax,
+              'Vmin': vmin, 'Imin': imin}
 
     # combine sources of params
-    phot_kw = dict(match_param_default_dict().items() + gal_kw.items() + more_gal_kw.items())
+    phot_kw = dict(match_param_default_dict().items() \
+                   + gal_kw.items() + more_gal_kw.items())
 
     inp.add_params(phot_kw)
 
@@ -218,9 +233,11 @@ def make_match_param(gal, more_gal_kw=None):
 
 
 def match_param_default_dict():
+    ''' default params for match param file'''
     dd = {'ddmod': 0.05, 'dav': 0.05,
           'logzmin': -2.3, 'logzmax': 0.1, 'dlogz': 0.1,
-          'logzmin0': -2.3, 'logzmax0': -1.0, 'logzmin1': -1.3, 'logzmax1': -0.1,
+          'logzmin0': -2.3, 'logzmax0': -1.0, 'logzmin1': -1.3,
+          'logzmax1': -0.1,
           'BF': 0.35, 'bad0': 1e-6, 'bad1': 1e-6,
           'ncmds': 1,
           'Vstep': 0.1, 'V-Istep': 0.05, 'fake_sm': 5,

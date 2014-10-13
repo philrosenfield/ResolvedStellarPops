@@ -108,8 +108,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 continue
 
             # interpolate tracks for match
-            outfile = os.path.join(inputs.outfile_dir,
-                               'match_%s.dat' % track.name.replace('.PMS', ''))
+            outfile = os.path.join(inputs.outfile_dir, \
+                        'match_%s.dat' % track.name.replace('.PMS', ''))
             if not inputs.overwrite_match and os.path.isfile(outfile):
                 print('not overwriting %s' % outfile)
                 continue
@@ -134,8 +134,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                      key=lambda (k, v): (v, k)))
             for m, d in zip(mass, info):
                 try:
-                    sorted_keys, vals = zip(*sorted(d.items(),
-                                            key=lambda (k, v): (v, k)))
+                    sorted_keys, vals = zip(*sorted(d.items(), \
+                                                    key=lambda (k, v): (v, k)))
                 except ValueError:
                     continue
                 out.write('# %s\n' % m)
@@ -154,10 +154,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         logTe = np.array([])
         logL = np.array([])
         Age = np.array([])
-        tot_pts = 0
+
         ptcri_kw = {'sandro': False, 'hb': hb}
         #iptcri = ptcri.data_dict['M%.3f' %  track.mass]
-        track = ptcri.load_eeps(track, sandro=False, hb=hb)
+        #qtrack = ptcri.load_eeps(track, sandro=False, hb=hb)
+        track = ptcri.load_eeps(track, sandro=False)
         if track.flag is not None:
             return
         ndefined_ptcri = len(np.nonzero(track.iptcri >= 0)[0])
