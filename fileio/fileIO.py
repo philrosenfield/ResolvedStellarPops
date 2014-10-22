@@ -11,7 +11,7 @@ from ..utils import is_numeric
 __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
            'ensure_file', 'get_files', 'get_row', 'item_from_row',
            'load_input', 'read_table', 'read_tagged_phot', 'readfile',
-           'replace_ext', 'savetxt']
+           'replace_ext', 'savetxt', 'get_dirs']
 
 
 class InputParameters(object):
@@ -339,6 +339,25 @@ class Table(object):
     def get_col(self, key):
         return self.data[key]
 
+def get_dirs(src, criteria=None):
+    """
+    return a list of directories in src, optional simple cut by criteria
+
+    Parameters
+    ----------
+    src : str
+        abs path of directory to search in
+    criteria : str
+        simple if criteria in d to select within directories in src
+
+    Returns
+    -------
+    dirs : abs path of directories found
+    """
+    dirs = [os.path.join(src, l) for l in os.listdir(src) if os.path.join(src, l)]
+    if criteria is not None:
+        dirs = [d for d in dirs if criteria in d]
+    return dirs
 
 def get_files(src, search_string):
     '''

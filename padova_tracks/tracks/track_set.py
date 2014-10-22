@@ -5,9 +5,10 @@ from __future__ import print_function
 import os
 import matplotlib.pylab as plt
 import numpy as np
+import scipy
 
-from ResolvedStellarPops.fileio import fileIO
-from ResolvedStellarPops.utils import sort_dict
+from ...fileio import fileIO
+from ...utils import sort_dict, is_numeric
 
 from .track import Track
 from .track_diag import TrackDiag
@@ -58,7 +59,7 @@ class TrackSet(object):
 
     def find_masses(self, track_search_term, hb=False, agb=False):
         track_names = fileIO.get_files(self.tracks_base, track_search_term)
-        fname, ext = fileIO.split_file_extention(track_names[0]) 
+        fname, ext = fileIO.split_file_extention(track_names[0])
         mstr = '_M'
         if hb:
             track_names = np.array([t for t in track_names if 'HB' in t])
@@ -85,7 +86,7 @@ class TrackSet(object):
         track_names = track_names[cut_mass][morder]
         mass = mass[cut_mass][morder]
         return track_names, mass
-
+        
     def find_tracks(self, track_search_term='*F7_*PMS', masses=None, hb=False,
                     match=False, agb=False):
         '''
@@ -107,7 +108,7 @@ class TrackSet(object):
             elif type(masses) == str:
                 inds = [i for i in range(len(mass)) if eval(masses % mass[i])]
             if type(masses) == list:
-                inds = np.array([])
+                inds = np.array([], dtype=np.int)
                 for m in masses:
                     try:
                         inds = np.append(inds, list(mass).index(m))
@@ -136,32 +137,42 @@ class TrackSet(object):
                       if t.flag is None], dtype=np.float))
         return
 
-    def all_inds_of_eep(self, eep_name, sandro=True):
+    def all_inds_of_eep(self, eep_name, sandro=True, hb=False):
         '''
         get all the ind for all tracks of some eep name, for example
         want ms_to of the track set? set eep_name = point_c if sandro==True.
         '''
         inds = []
         for track in self.tracks:
-            check = self.ptcri.load_eeps(track, sandro=sandro)
-            if check == -1:
-                inds.append(-1)
-                continue
-            eep_ind = self.ptcri.get_ptcri_name(eep_name)
-            if len(track.sptcri) <= eep_ind:
-                inds.append(-1)
-                continue
-            data_ind = track.sptcri[eep_ind]
+            ptcri_attr = self.select_ptcri(('z%g' % track.Z).replace('0.',''))
+            ptcri = self.__getattribute__(ptcri_attr)
+            eep_ind = ptcri.get_ptcri_name(eep_name, sandro=sandro, hb=hb)
+            if sandro:
+                if len(track.sptcri) <= eep_ind:
+                    data_ind = -1
+                data_ind = track.sptcri[eep_ind]
+            else:
+                data_ind = track.iptcri[eep_ind]
             inds.append(data_ind)
         return inds
 
+    def select_ptcri(self, criteria):
+        """
+        find the ptcri attribute from a list of already loaded ptcri
+        attributes 
+        """
+        criteria = criteria.lower()  # incase ya fergot
+        pind, = [i for i, p in enumerate(self.ptcris) if criteria in p]
+        ptcri_attr = self.ptcris[pind]
+        return ptcri_attr
+    
     def _load_ptcri(self, ptcri_loc, sandro=True, hb=False, search_extra=''):
         '''load ptcri file for each track in trackset'''
 
         if sandro:
-            search_term = 'pt*'
+            search_term = 'pt'
         else:
-            search_term = 'p2m*'
+            search_term = 'p2m'
 
         new_keys = []
         for i, track in enumerate(self.tracks):
@@ -184,9 +195,42 @@ class TrackSet(object):
 
                     new_keys.append(new_key)
                     self.__setattr__(new_key, ptcri)
-
+        if len(list(np.unique(new_keys))) == 0:
+            print('found not ptcri files %s', pt_search)
         self.__setattr__('ptcris', list(np.unique(new_keys)))
         return
+
+    def relationships(self, eep_name, xattr, yattr, sandro=True, xfunc=None,
+                      yfunc=None, ptcri_loc=None, ptcri_search_extra='',
+                      hb=False):
+        """
+        eg get the MSTO as a function of age for all the tracks
+        eep_name = 'POINT_C' or 'MSTO' (Sandro True/False)
+        ptcri_search_extra: OV0.5
+        xattr = 'MASS'
+        yattr = 'AGE'
+        """
+        if not hasattr(self, 'ptcri') and not hasattr(self, 'ptcris'):
+            self._load_ptcri(ptcri_loc, sandro=sandro, hb=hb,
+                             search_extra=ptcri_search_extra)
+        ieeps = self.all_inds_of_eep(eep_name, sandro=sandro, hb=hb)
+        xdata, ydata = zip(*[(self.tracks[i].data[xattr][ieeps[i]],
+                              self.tracks[i].data[yattr][ieeps[i]])
+                             for i in range(len(self.tracks))
+                             if ieeps[i] != -1])
+        isort = np.argsort(xdata)
+        xdata = np.array(xdata)[isort]
+        ydata = np.array(ydata)[isort]
+
+        if xfunc is not None:
+            xdata = eval('%s(xdata)' % xfunc)
+
+        if yfunc is not None:
+            ydata = eval('%s(ydata)' % yfunc)
+
+        f = scipy.interpolate.interp1d(xdata, ydata, bounds_error=False)
+        self.__setattr__('_'.join((xattr, yattr, 'interp')).lower(), f)
+        return f
 
     def load_characteristics(self):
         attrs = ['Z', 'Y', 'ALFOV']
@@ -196,14 +240,14 @@ class TrackSet(object):
                                        for t in self.tracks], dtype=np.float))
 
     def check_header(ts):
-        start = 'ZAMS_FILE'
-        end = 'JINA RATES'
-        headers = [t.header for t in ts.tracks]
-        for k, header in enumerate(headers):
-            istart = [i for i,j in enumerate(header) if start in j][0]
-            iend = [i for i,j in enumerate(header) if end in j][-1]
-            headers[k] = header[istart:iend]
-        # I don't think this is really needed....
+        [t.check_header_arg() for t in ts.tracks]
+        
+        check_list = ['AGELIMIT', 'ENV_OV', 'ALFOV', 'ISHELL']
+        
+        oneline = ' '.join(header)
+        if 'RESTART' in oneline:
+            print('Track restarted')
+
 
     def track_summary(self, full=True):
         assert hasattr(self, 'tracks'), 'Need tracks loaded'

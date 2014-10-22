@@ -7,32 +7,34 @@ class Eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to
     critical_point class.
-    These eeps are found in the tracks in define_eep.DefineEep
-    The lengths are then used in match.TracksForMatch.match_interpolation
+    The lengths are then used in match.py
     '''
-    def __init__(self, eep_list=None, eep_lengths=None, eep_list_hb=None,
-                 eep_lengths_hb=None):
-        if eep_list is None:
-            eep_list =  ['PMS_BEG', 'PMS_MIN',  'PMS_END', 'MS_BEG',
-                         'MS_TMIN', 'MS_TO', 'SG_MAXL', 'RG_MINL',
-                         'RG_BMP1', 'RG_BMP2', 'RG_TIP', 'HE_BEG',
-                         'YCEN_0.550', 'YCEN_0.500', 'YCEN_0.400',
-                         'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
-                         'YCEN_0.000', 'TPAGB']
-        if eep_lengths is None:
-            eep_lengths = [60, 60, 80, 199, 100, 100, 70, 370, 30, 400,
-                           40, 150, 100, 60, 100, 80, 80, 80, 100]
-        if eep_list_hb is None:
-            eep_list_hb = ['HB_BEG', 'YCEN_0.550', 'YCEN_0.500',
-                           'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100',
-                           'YCEN_0.005', 'YCEN_0.000', 'TPAGB']
-        if eep_lengths_hb is None:
-            eep_lengths_hb = [150, 100, 60, 100, 80, 80, 80, 101]
+    def __init__(self):
+        '''hard coded default eep_list and lengths'''
+        eep_list = ['PMS_BEG', 'PMS_MIN', 'PMS_END', 'MS_BEG', 'MS_TMIN',
+                    'MS_TO', 'SG_MAXL', 'RG_MINL', 'RG_BMP1', 'RG_BMP2',
+                    'RG_TIP', 'HE_BEG', 'YCEN_0.550', 'YCEN_0.500',
+                    'YCEN_0.400', 'YCEN_0.200', 'YCEN_0.100', 'YCEN_0.005',
+                    'YCEN_0.000', 'TPAGB']
+        eep_lengths = [60, 60, 80, 199, 100, 100, 70, 370, 30, 400, 40, 150,
+                       100, 60, 100, 80, 80, 80, 100]
+
+        ihb = eep_list.index('HE_BEG')
+        eep_list_hb = np.copy(eep_list[ihb:])
+        eep_lengths_hb = np.copy(eep_lengths[ihb:])
 
         self.eep_list = eep_list
         self.nticks = eep_lengths
         self.eep_list_hb = eep_list_hb
         self.nticks_hb = eep_lengths_hb
+
+        # usefull to check match compatibility
+        ims = eep_list.index('MS_TO')
+        trans = ihb - 1
+        self.nlow = np.sum(eep_lengths[:ims])
+        self.nhb = np.sum(eep_lengths_hb)
+        self.nms = np.sum(eep_lengths[:trans])
+        self.ntot = self.nms + self.nhb + eep_lengths[trans]
 
 
 class critical_point(object):
@@ -124,41 +126,28 @@ class critical_point(object):
         self.data = data
         self.masses = data[:, 1]
 
-        # ptcri has all track data, but this instance only cares about one mass.
         data_dict = {}
         for i in range(len(data)):
             str_mass = 'M%.3f' % self.masses[i]
-            ptcris = data[i][3:].astype(int)
-            #check = np.nonzero(np.diff(ptcris[ptcris > 0]) < 3)[0]
-            #if len(check) > 0:
-            #    if self.masses[i] <= 12.:
-            #        pass
-            #        #[print('%s M=%.3f: fewer than 2 points between' % (self.name, self.masses[i]),
-            #        #       col_keys[c], col_keys[c+1]) for c in check]
-            #        #continue
-            data_dict[str_mass] = ptcris
+            data_dict[str_mass] = data[i][3:].astype(int)
 
         self.data_dict = data_dict
 
         eep_obj = Eep()
         eep_list = eep_obj.eep_list
+        eep_list_hb = eep_obj.eep_list_hb
         self.key_dict = dict(zip(eep_list, range(len(eep_list))))
+        self.key_dict_hb = dict(zip(eep_list_hb, range(len(eep_list_hb))))
 
         if sandro:
             # loading sandro's eeps means they will be used for match
             self.sandro_eeps = col_keys
             self.sandros_dict = dict(zip(col_keys, range(len(col_keys))))
-            self.please_define = []
-            self.please_define_hb = []
             self.please_define = [c for c in eep_list if c not in col_keys]
 
-        if eep_obj.eep_list_hb is not None:
-            self.key_dict_hb = dict(zip(eep_obj.eep_list_hb,
-                                    range(len(eep_obj.eep_list_hb))))
             # there is no mixture between Sandro's HB eeps since there
             # are no HB eeps in the ptcri files. Define them all here.
-            if sandro:
-                self.please_define_hb = eep_obj.eep_list_hb
+            self.please_define_hb = eep_obj.eep_list_hb
 
         self.eep = eep_obj
 

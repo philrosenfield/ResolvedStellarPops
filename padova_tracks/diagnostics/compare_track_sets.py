@@ -12,6 +12,10 @@ indict2 = {'tracks_dir': '/Users/phil/research/stel_evo/CAF09_V1.2S_M36/tracks/'
            'set_name': 'CAF09_V1.2S_M36', 'prefixs': 'all', 'hb': False,
            'masses': '0.75 <= %f <= 12', 'do_interpolation': False}
 
+indict2 = {'tracks_dir': '/Users/phil/research/stel_evo/CAF09_V1.2S_M36/tracks/',
+           'set_name': 'CAF09_V1.2S_M36', 'prefixs': 'all', 'hb': False,
+           'do_interpolation': False}
+
 
 class CompareTrackSets(object):
     '''class to compare two sets of stellar evolution models'''

@@ -65,10 +65,10 @@ def parsec2match(input_obj, loud=False):
 
         # do the match interpolation (produce match output files)
         if inps.do_interpolation:
-            if not hasattr(inps, 'ptcri') or inps.hb:
-                inps.ptcri_file = None
-                inps.from_p2m = True
-                inps = load_ptcri(inps)
+            # force reading of my eeps
+            inps.ptcri_file = None
+            inps.from_p2m = True
+            inps = load_ptcri(inps)
 
             if loud:
                 print('doing match interpolation')
@@ -117,14 +117,14 @@ def set_prefixs(inputs):
     del inputs.prefixs
     assert type(prefixs) == list, 'prefixs must be a list'
     return prefixs
-    
+
 
 def load_ptcri(inputs, find=False, from_p2m=False):
     '''
     load the ptcri file, either sandro's or mine
     if find is True, just return the file name, otherwise, return inputs with
     ptcri and ptcri_file attributes set.
-    
+
     if from_p2m is True, force find/load my ptcri file regardless
     of inputs.from_p2m value.
     '''
@@ -133,7 +133,7 @@ def load_ptcri(inputs, find=False, from_p2m=False):
         sandro = False
         search_term = 'p2m_p*'
         if inputs.hb:
-            search_term = 'p2m_hb*'         
+            search_term = 'p2m_hb*'
         #print('reading ptcri from saved p2m file.')
     else:
         sandro = True
@@ -144,7 +144,7 @@ def load_ptcri(inputs, find=False, from_p2m=False):
         ptcri_file = inputs.ptcri_file
     else:
         ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc, search_term)
-    
+
     if find:
         return ptcri_file
     else:
@@ -172,7 +172,7 @@ def define_eeps(tfm, inputs):
     # load critical points calles de.define_eep
     tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
               for track in tfm.__getattribute__(track_str)]
-    
+
     # write log file
     info_file = os.path.join(inputs.tracks_dir, inputs.prefix,
                              filename % inputs.prefix.lower())
@@ -183,7 +183,6 @@ def define_eeps(tfm, inputs):
                 out.write(t.flag)
             else:
                 [out.write('%s: %s\n' % (ptc, t.info[ptc])) for ptc in defined]
-            
     if not inputs.from_p2m:
         inputs.ptcri.save_ptcri(tracks, hb=inputs.hb)
 

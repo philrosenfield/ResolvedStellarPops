@@ -4,6 +4,7 @@ padova track files
 from __future__ import print_function
 import os
 import numpy as np
+from ...utils import is_numeric
 
 class Track(object):
     '''
@@ -13,7 +14,7 @@ class Track(object):
         '''
         filename [str] the path to the PMS or PMS.HB file
         '''
-        
+
         (self.base, self.name) = os.path.split(filename)
         # will house error string(s)
         self.flag = None
@@ -26,10 +27,10 @@ class Track(object):
             self.load_agb_track(filename)
         else:
             self.load_track(filename)
-            self.filename_info()            
+            self.filename_info()
             if self.flag is None:
                 self.track_mass(hb=hb)
-        
+
         if self.flag is None:
             self.check_track()
 
@@ -61,14 +62,14 @@ class Track(object):
             self.mass = self.data.MASS[-1]
             return self.mass
         self.mass = self.data.MASS[good_age[0]]
-        
+
         ind = -1
         if hb:
             #extension is .PMS.HB
             ind = -2
 
         ext = self.name.split('.')[ind]
-            
+
         fmass = float(self.name.split('_M')[1].split('.' + ext)[0])
         if self.mass >= 12:
             self.mass = fmass
@@ -101,7 +102,7 @@ class Track(object):
         # fully ionized
         qi = ai/2.
         self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
-            for i in range(len(xi))))
+                                 for i in range(len(xi))))
         return self.muc
 
     def filename_info(self):
@@ -117,8 +118,9 @@ class Track(object):
                 break
         self.Z = float(Z)
         self.Y = float(Y)
-        self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
-                                 for l in self.header if ' ALFOV ' in l])
+        if hasattr(self, 'header'):
+            self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
+                                     for l in self.header if ' ALFOV ' in l])
         return
 
     def load_match_track(self, filename):
@@ -173,13 +175,19 @@ class Track(object):
             self.flag = 'load_track error: no begin track'
             return
 
-        # find the footer assuming it's no longer than 3 lines (for speed)
+        # find the footer assuming it's no longer than 5 lines (for speed)
+        # (the footer will not start with the MODEL number)
         skip_footer = 0
-        for l in lines[-3:]:
-            skip_footer += len([f for f in footers if f in l])
-
-        if skip_footer > 0:
-            self.header.append(lines[-skip_footer:])
+        for l in lines[-5:]:
+            try:
+                int(l.split()[0])
+            except ValueError:
+                skip_footer -= 1
+        
+        self.header.extend([' # Footer: %s lines \n' % skip_footer])
+        if skip_footer < 0:
+            
+            self.header.extend(lines[skip_footer:])
         else:
             self.info['load_track warning'] = \
                 'No footer unfinished track? %s' % filename
@@ -196,7 +204,7 @@ class Track(object):
             col_keys = self.add_to_col_keys(col_keys, lines[begin_track])
 
         # read data into recarray
-        iend = len(lines) - skip_footer
+        iend = len(lines) + skip_footer
         nrows = iend - begin_track
         dtype = [(c, float) for c in col_keys]
 
@@ -290,3 +298,39 @@ class Track(object):
         ma = np.max(arr)
         mi = np.min(arr)
         return (ma, mi)
+
+    def add_header_args_dict(self):
+        def parse_args(header_line):
+            header_line = header_line.replace('*', '')
+            args = [l for l in header_line.split() if '=' in l]
+            arg_dict = {}
+            for arg in args:
+                k, v = arg.split('=')
+                v = is_numeric(v)
+                arg_dict[k] = v
+            return arg_dict
+
+        def update_args(header_line, old_dict):
+            old_dict.update(parse_args(header_line))
+            return old_dict
+        
+        self.header_dict = {}
+        for line in self.header:
+            if line.count('=') > 1:
+                self.header_dict = update_args(line, self.header_dict)
+
+    def check_header_arg(self, ok_eval='%f>1.3e10', arg='AGELIMIT',
+                         errstr='AGE EXCEEDS AGELIMIT', loud=False):
+        
+        if not hasattr(self, 'header_dict'):
+            self.add_header_args_dict()
+        check = len([i for i, l in enumerate(self.header) if errstr in l])
+        if check > 0:
+            if ok_eval % self.header_dict[arg]:
+                level = 'warning'
+            else:
+                level = 'error'
+            msg = '%s %s: %g' % (level, errstr, self.header_dict[arg])
+            if loud:
+                print(msg)
+            self.info['%s %s' % (level, arg)] = '%s: %g' % (errstr, self.header_dict[arg])
