@@ -19,7 +19,32 @@ __all__ = ['CalcsfhParams', 'calcsfh_dict', 'calcsfh_pars_fmt', 'call_match',
            'match_param_fmt', 'match_stats', 'plot_zctmp', 'poly2str',
            'process_match_sfh', 'read_binned_sfh', 'read_match_cmd',
            'read_match_old', 'read_match_sfh', 'read_zctmp', 'write_match_bg',
-           'write_qsub' ]
+           'write_qsub', 'cheat_fake']
+
+
+def cheat_fake(infakefile, outfakefile):
+    """
+    Increase the resolution of a match fake file by repeating the
+    fake star entry with slight shifts within the same hess diagram
+    cell of mag2.
+
+    Parameters
+    ----------
+    infakefile, outfakefile : str, str
+        input and output fake file names
+    """
+    # infake format is mag1in, mag2in, mag1idff, mag2diff
+    infake = np.loadtxt(infakefile)
+
+    offsets = [0.06, 0.03, -0.03, -0.06]
+
+    outfake = np.copy(infake)
+    for offset in offsets:
+        tmp = np.copy(infake)
+        tmp.T[1] += offset
+        outfake = np.concatenate([outfake, tmp])
+    np.savetxt(outfakefile, outfake, '%.3f')
+    return
 
 
 def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
@@ -73,7 +98,7 @@ def read_binned_sfh(filename):
     '''
     reads the file created using zcombine or HybridMC from match
     into a np.recarray.
-    
+
     NOTE
     calls genfromtext up to 3 times. There may be a better way to figure out
     how many background lines/what if there is a header... (it's a small file)

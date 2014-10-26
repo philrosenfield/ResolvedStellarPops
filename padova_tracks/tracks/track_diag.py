@@ -41,11 +41,11 @@ def quick_hrd(track, ax=None, inds=None, reverse='x'):
         plt.figure()
         ax = plt.axes()
         reverse = 'x'
-        
+
     ax.plot(track.data.LOG_TE, track.data.LOG_L, color='k')
     if inds is not None:
         ax.plot(track.data.LOG_TE[inds], track.data.LOG_L[inds], 'o')
-    
+
     if 'x' in reverse:
         ax.set_xlim(ax.get_xlim()[::-1])
     return ax
@@ -57,7 +57,7 @@ def check_eep_hrd(tracks, ptcri_loc, between_ptcris=[0, -2], sandro=True):
     give the location of the ptcri file
     and choose which set of ptcris to plot.
     returns the track set and the axs (one for each Z)
-    
+
     '''
     from .track_set import TrackSet
     if type(tracks[0]) is str:
@@ -74,7 +74,7 @@ def check_eep_hrd(tracks, ptcri_loc, between_ptcris=[0, -2], sandro=True):
     zs = np.unique([t.Z for t in tracks])
     axs = [plt.subplots()[1] for i in range(len(zs))]
     [axs[list(zs).index(t.Z)].set_title(t.Z) for t in tracks]
-    
+
     for t in tracks:
         ax = axs[list(zs).index(t.Z)]
         plot_track(t, 'LOG_TE', 'LOG_L', sandro=sandro, ax=ax,
@@ -82,8 +82,8 @@ def check_eep_hrd(tracks, ptcri_loc, between_ptcris=[0, -2], sandro=True):
                    add_mass=True)
 
         ptcri_names = Eep().eep_list[between_ptcris[0]: between_ptcris[1] + 1]
-        td.annotate_plot(t, ax, 'LOG_TE', 'LOG_L', ptcri_names=ptcri_names) 
-        
+        td.annotate_plot(t, ax, 'LOG_TE', 'LOG_L', ptcri_names=ptcri_names)
+
     [ax.set_xlim(ax.get_xlim()[::-1]) for ax in axs]
     return ts, axs
 
@@ -91,9 +91,9 @@ def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
                    convert_mag_kw={}, norm=''):
     '''
     convert a string column name to data
-    
+
     returns xdata, ydata
-    
+
     norm: 'xy', 'x', 'y' for which or both axis to normalize
     can also pass xdata, ydata to normalize or if its a cmd (Mag2mag only)
     '''
@@ -124,7 +124,7 @@ def column_to_data(track, xcol, ycol, xdata=None, ydata=None, cmd=False,
 
     if 'y' in norm:
         ydata /= np.max(ydata)
-        
+
     return xdata, ydata
 
 def add_ptcris(track, between_ptcris, sandro=False):
@@ -546,7 +546,7 @@ class TrackDiag(object):
 
         pinds = add_ptcris(track, between_ptcris, sandro=False)
         xdata = track.data.AGE[inds]
-o
+
         if xscale == 'linear':
             # AGE IN Myr
             xdata /= 1e6
@@ -556,7 +556,7 @@ o
             xlab = '$fractional\ Age$'
         else:
             xlab = '$\log Age\ (yr)$'
-        
+
         if four_tops:
             track.calc_core_mu()
             fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True,
@@ -574,7 +574,7 @@ o
                 else:
                     ydata = track.data[ycol][inds]
                     smax.plot(xdata, ydata, lw=3, color='black', label=ycoll)
-    
+
                 smax.plot(xdata, ydata, lw=3, color='black', label=ycoll)
                 smax.set_ylabel('$%s$' % ycoll)
                 smax.set_ylim(np.min(ydata), np.max(ydata))
@@ -585,7 +585,7 @@ o
             if ax is None:
                 fig, ax = plt.subplots(figsize=(8, 8))
             axs = [ax]
-        
+
         ax.set_xscale(xscale)
         # discontinuities in conv...
         p1 = np.argmin((np.diff(track.data.CF1[inds])))
@@ -612,29 +612,29 @@ o
                              edgecolor='none',)
 
         zorder = 100
-        if khd_dict is None:     
+        if khd_dict is None:
             khd_dict = {'XC_cen': 'green',
-                        'XO_cen': 'purple', 
-                        'YCEN': 'darkred', 
-                        'LX': 'navy', 
+                        'XO_cen': 'purple',
+                        'YCEN': 'darkred',
+                        'LX': 'navy',
                         'LY': 'darkred',
                         'CONV':  'black'}
 
         # white underneath
         [ax.plot(xdata, track.data[column][inds], lw=5, color='white')
          for column in khd_dict.keys()]
-        
+
         zorder += 10
         for col, color in khd_dict.items():
             ax.plot(xdata, track.data[col][inds], ls=plot_linestyles(col), lw=3,
                     color=color, label=plot_labels(col), zorder=zorder)
             zorder += 10
-        
+
         ixmax = p1 + np.argmax(track.data.LOG_TE[inds[p1:]])
 
         if legend:
             ax.legend(frameon=False, loc=0)
-        
+
         ax.set_ylim(0, 1)
         ax.set_xlabel(xlab, fontsize=18)
         ax.set_ylabel('$m/M\ or\ f/f_{tot}$', fontsize=18)
@@ -642,9 +642,9 @@ o
             ptcri_names = Eep().eep_list[between_ptcris[0]: between_ptcris[1] + 1]
             self.annotate_plot(track, ax, '', '', xdata=xdata, ydata=xdata,
                                ptcri_names=ptcri_names, khd=True, inds=inds,
-                               lw=2) 
+                               lw=2)
         #[a.set_xlim(xdata[pinds[0]], xdata[pinds[-1]]) for a in axs]
-        
+
         #for a in axs:
         #    a.set_xlim(xdata[0], xdata[-1])
         #    ylim = a.get_ylim()

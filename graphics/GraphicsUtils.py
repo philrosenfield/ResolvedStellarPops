@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib
-import matplotlib.nxutils as nxutils
+#import matplotlib.nxutils as nxutils
 import matplotlib.pyplot as plt
 from matplotlib import cm, rc, rcParams
 from matplotlib.patches import FancyArrow
