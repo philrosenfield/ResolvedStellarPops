@@ -7,11 +7,10 @@ from matplotlib.ticker import MaxNLocator, NullFormatter
 import numpy as np
 from copy import deepcopy
 import os
-from ResolvedStellarPops.graphics.GraphicsUtils import arrow_on_line
-from ResolvedStellarPops.graphics.GraphicsUtils import setup_multiplot
-from ResolvedStellarPops.graphics.GraphicsUtils import discrete_colors
-from ResolvedStellarPops import utils
-
+from ...graphics.GraphicsUtils import arrow_on_line
+from ...graphics.GraphicsUtils import setup_multiplot
+from ...graphics.GraphicsUtils import discrete_colors
+from ... import utils
 from ..eep.critical_point import Eep
 
 def offset_axlims(track, xcol, ycol, ax, inds=None):
@@ -32,27 +31,6 @@ def offset_axlims(track, xcol, ycol, ax, inds=None):
     ax.set_ylim(ymin - offy, ymax + offy)
     return ax
 
-
-def plot_match(track, xcol, ycol, ax=None):
-    '''plot match track'''
-    if ax is None:
-        fig, ax = plt.subplots()
-    for col in [xcol, ycol]:
-        if col == 'LOG_L':
-            tmp = (4.77 - track.match_data.T[3]) / 2.5
-        if 'age' in col.lower():
-            tmp = track.match_data.T[2]
-            if not 'log' in col.lower():
-                tmp = 10 ** tmp
-        if col == 'LOG_TE':
-            tmp = track.match_data.T[2]
-        if col == xcol:
-            x = tmp
-        if col == ycol:
-            y = tmp
-    ax.plot(x, y, lw=4, color='green', alpha=0.3)
-    return ax
-    
 def quick_hrd(track, ax=None, inds=None, reverse='x'):
     '''
     make an hrd.
@@ -160,19 +138,19 @@ def add_ptcris(track, between_ptcris, sandro=False):
 
 def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
                clean=False, sandro=False, cmd=False, convert_mag_kw={},
-               xdata=None, ydata=None, norm='', arrows=False, yscale='linear',
-               xscale='linear', ptcri_inds=False, add_ptcris=False,
-               between_ptcris=[0, -1], add_mass=False):
+               norm='', arrows=False, yscale='linear', xscale='linear',
+               ptcri_inds=False, add_ptcris=False, between_ptcris=[0, -1],
+               add_mass=False):
     '''
     ainds is passed to annotate plot, and is to only plot a subset of crit
     points.
     sandro = True will plot sandro's ptcris.
-    
+
     plot helpers:
     reverse 'xy', 'x', or 'y' will flip that axis
     ptcri_inds bool will annotate ptcri numbers
     add_ptcris will mark plot using track.iptcri or track.sptcri
-    
+
     '''
     plt_kw = plt_kw or {}
     if type(track) == str:
@@ -180,8 +158,7 @@ def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
         track = Track(track)
 
     if ax is None:
-        plt.figure()
-        ax = plt.axes()
+        fig, ax = plt.subplots()
 
     if len(plt_kw) != 0:
         # not sure why, but every time I send marker='o' it also sets
@@ -207,7 +184,8 @@ def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
                 iptcri = track.sptcri
             else:
                 iptcri = track.iptcri
-            pinds = np.arange(iptcri[between_ptcris[0]], iptcri[between_ptcris[1]])
+            pinds = np.arange(iptcri[between_ptcris[0]],
+                              iptcri[between_ptcris[1]])
             ax.plot(xdata[pinds], ydata[pinds], **plt_kw)
 
     if 'x' in reverse:
@@ -222,7 +200,7 @@ def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
         ax.plot(xdata[pinds], ydata[pinds], 'o', color='k')
         if ptcri_inds:
             [ax.annotate('%i' % i, (xdata[i], ydata[i])) for i in pinds]
-    
+
     if add_mass:
         ax.annotate(r'$%g$' % track.mass, (xdata[iptcri[5]], ydata[iptcri[5]]),
                     fontsize=10)
@@ -255,14 +233,13 @@ class TrackDiag(object):
 
     def quick_hrd(self, *args):
         return quick_hrd(*args)
-    
+
     def plot_track(self, *args, **kwargs):
         return plot_track(*args, **kwargs)
-    
-    def diag_plots(self, tracks, pat_kw=None, xcols=['LOG_TE', 'logAge'],
+
+    def diag_plots(self, tracks, pat_kw=None, xcols=['LOG_TE', 'AGE'],
                    extra='', hb=False, mass_split='default', mextras=None,
-                   plot_dir='.'):
-                   
+                   plot_dir='.', match_tracks=False):
         '''
         pat_kw go to plot all tracks default:
             'eep_list': self.eep_list,
@@ -273,66 +250,80 @@ class TrackDiag(object):
         extras is the filename extra associated with each mass split
            length == mass_split + 1
         '''
-
         if hasattr(self, 'prefix'):
             prefix = self.prefix
         else:
             prefix = os.path.split(tracks[0].base)[1]
 
-        eep = Eep()
-        default = {'eep_list': eep.eep_list, 'eep_lengths': eep.nticks}
+        if len(extra) > 0 and not '_' in extra:
+            extra = extra + '_'
+
+        default = {'hb': hb}
         pat_kw = pat_kw or {}
         pat_kw = dict(default.items() + pat_kw.items())
-        
+
         if hb:
-            extra += '_hb'
-            pat_kw['eep_lengths'] = eep.nticks_hb
-        
-        
+            extra += 'hb_'
+
         if mass_split == 'default':
             mass_split = [1, 1.4, 3, 12, 50]
             mextras = ['_lowest', '_vlow', '_low', '_inte', '_high', '_vhigh']
-            tracks_split = [[t for t in tracks if t.mass <= mass_split[0]],
-                            [t for t in tracks if t.mass >= mass_split[0]
-                             and t.mass <= mass_split[1]],
-                            [t for t in tracks if t.mass >= mass_split[1]
-                             and t.mass <= mass_split[2]],
-                            [t for t in tracks if t.mass >= mass_split[2]
-                             and t.mass <= mass_split[3]],
-                            [t for t in tracks if t.mass >= mass_split[3]
-                             and t.mass <= mass_split[4]],
-                            [t for t in tracks if t.mass >= mass_split[4]]]
+            tracks_split = \
+                [[i for i, t in enumerate(tracks) if t.mass <= mass_split[0]],
+                 [i for i, t in enumerate(tracks) if t.mass >= mass_split[0] \
+                  and t.mass <= mass_split[1]],
+                 [i for i, t in enumerate(tracks) if t.mass >= mass_split[1] \
+                  and t.mass <= mass_split[2]],
+                 [i for i, t in enumerate(tracks) if t.mass >= mass_split[2] \
+                  and t.mass <= mass_split[3]],
+                 [i for i, t in enumerate(tracks) if t.mass >= mass_split[3] \
+                  and t.mass <= mass_split[4]],
+                 [i for i, t in enumerate(tracks) if t.mass >= mass_split[4]]]
         else:
             tracks_split = [tracks]
             mextras = ['']
+        if match_tracks:
+            mxcols = np.copy(xcols)
+            try:
+                mxcols[xcols.index('AGE')] = 'logAge'
+            except ValueError:
+                pass
+            mpat_kw = {'line_pltkw': {'color': 'black', 'lw': 2,
+                                      'alpha': 0.3},
+                       'point_pltkw': {'marker': '*'}}
 
-        for i, ts in enumerate(tracks_split):
-            if len(ts) == 0:
+        for i, its in enumerate(tracks_split):
+            if len(its) == 0:
                 continue
 
-            for xcol in xcols:
-                pat_kw['xcol'] = xcol
-                ax = self.plot_all_tracks(ts, **pat_kw)
-                ax.set_title('$%s$' % prefix.replace('_', '\ '))
-                figname = 'diag_plot_%s_%s%s%s.png' % (prefix, xcol,
-                                                        extra, mextras[i])
+            for j in range(len(xcols)):
+                pat_kw['xcol'] = xcols[j]
+                ax = self.plot_all_tracks(np.asarray(tracks)[its], **pat_kw)
+                if match_tracks:
+                    mpat_kw.update({'xcol': mxcols[j], 'ax': ax})
+                    ax = self.plot_all_tracks(np.asarray(self.mtracks)[its],
+                                              **mpat_kw)
+
+                ax.set_title(r'$%s$' % prefix.replace('_', r'\ '))
+
+                figname = '%s%s%s_%s.png' % (extra, xcols[j], mextras[i],
+                                             prefix)
                 figname = os.path.join(plot_dir, figname)
                 plt.savefig(figname, dpi=300)
                 plt.close('all')
 
-    def plot_all_tracks(self, tracks, eep_list=None, eep_lengths=None,
-                        xcol='LOG_TE', ycol='LOG_L', ax=None, ptcri=None):
+    def plot_all_tracks(self, tracks, xcol='LOG_TE', ycol='LOG_L', ax=None,
+                        ptcri=None, hb=False, line_pltkw={}, point_pltkw={},
+                        clean=True):
         '''plot all tracks and annotate eeps'''
-        if eep_lengths is not None:
-            inds = np.insert(np.cumsum(eep_lengths), 0, 1)
-        line_pltkw = {'color': 'black', 'alpha': 0.3}
-        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.5}
-        labs = [p.replace('_', '\_') for p in eep_list]
+        line_pltkw = dict({'color': 'black', 'alpha': 0.5}.items() + \
+                          line_pltkw.items())
+
+        point_pltkw = dict({'marker': 'o', 'ls': '', 'alpha': 0.3}.items() + \
+                            point_pltkw.items())
+
         if ax is None:
             fig, ax = plt.subplots(figsize=(16, 9))
-        
-        # plot colors
-        cols = discrete_colors(len(eep_list) + 1, colormap='spectral')
 
         xlims = np.array([])
         ylims = np.array([])
@@ -344,32 +335,47 @@ class TrackDiag(object):
                 try:
                     inds = ptcri.data_dict['M%.3f' % t.mass]
                 except KeyError:
-                    # mass not found
+                    # mass not found, means track was skipped
                     continue
-                # skip undefined eeps
+                cols = discrete_colors(len(inds) + 1, colormap='spectral')
+                # skip undefined eeps or you get annotations at the start of
+                # each track
                 inds = inds[inds > 0]
 
             xdata = t.data[xcol]
             ydata = t.data[ycol]
-            
-            # only eeps that are in the track
-            inds = [eep for eep in inds if eep < len(xdata)]
-            finds = np.arange(inds[0], inds[-1])
-            ax.plot(xdata[finds], ydata[finds], **line_pltkw)
+            if t.match:
+                if 'age' in xcol.lower():
+                    xdata = 10 ** t.data[xcol]
+                eep = Eep()
+                nticks = eep.nticks
+                if hb:
+                    nticks = eep.nticks_hb
+                inds = np.insert(np.cumsum(nticks), 0, 1) - 1
+                cols = discrete_colors(len(inds) + 1, colormap='spectral')
+                # only eeps that are in the track
+                inds = [eep for eep in inds if eep < len(xdata)]
+
+            if clean:
+                finds = np.arange(inds[0], inds[-1])
+                ax.plot(xdata[finds], ydata[finds], **line_pltkw)
+            else:
+                ax.plot(xdata, ydata, **line_pltkw)
             for i in range(len(inds)):
                 x = xdata[inds[i]]
                 y = ydata[inds[i]]
                 ax.plot(x, y, color=cols[i], **point_pltkw)
-                xlims = np.append(xlims, (np.min(x), np.max(x)))
-                ylims = np.append(ylims, (np.min(y), np.max(y)))
                 if i == 5:
                     ax.annotate('%g' % t.mass, (x, y), fontsize=8)
 
+            xlims = np.append(xlims, (np.min(xdata), np.max(xdata)))
+            ylims = np.append(ylims, (np.min(ydata), np.max(ydata)))
+
         ax.set_xlim(np.max(xlims), np.min(xlims))
         ax.set_ylim(np.min(ylims), np.max(ylims))
-        ax.set_xlabel('$%s$' % xcol.replace('_', '\! '), fontsize=20)
-        ax.set_ylabel('$%s$' % ycol.replace('_', '\! '), fontsize=20)
-        #ax.legend(loc=0, numpoints=1, frameon=0)
+        ax.set_xlabel(r'$%s$' % xcol.replace('_', r'\! '), fontsize=20)
+        ax.set_ylabel(r'$%s$' % ycol.replace('_', r'\! '), fontsize=20)
+        # ax.legend(loc=0, numpoints=1, frameon=0)
         return ax
 
     def annotate_plot(self, track, ax, xcol, ycol, ptcri_names=[],
@@ -382,7 +388,7 @@ class TrackDiag(object):
         '''
         eep = Eep()
         eep_list = eep.eep_list
-            
+
         if hb:
             eep_list = eep.eep_list_hb
 
@@ -393,9 +399,9 @@ class TrackDiag(object):
             fc = 'red'
             iptcri = track.sptcri
 
-        ptcri_kw = {'sandro': sandro, 'hb': hb}
         pts = [eep_list.index(i) for i in ptcri_names]
-        pinds = iptcri[pts]
+        # do not plot ptcri indices == 0, these are not defined!
+        pinds = iptcri[pts][iptcri[pts] > 0]
         if inds is not None:
             pinds = map(int, np.concatenate([[i for i, ind in enumerate(inds)
                                               if ind == p] for p in pinds]))
@@ -403,7 +409,7 @@ class TrackDiag(object):
 
         xdata, ydata = column_to_data(track, xcol, ycol, xdata=xdata,
                                       ydata=ydata)
-        
+
         if box:
             # label stylings
             bbox = dict(boxstyle='round, pad=0.2', fc=fc, alpha=0.2)
@@ -422,7 +428,8 @@ class TrackDiag(object):
         return ax
 
     def check_ptcris(self, track, ptcri, hb=False, plot_dir=None,
-                     sandro_plot=False, xcol='LOG_TE', ycol='LOG_L'):
+                     sandro_plot=False, xcol='LOG_TE', ycol='LOG_L',
+                     match_track=None):
         '''
         plot of the track, the interpolation, with each eep labeled
         '''
@@ -444,7 +451,7 @@ class TrackDiag(object):
                      ['YCEN_0.100', 'YCEN_0.005', 'YCEN_0.000', 'TPAGB']]
         else:
             plots = [['HB_BEG', 'YCEN_0.500', 'YCEN_0.400', 'YCEN_0.200',
-                     'YCEN_0.100', 'YCEN_0.005'],
+                      'YCEN_0.100', 'YCEN_0.005'],
                      ['YCEN_0.005', 'TPAGB']]
 
         for i, plot in enumerate(plots):
@@ -452,49 +459,55 @@ class TrackDiag(object):
                 nplots = i + 2
 
         line_pltkw = {'color': 'black'}
-        point_pltkw = {'marker': 'o', 'ls': ''}
+        mline_pltkw = {'color': 'green', 'alpha': 0.3, 'lw': 4}
+        point_pltkw = {'marker': 'o', 'ls': '', 'alpha': 0.3, 'color': 'navy'}
         fig, axs = setup_multiplot(nplots, subplots_kwargs={'figsize': (12, 8)})
         fig.subplots_adjust(left=0.08, right=0.98, bottom=0.08, wspace=0.1)
         for i, ax in enumerate(axs.ravel()[:nplots]):
             self.plot_track(track, xcol, ycol, ax=ax, inds=all_inds,
                             reverse='x', plt_kw=line_pltkw)
-            self.plot_track(track, xcol, ycol, ax=ax, inds=iptcri[iptcri>0],
+
+            self.plot_track(track, xcol, ycol, ax=ax, inds=iptcri[iptcri > 0],
                             plt_kw=point_pltkw)
 
-            if hasattr(track, 'match_data'):
+            if match_track is not None:
                 # overplot the match interpolation
-                ax = plot_match(track, xcol, ycol, ax=ax)
-            
+                if xcol == 'AGE':
+                    mxcol = 'logAge'
+                    xdata = 10 ** match_track.data[mxcol]
+                else:
+                    xdata = match_track.data[xcol]
+                ax.plot(xdata, match_track.data[ycol], **mline_pltkw)
+
             if i < nplots - 1:
-                ainds = [ptcri.get_ptcri_name(cp, **ptcri_kw) for cp in plots[i]]
-                inds = iptcri[ainds][np.nonzero(iptcri[ainds])[0]]
-                #ainds = track.iptcri[track.iptcri>0]
+                ainds = [ptcri.get_ptcri_name(cp, **ptcri_kw)
+                         for cp in plots[i]]
+                inds = iptcri[ainds][iptcri[ainds] > 0]
                 if np.sum(inds) == 0:
                     continue
                 self.annotate_plot(track, ax, xcol, ycol, ptcri_names=plots[i],
                                    hb=hb)
                 ax = offset_axlims(track, xcol, ycol, ax, inds=inds)
             else:
-                ax = offset_axlims(track, xcol, ycol, ax)           
+                ax = offset_axlims(track, xcol, ycol, ax)
 
             if 'age' in xcol:
                 ax.set_xscale('log')
 
-        
         [axs[-1][i].set_xlabel('$%s$' % xcol.replace('_', r'\ '), fontsize=16)
          for i in range(np.shape(axs)[1])]
         [axs[i][0].set_ylabel('$%s$' % ycol.replace('_', r'\ '), fontsize=16)
          for i in range(np.shape(axs)[0])]
-        
+
         title = 'M = %.3f Z = %.4f Y = %.4f' % (track.mass, track.Z, track.Y)
         fig.suptitle(title, fontsize=20)
         extra = ''
         if hb:
-            extra += '_HB'
-        extra += '_%s' % xcol
+            extra += 'HB_'
+        extra += '%s' % xcol
 
-        figname = 'ptcri_Z%g_Y%g_M%.3f%s.png' % (track.Z, track.Y, track.mass,
-                                                 extra)
+        figname = '%s_Z%g_Y%g_M%.3f.png' % (extra, track.Z, track.Y,
+                                            track.mass)
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
         plt.savefig(figname)
@@ -503,7 +516,7 @@ class TrackDiag(object):
         if not hb and sandro_plot:
             self.plot_sandro_ptcri(track, plot_dir=plot_dir)
         return axs
-    
+
     def plot_sandro_ptcri(self, track, plot_dir=None, ptcri=None):
         ax = self.plot_track(track, 'LOG_TE', 'LOG_L', reverse='x',
                              inds=np.nonzero(track.data.AGE > 0.2)[0])
@@ -530,10 +543,10 @@ class TrackDiag(object):
             inds, = np.nonzero((track.data.LY > 0) & (track.data.QHE1 == 0))
         else:
             inds = np.arange(pinds[pinds>0][0], pinds[pinds>0][-1])
-        
+
         pinds = add_ptcris(track, between_ptcris, sandro=False)
         xdata = track.data.AGE[inds]
-        
+o
         if xscale == 'linear':
             # AGE IN Myr
             xdata /= 1e6
@@ -543,7 +556,6 @@ class TrackDiag(object):
             xlab = '$fractional\ Age$'
         else:
             xlab = '$\log Age\ (yr)$'
-        
         
         if four_tops:
             track.calc_core_mu()

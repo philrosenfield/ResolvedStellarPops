@@ -8,9 +8,10 @@ from ...utils import is_numeric
 
 class Track(object):
     '''
-    Padova stellar evolution track object.
+    Padova stellar track.
     '''
-    def __init__(self, filename, match=False, agb=False, hb=False):
+    def __init__(self, filename, match=False, agb=False, hb=False,
+                 track_data=None):
         '''
         filename [str] the path to the PMS or PMS.HB file
         '''
@@ -19,10 +20,12 @@ class Track(object):
         # will house error string(s)
         self.flag = None
         self.info = {}
+        self.match = False
         if match:
-            self.load_match_track(filename)
+            self.load_match_track(filename, track_data=track_data)
             self.track_mass(hb=hb)
             self.filename_info()
+            self.match = True
         elif agb:
             self.load_agb_track(filename)
         else:
@@ -32,22 +35,35 @@ class Track(object):
                 self.track_mass(hb=hb)
 
         if self.flag is None:
-            self.check_track()
+            self.check_track(hb=hb)
+            if not match:
+                self.check_header_arg(loud=True)
 
-    def check_track(self):
+    def check_track(self, hb=False):
         '''check if age decreases'''
         try:
-            age = self.data.AGE
+            age = np.round(self.data.AGE, 6)
         except AttributeError:
-            age = self.data.logAge
+            age = np.round(self.data.logAge, 6)
         test = np.diff(age) >= 0
         if False in test:
             print('Track.__init__: track has age decreasing!!', self.mass)
             bads, = np.nonzero(np.diff(age) < 0)
             try:
-                print('offensive MODEs:', self.data.MODE[bads])
+                print('Parsec track: offensive MODEs:', self.data.MODE[bads])
             except AttributeError:
-                print('offensive inds:', bads)
+                from ..eep.critical_point import Eep
+                eep = Eep()
+                if hb:
+                    nticks = eep.nticks_hb
+                    names = eep.eep_list_hb
+                else:
+                    nticks = eep.nticks
+                    names = eep.eep_list
+                inds = [np.argmin(np.abs(np.cumsum(nticks)-b)) for b in bads]
+                print('Match track: offensive inds:', bads)
+                print('Near:', np.array(names)[inds])
+                import pdb; pdb.set_trace()
         return
 
     def track_mass(self, hb=False):
@@ -123,16 +139,33 @@ class Track(object):
                                      for l in self.header if ' ALFOV ' in l])
         return
 
-    def load_match_track(self, filename):
+    def load_match_track(self, filename, track_data=None):
         '''
         load the match interpolated tracks into a record array.
         the file contains Mbol, but it is converted to LOG_L on read.
         LOG_L = (4.77 - Mbol) / 2.5
         names = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
         '''
-        self.col_keys = 'logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO'
-        data = np.genfromtxt(filename, names=self.col_keys,
-                             converters={3: lambda m: (4.77 - float(m)) / 2.5})
+        def mbol2logl(m):
+            try:
+                logl = (4.77 - float(m)) / 2.5
+            except TypeError:
+                logl = (4.77 - m) / 2.5
+            return logl
+
+        self.col_keys = ['logAge', 'MASS', 'LOG_TE', 'LOG_L', 'logg', 'CO']
+
+        if track_data is None:
+            data = np.genfromtxt(filename, names=self.col_keys,
+                                 converters={3: lambda m: mbol2logl(m)})
+        else:
+            track_data.T[3] = mbol2logl(track_data.T[3])
+            dtype = [(c, float) for c in self.col_keys]
+            nrows = len(track_data)
+            data = np.ndarray(shape=(nrows,), dtype=dtype)
+            for i in range(nrows):
+                data[i] = track_data[i]
+
         self.data = data.view(np.recarray)
         return data
 
@@ -140,11 +173,11 @@ class Track(object):
         '''
         reads PMS file into a record array. Stores header and footer as
         list of strings in self.header
-        
+
         if no 'BEGIN TRACK' in file will add message to self.flags
-        
+
         if no footers are found will add message to self.info
-        
+
         footer strings to search for are hard coded in a list.
         add to this list by perhaps
         import os
@@ -321,7 +354,6 @@ class Track(object):
 
     def check_header_arg(self, ok_eval='%f>1.3e10', arg='AGELIMIT',
                          errstr='AGE EXCEEDS AGELIMIT', loud=False):
-        
         if not hasattr(self, 'header_dict'):
             self.add_header_args_dict()
         check = len([i for i, l in enumerate(self.header) if errstr in l])
@@ -333,4 +365,5 @@ class Track(object):
             msg = '%s %s: %g' % (level, errstr, self.header_dict[arg])
             if loud:
                 print(msg)
-            self.info['%s %s' % (level, arg)] = '%s: %g' % (errstr, self.header_dict[arg])
+            self.info['%s %s' % (level, arg)] = \
+                '%s: %g' % (errstr, self.header_dict[arg])

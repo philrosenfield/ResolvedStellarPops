@@ -131,8 +131,12 @@ class DefineEeps(object):
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
 
+        if track.data.XCEN[track.sptcri[4]] < .6:
+            track.info['MS_BEG'] = \
+                'Sandro\'s MS_BEG but could be wrong XCEN < 0.6, %.f' % \
+                track.data.XCEN[track.sptcri[4]]
         # if this is high mass or if Sandro's MS_BEG is wrong:
-        if track.mass >= high_mass or track.data.XCEN[track.sptcri[4]] < .6:
+        if track.mass >= high_mass:
             #print('M=%.4f is high mass' % track.mass)
             return self.add_high_mass_eeps(track)
 
@@ -329,7 +333,7 @@ class DefineEeps(object):
         '''
         ainds, = np.nonzero(track.data['AGE'] > 0.2)
         hb_beg = ainds[0]
-        eep_name = 'HB_BEG'
+        eep_name = 'HE_BEG'
         self.add_eep(track, eep_name, hb_beg, hb=True,
                      message='first point with AGE > 0.2')
         return hb_beg
@@ -616,8 +620,6 @@ class DefineEeps(object):
             imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
 
         if imax_l == -1:
-            self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
-            imax_l = self.add_sg_maxl_eep(track)
             self.check_for_monotonic_increase(track)
 
         if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:

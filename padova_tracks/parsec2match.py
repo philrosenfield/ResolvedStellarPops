@@ -12,9 +12,9 @@ import numpy as np
 import os
 import sys
 
-from ResolvedStellarPops.fileio import fileIO
+from ResolvedStellarPops import fileio
 from eep.define_eep import DefineEeps
-from eep.critical_point import critical_point
+from eep.critical_point import critical_point, Eep
 from match import TracksForMatch
 from match import CheckMatchTracks
 
@@ -46,22 +46,21 @@ def parsec2match(input_obj, loud=False):
                     print('defining eeps')
                 tfm = define_eeps(tfm, inps)
 
-            if inps.diag_plot:
+            if inps.diag_plot and not inps.do_interpolation:
                 # make diagnostic plots using new ptcri file
                 inps.ptcri_file = None
                 inps.from_p2m = True
                 inps = load_ptcri(inps)
                 pat_kw = {'ptcri': inps.ptcri}
-                xcols = ['LOG_TE', 'AGE']
                 if loud:
                     print('making parsec diag plots')
                 if inps.hb:
-                    tfm.diag_plots(tfm.hbtracks, xcols=xcols, hb=inps.hb,
-                                   pat_kw=pat_kw, extra='parsec',
-                                   plot_dir=inps.tracks_dir)
+                    tfm.diag_plots(tfm.hbtracks, hb=inps.hb, pat_kw=pat_kw,
+                                   extra='parsec', plot_dir=inps.plot_dir)
                 else:
                     #tfm.diag_plots(xcols=xcols, pat_kw=pat_kw)
-                    tfm.diag_plots(tfm.tracks, xcols=xcols, pat_kw=pat_kw)
+                    tfm.diag_plots(tfm.tracks, pat_kw=pat_kw, extra='parsec',
+                                   plot_dir=inps.plot_dir)
 
         # do the match interpolation (produce match output files)
         if inps.do_interpolation:
@@ -72,27 +71,18 @@ def parsec2match(input_obj, loud=False):
 
             if loud:
                 print('doing match interpolation')
-
             inps.flag_dict = tfm.match_interpolation(inps)
 
             # check the match interpolation
             if loud:
                 print('checking interpolation')
-            cmt = CheckMatchTracks(inps)
-            if inps.diag_plot:
-                if loud:
-                    print('making match diag plots')
-                if inps.hb:
-                    cmt.diag_plots(cmt.hbtracks, hb=inps.hb, extra='match',
-                                   plot_dir=inps.outfile_dir)
-                else:
-                    cmt.diag_plots(cmt.tracks, extra='match',
-                                   plot_dir=inps.outfile_dir)
+            CheckMatchTracks(inps)
+
     print('DONE')
-    return
+    return prefixs
 
 
-def set_prefixs(inputs):
+def set_prefixs(inputs, harsh=True):
     '''
     find which prefixes (Z, Y mixes) to run based on inputs.prefix or
     inputs.prefixs.
@@ -109,12 +99,13 @@ def set_prefixs(inputs):
         prefixs = inputs.prefixs
     else:
         if inputs.prefix is None:
-            print('nothing to do')
+            print('prefix or prefixs not set')
             sys.exit(2)
         # just do one
         prefixs = [inputs.prefix]
 
-    del inputs.prefixs
+    if harsh:
+        del inputs.prefixs
     assert type(prefixs) == list, 'prefixs must be a list'
     return prefixs
 
@@ -143,7 +134,7 @@ def load_ptcri(inputs, find=False, from_p2m=False):
     if inputs.ptcri_file is not None:
         ptcri_file = inputs.ptcri_file
     else:
-        ptcri_file, = fileIO.get_files(inputs.ptcrifile_loc, search_term)
+        ptcri_file, = fileio.get_files(inputs.ptcrifile_loc, search_term)
 
     if find:
         return ptcri_file
@@ -158,7 +149,7 @@ def define_eeps(tfm, inputs):
     # assign eeps track.iptcri and track.sptcri
     de = DefineEeps()
     crit_kw = {'plot_dir': inputs.plot_dir,
-               'diag_plot': inputs.diag_plot,
+               'diag_plot': inputs.track_diag_plot,
                'debug': inputs.debug}
 
     crit_kw['hb'] = inputs.hb
@@ -174,7 +165,7 @@ def define_eeps(tfm, inputs):
               for track in tfm.__getattribute__(track_str)]
 
     # write log file
-    info_file = os.path.join(inputs.tracks_dir, inputs.prefix,
+    info_file = os.path.join(inputs.outfile_dir,
                              filename % inputs.prefix.lower())
     with open(info_file, 'w') as out:
         for t in tracks:
@@ -197,15 +188,18 @@ def set_outdirs(input_obj, prefix):
     '''
     new_inputs = deepcopy(input_obj)
     new_inputs.prefix = prefix
-    wkd = os.path.join(input_obj.tracks_dir, new_inputs.prefix)
 
     if input_obj.plot_dir == 'default':
-        new_inputs.plot_dir = os.path.join(wkd, 'plots')
-        fileIO.ensure_dir(new_inputs.plot_dir)
+        new_inputs.plot_dir = os.path.join(input_obj.tracks_dir,
+                                           'diag_plots',
+                                           new_inputs.prefix)
+        fileio.ensure_dir(new_inputs.plot_dir)
 
     if input_obj.outfile_dir == 'default':
-        new_inputs.outfile_dir = os.path.join(wkd, 'match')
-        fileIO.ensure_dir(new_inputs.outfile_dir)
+        new_inputs.outfile_dir = os.path.join(input_obj.tracks_dir,
+                                              'match',
+                                              new_inputs.prefix)
+        fileio.ensure_dir(new_inputs.outfile_dir)
 
     return new_inputs
 
@@ -235,46 +229,66 @@ def initialize_inputs():
                   'agb': False,
                   'overwrite_ptcri': True,
                   'overwrite_match': True,
-                  'prepare_makemod': False}
+                  'prepare_makemod': False,
+                  'track_diag_plot': False}
     return input_dict
 
 
 def prepare_makemod(inputs):
-    import subprocess
     zsun = 0.02
-    prefixs = set_prefixs(inputs)
+    prefixs = set_prefixs(inputs, harsh=False)
     zs = np.unique(np.array([p.split('Z')[1].split('_')[0] for p in prefixs],
                             dtype=float))
-    
+
     # limits of metallicity grid
     modelIZmin = np.int(np.floor(np.log10(np.min(zs) / zsun) * 10))
     modelIZmax = np.int(np.ceil(np.log10(np.max(zs) / zsun) * 10))
-    
+
     # metallicities
-    zs_str = ','.join(map(str,zs))
+    zs_str = ','.join(np.array(zs, dtype=str))
     # max number of characters needed for directory names
     FNZ = np.max([len(p) for p in prefixs]) + 1.
-    
+
     # directories
     prefix_str = '\"%s\"' % '\",\"'.join(prefixs)
-    
-    # masses
-    masses = np.array(np.unique(np.concatenate(
-        [[os.path.split(t)[1].split('_M')[1].replace('.PMS', '')
-          for t in fileIO.get_files(os.path.join(inputs.tracks_dir, p), '*.PMS')]
-           for p in prefixs])), dtype=float)
-    masses = np.sort(masses)
-    masses_str = ','.join(map(str,masses))
-    #print(masses_str)
 
+    all_masses = np.array([])
+    # masses N x len(zs) array
+    for p in prefixs:
+        this_dir = os.path.join(inputs.tracks_dir, p)
+        track_names = fileio.get_files(this_dir, '*.PMS')
+        masses = np.array([os.path.split(t)[1].split('M')[1].replace('.P', '')
+                           for t in track_names], dtype=float)
+        all_masses = np.append(all_masses, masses)
 
-    result = subprocess.check_output('wc %s/*dat' % os.path.join(inputs.tracks_dir, p, 'match'), shell=True)
-    npt_low, npt_hb, npt_ms, tot = np.sort(np.unique(np.array([r.split()[0] for r in result.split('\n')[:-2]], dtype=float))) - 1
-    npt_tr = tot - npt_ms - npt_hb
-    mdict = {'npt_low': npt_low,
-             'npt_hb': npt_hb,
-             'npt_tr': npt_tr,
-             'npt_ms': npt_ms,
+    # find a common low and high mass at all Z.
+    umasses = np.sort(np.unique(all_masses))
+    min_mass = umasses[0]
+    max_mass = umasses[-1]
+    imin = 0
+    imax = -1
+    while len(np.nonzero(all_masses == min_mass)[0]) != len(zs):
+        imin += 1
+        min_mass = umasses[imin]
+
+    while len(np.nonzero(all_masses == max_mass)[0]) != len(zs):
+        imax -= 1
+        max_mass = umasses[imax]
+
+    if imax == -1 and imin == 0:
+        masses = umasses
+    elif imax == -1:
+        masses = umasses[imin - 1::]    
+    else:
+        masses = umasses[imin - 1: imax + 1]
+
+    masses_str = ','.join(map(str, masses))
+
+    eep = Eep()
+    mdict = {'npt_low': eep.nlow,
+             'npt_hb': eep.nhb,
+             'npt_tr': eep.ntot - eep.nms - eep.nhb,
+             'npt_ms': eep.nms,
              'masses_str': masses_str,
              'prefix_str': prefix_str,
              'FNZ': FNZ,
@@ -282,7 +296,9 @@ def prepare_makemod(inputs):
              'modelIZmax': modelIZmax,
              'modelIZmin': modelIZmin,
              'zsun': zsun}
-    print(makemod_fmt() % mdict)
+    fname = 'makemod_%s_%s.txt' % (inputs.tracks_dir.split('/')[-2], p.split('_Z')[0])
+    with open(fname, 'w') as out:
+        out.write(makemod_fmt() % mdict)
 
 def makemod_fmt():
     return """
@@ -321,9 +337,8 @@ cd ..; make PARSEC; cd PARSEC; ./makemod
 """
 
 
-
 if __name__ == '__main__':
-    inp_obj = fileIO.InputFile(sys.argv[1], default_dict=initialize_inputs())
+    inp_obj = fileio.InputFile(sys.argv[1], default_dict=initialize_inputs())
     loud = False
     if len(sys.argv) > 2:
         loud = True
@@ -332,8 +347,8 @@ if __name__ == '__main__':
         import pdb
         pdb.set_trace()
 
-    parsec2match(inp_obj, loud=loud)
-
     if inp_obj.prepare_makemod:
         prepare_makemod(inp_obj)
-        
+
+    parsec2match(inp_obj, loud=loud)
+

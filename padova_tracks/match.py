@@ -7,6 +7,7 @@ from tracks import TrackSet
 from scipy.interpolate import splev
 from tracks import TrackDiag
 from scipy.interpolate import interp1d
+import pdb
 
 class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
     """a simple check of the output from TracksForMatch."""
@@ -131,6 +132,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         if inputs.outfile_dir is None or inputs.outfile_dir == 'default':
             inputs.outfile_dir = inputs.tracks_base
 
+        self.mtracks = []
         for track in tracks:
             flag_dict['M%.3f' % track.mass] = track.flag
 
@@ -145,21 +147,32 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             if not inputs.overwrite_match and os.path.isfile(outfile):
                 print('not overwriting %s' % outfile)
                 continue
-            self.prepare_track(track, inputs.ptcri, outfile, hb=inputs.hb)
+            match_track = self.prepare_track(track, inputs.ptcri, outfile,
+                                             hb=inputs.hb)
 
             info_dict['M%.3f' % track.mass] = track.info
 
-            if inputs.diag_plot:
+            if inputs.track_diag_plot:
                 # make diagnostic plots
                 for xcol in ['LOG_TE', 'AGE']:
                     plot_dir = os.path.join(inputs.plot_dir, xcol.lower())
                     if not os.path.isdir(plot_dir):
                         os.makedirs(plot_dir)
                     self.check_ptcris(track, inputs.ptcri, plot_dir=plot_dir,
-                                      xcol=xcol, hb=inputs.hb)
+                                      xcol=xcol, hb=inputs.hb,
+                                      match_track=match_track)
 
             self.write_line_check(os.path.join(inputs.outfile_dir,
                                                lname % self.prefix.lower()))
+            self.mtracks.append(match_track)
+
+        if inputs.diag_plot:
+            dp_kw = {'hb': inputs.hb, 'plot_dir': inputs.plot_dir,
+                     'pat_kw': {'ptcri': inputs.ptcri}, 'match_tracks': True}
+            if inputs.hb:
+                ax = self.diag_plots(self.hbtracks, **dp_kw)
+            else:
+                ax = self.diag_plots(self.tracks, **dp_kw)
 
         logfile = os.path.join(inputs.outfile_dir,
                                filename % self.prefix.lower())
@@ -196,6 +209,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         -------
         adds MATCH interpolated data to track object as to_write attribute
         """
+        from .tracks.track import Track
         header = '# logAge Mass logTe Mbol logg C/O \n'
 
         if hb:
@@ -247,10 +261,10 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 self.interpolate_along_track(track, inds, nticks[i], mess=mess)
 
             if type(lagenew) is int:
-                import pdb; pdb.set_trace()
+                pdb.set_trace()
 
             if not len(lagenew) == len(lnew) == len(tenew):
-                import pdb; pdb.set_trace()
+                pdb.set_trace()
 
             logTe = np.append(logTe, tenew)
             logL = np.append(logL, lnew)
@@ -263,7 +277,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         mass_arr = np.repeat(track.mass, len(logL))
         eep = critical_point.Eep()
         if len(logL) not in [eep.nms, eep.nhb, eep.nlow, eep.ntot]:
-            import pdb; pdb.set_trace()
+            pdb.set_trace()
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
 
         with open(outfile, 'w') as f:
@@ -272,7 +286,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
         self.add_lines_check(outfile)
         #print('wrote %s' % outfile)
-        track.match_data = to_write
+        return Track(outfile, track_data=to_write, match=True, hb=hb)
 
     def add_lines_check(self, outfile):
         """
@@ -327,18 +341,45 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         Parameters
         ----------
         track: padova_tracks.Track object
+
         inds: np.array
             slice of track
+
         nticks: int
-            1 + the number of points interpolated arrays will have
+            the number of points interpolated arrays will have
+
         mess: string
             error message key from track.info
 
         Returns
         -------
         arrays of interpolated values for Log Age, Log L, Log Te
+        
+        Note: a little rewrite could merge a bit of this into _interpolate
         """
         def call_interp1d(track, inds, nticks, mess=None):
+            """
+            Call interp1d for each dimension  individually. If LOG_L or
+            LOG_TE doesn't change, will return a constant array.
+
+            Probably could/should go in ._interpolate
+            Parameters
+            ----------
+            track: padova_tracks.Track object
+
+            inds: np.array
+                slice of track
+
+            nticks: int
+                the number of points interpolated arrays will have
+
+            mess: string
+                error message key from track.info
+
+            Returns
+            -------
+            arrays of interpolated values for Log Age, Log L, Log Te
+            """
             msg = 'Match interpolation by interp1d'
             logl = track.data.LOG_L[inds]
             logte = track.data.LOG_TE[inds]
@@ -366,15 +407,18 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             track.info[mess] = msg
             return lagenew, lnew, tenew
+
+        if len(inds) < 1:
+            track.info[mess] = 'not enough points for interpolation'
+            return -1, -1, -1
+
         # parafunc = np.log10 means np.log10(AGE)
         tckp, _, non_dupes = self._interpolate(track, inds, s=0,
                                                parafunc='np.log10')
         arb_arr = np.linspace(0, 1, nticks)
 
         if type(non_dupes) is int:
-            if len(inds) < 1:
-                track.info[mess] = 'not enough points for interpolation'
-                return -1, -1, -1
+            # if one variable doesn't change, call interp1d
             lagenew, tenew, lnew = call_interp1d(track, inds, nticks,
                                                  mess=mess)
         else:
@@ -384,10 +428,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             # normal intepolation
             lagenew, tenew, lnew = splev(arb_arr, tckp)
 
+            # if non-monotonic increase in age, call interp1d
             all_positive = np.diff(lagenew) > 0
             if False in all_positive:
                 # probably too many nticks
-                lagenew, tenew, lnew = call_interp1d(track, inds, nticks,
+                lagenew, lnew, tenew = call_interp1d(track, inds, nticks,
                                                      mess=mess)
 
         return lagenew, lnew, tenew
