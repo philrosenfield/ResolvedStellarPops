@@ -21,6 +21,14 @@ __all__ = ['CalcsfhParams', 'calcsfh_dict', 'calcsfh_pars_fmt', 'call_match',
            'read_match_old', 'read_match_sfh', 'read_zctmp', 'write_match_bg',
            'write_qsub', 'cheat_fake']
 
+def float2sci(num):
+    return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
+
+def strip_header(ssp_file):
+    outfile = ssp_file + '.dat'
+    with open(ssp_file, 'r') as infile:
+        lines = [l.strip() for l in infile.readlines()]
+    np.savetxt(outfile, np.array(lines[10:], dtype=str), fmt='%s')
 
 def cheat_fake(infakefile, outfakefile):
     """
@@ -129,6 +137,51 @@ def read_binned_sfh(filename):
                                  skip_footer=2)
     return data.view(np.recarray)
 
+class MatchGrid(object):
+    def __init__(self, filenames, covs):
+        self.bases = []
+        self.names = []
+        self.data = np.array([])
+        for filename in filenames:
+            base, name = os.path.split(filename)
+            self.bases.append(base)
+            self.names.append(name)
+            data = read_ssp(filename)
+            self.data.append(data)
+
+    def read_ssp(self, filename, cov=None):
+        names = ['Av', 'IMF', 'dmod', 'logAge', 'mh', 'fit', 'bg1', 'bg2']
+        self.data = np.genfromtxt(filename, names=names)
+        self.header = '# %s' % ' '.join(names)
+        if cov is not None:
+            self.add_data({'COV': np.zeros(len(self.data)) + cov})
+
+    def add_data(self, **new_cols):
+        '''
+        add columns to data
+        new_cols: {new_key: new_vals}
+        new_vals must have same number of rows as data.
+        Ie, be same length as self.data.shape[0]
+        adds new data to self.data.data_array and self.data.key_dict
+        returns new header string (or -1 if nrows != len(new_vals))
+        '''
+        data = np.copy(self.data)
+        nrows = data.shape[0]
+
+        # new arrays must be equal length as the data
+        len_test = np.array([len(v) == nrows
+                            for v in new_cols.values()]).prod()
+        if not len_test:
+            'array lengths are not the same.'
+            return -1
+        # add new columns to the data and their names to the header.
+        for k, v in new_cols.items():
+            self.header += ' %s' % k
+            data = np.column_stack((data, v))
+        # update self.data
+        self.data = data
+        return
+
 class MatchSFH(object):
     '''
     load the match sfh solution as a class with attributes set by the
@@ -188,7 +241,8 @@ class MatchSFH(object):
 
     def plot_bins(self, val='sfr'):
         '''make SFH bins for plotting'''
-        val = self.data[val]
+        if type(val) == str:
+            val = self.data[val]
         lagei = self.data.lagei
         lagef = self.data.lagef
         # double up sfr value
@@ -196,6 +250,44 @@ class MatchSFH(object):
         # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
         lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
         return lages, vals
+
+    def age_plot(self, val='sfr', ax=None, plt_kw={},
+                 convertz=False, xlabel=None, ylabel=None,
+                 sfr_offset=1e3):
+        plt_kw = dict({'lw': 3, 'color': 'black'}.items() + plt_kw.items())
+        lages, sfrs = self.plot_bins()
+
+        if val != 'sfr':
+            lages, vals = self.plot_bins(val=val)
+            if 'mh' in val:
+                # mask values with no SF
+                if ylabel is not None:
+                    ylabel = r'$\rm{[M/H]}$'
+                if convertz:
+                    # from ResolvedStellarPops.convertz import convertz
+                    # convert mh to Z
+                    # vals = convertz(mh=vals)[1]
+                    # mh in match isn't really [M/H]..
+                    vals = 0.02 * 10 ** vals
+                    ylabel = r'$Z$'
+                isfr, = np.nonzero(sfrs==0)
+                vals[isfr] = np.min(vals)
+        else:
+            vals = sfrs * sfr_offset
+            ylabel = r'$SFR\ %s (\rm{M_\odot/yr})$' % \
+                     float2sci(1./sfr_offset).replace('$','')
+        if ax is None:
+            fig, ax = plt.subplots()
+            xlabel = r'$\log Age\ \rm{(yr)}$'
+
+        ax.plot(lages, vals, **plt_kw)
+
+        if xlabel is not None:
+            ax.set_xlabel(xlabel, fontsize=20)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel, fontsize=20)
+        return ax
+
 
 def make_phot(gal, fname='phot.dat'):
     '''

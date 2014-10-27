@@ -126,6 +126,17 @@ def pgcmd(filename, labels=None, figname=None, out_dir=None,
         print ' % s wrote %s' % (pgcmd.__name__, figname)
     return grid
 
+def sfh_plot(MatchSFH):
+    from matplotlib.ticker import NullFormatter
+    fig, (ax1, ax2) = plt.subplots(nrows=2)
+    MatchSFH.age_plot(ax=ax1)
+    MatchSFH.age_plot(val='mh', convertz=True, ax=ax2)
+    ax1.xaxis.set_major_formatter(NullFormatter())
+    plt.subplots_adjust(hspace=0.1)
+    figname = os.path.join(MatchSFH.base, MatchSFH.name + '.png')
+    plt.savefig(figname)
+    print ' % s wrote %s' % (sfh_plot.__name__, figname)
+
 
 def read_match_cmd(filename):
     '''
@@ -148,21 +159,31 @@ if __name__ == "__main__":
     python graphics.py *cmd 'F555W' 'F814W\ (HRC)'
     '''
     import sys
+    from ResolvedStellarPops.fileio.fileIO import get_files
     args = sys.argv
-    filename = args[1:-2]
+    filenames = get_files(os.getcwd(), '*cmd')
     filter1 = args[-2]
     filter2 = args[-1]
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
-    if type(filename) == str:
-        filenames = [filename]
-    else:
-        filenames = filename
-
     olabels = labels
     for filename in filenames:
-        figname = filename + '.png'
+        figname = os.path.split(filename)[1] + '.png'
         labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
         pgcmd(filename, filter1=filter1, filter2=filter2, labels=labels,
               figname=figname)
         plt.close()
+
+    sfh_files = get_files(os.getcwd(), '*sfh')
+    if len(sfh_files) == 0:
+        sfh_files = get_files(os.getcwd(), '*zc')
+
+    if len(sfh_files) > 0:
+        from ResolvedStellarPops.match.utils import MatchSFH
+        for sfh_file in sfh_files:
+            msfh = MatchSFH(sfh_file)
+            try:
+                len(msfh.data)
+            except TypeError:
+                continue
+            sfh_plot(msfh)
