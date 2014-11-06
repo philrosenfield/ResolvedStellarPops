@@ -7,28 +7,25 @@ import matplotlib.pyplot as plt
 logger = logging.getLogger()
 
 from .. import fileio
-from ..galaxies import Galaxy
-from .. import match_config as config
 #from .. import graphics
 
 
-__all__ = ['CalcsfhParams', 'calcsfh_dict', 'calcsfh_pars_fmt', 'call_match',
-           'check_exclude_gates', 'check_for_bg_file', 'get_fit',
-           'make_calcsfh_param_file', 'make_exclude_gates', 'make_match_param',
-           'make_phot', 'match_light', 'match_param_default_dict',
-           'match_param_fmt', 'match_stats', 'plot_zctmp', 'poly2str',
+__all__ = ['calcsfh_dict', 'call_match', 'check_exclude_gates',
+           'check_for_bg_file', 'make_calcsfh_param_file',
+           'match_param_default_dict', 'match_param_fmt', 'match_stats',
            'process_match_sfh', 'read_binned_sfh', 'read_match_cmd',
-           'read_match_old', 'read_match_sfh', 'read_zctmp', 'write_match_bg',
-           'write_qsub', 'cheat_fake']
+            'write_match_bg', 'cheat_fake']
 
 def float2sci(num):
     return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
 
-def strip_header(ssp_file):
+
+def strip_header(ssp_file, skip_header=10):
     outfile = ssp_file + '.dat'
     with open(ssp_file, 'r') as infile:
         lines = [l.strip() for l in infile.readlines()]
-    np.savetxt(outfile, np.array(lines[10:], dtype=str), fmt='%s')
+    np.savetxt(outfile, np.array(lines[skip_header:], dtype=str), fmt='%s')
+
 
 def cheat_fake(infakefile, outfakefile):
     """
@@ -64,7 +61,7 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
     run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins
     in sfh_file.
     '''
-    stats_exe = config.stat_exe
+    stats_exe = '$HOME/research/match2.5/bin/stats'
     sfr_data = read_binned_sfh(sfh_file)
     inds, = np.nonzero(sfr_data.sfr)
 
@@ -73,7 +70,8 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
 
     nonzero_bins = len(inds)
     nfp = nonzero_bins + nfp_nonsfr
-    cmd = '%s %s %i %i >> %s \n' % (stats_exe, match_cmd_file, nmc_runs, nfp, outfile)
+    cmd = '%s %s %i %i >> %s \n' % (stats_exe, match_cmd_file, nmc_runs, nfp,
+                                    outfile)
 
     print('writing to', outfile)
     with open(outfile, 'a') as out:
@@ -86,20 +84,6 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
         out.write('# %s' % cmd)
     os.system(cmd)
     return
-
-
-def read_match_old(filename):
-    '''read older than v2.5 match output'''
-    dtype = [('lagei', '<f8'),
-             ('lagef', '<f8'),
-             ('sfr', '<f8'),
-             ('nstars', '<f8'),
-             ('mh', '<f8'),
-             ('dmod', '<f8')]
-    data = np.genfromtxt(filename, skip_header=2, skip_footer=2,
-                         dtype=dtype)
-    return data.view(np.recarray)
-
 
 
 def read_binned_sfh(filename):
@@ -137,50 +121,6 @@ def read_binned_sfh(filename):
                                  skip_footer=2)
     return data.view(np.recarray)
 
-class MatchGrid(object):
-    def __init__(self, filenames, covs):
-        self.bases = []
-        self.names = []
-        self.data = np.array([])
-        for filename in filenames:
-            base, name = os.path.split(filename)
-            self.bases.append(base)
-            self.names.append(name)
-            data = read_ssp(filename)
-            self.data.append(data)
-
-    def read_ssp(self, filename, cov=None):
-        names = ['Av', 'IMF', 'dmod', 'logAge', 'mh', 'fit', 'bg1', 'bg2']
-        self.data = np.genfromtxt(filename, names=names)
-        self.header = '# %s' % ' '.join(names)
-        if cov is not None:
-            self.add_data({'COV': np.zeros(len(self.data)) + cov})
-
-    def add_data(self, **new_cols):
-        '''
-        add columns to data
-        new_cols: {new_key: new_vals}
-        new_vals must have same number of rows as data.
-        Ie, be same length as self.data.shape[0]
-        adds new data to self.data.data_array and self.data.key_dict
-        returns new header string (or -1 if nrows != len(new_vals))
-        '''
-        data = np.copy(self.data)
-        nrows = data.shape[0]
-
-        # new arrays must be equal length as the data
-        len_test = np.array([len(v) == nrows
-                            for v in new_cols.values()]).prod()
-        if not len_test:
-            'array lengths are not the same.'
-            return -1
-        # add new columns to the data and their names to the header.
-        for k, v in new_cols.items():
-            self.header += ' %s' % k
-            data = np.column_stack((data, v))
-        # update self.data
-        self.data = data
-        return
 
 class MatchSFH(object):
     '''
@@ -237,116 +177,93 @@ class MatchSFH(object):
         # the final line has totalSF
         key, attr, pattr, mattr = self.header[-1].strip().split()
         set_value_err_attr(key, attr, pattr, mattr)
+
+        self.flag = None
+        if np.sum(np.diff(self.data.mh)) == 0:
+            self.flag = 'setz'
+        if len(np.nonzero(np.diff(self.data.mh) >= 0)[0]) == len(self.data.mh):
+            self.flag = 'zinc'
         return
 
-    def plot_bins(self, val='sfr'):
+    def mh2z(self, num):
+        return 0.02 * 10 ** num
+
+    def plot_bins(self, val='sfr', err=False, convertz=False, offset=1.):
         '''make SFH bins for plotting'''
         if type(val) == str:
-            val = self.data[val]
+            if err:
+                #import pdb; pdb.set_trace()
+                valm = self.data['%s_errm' % val] * offset
+                valp = self.data['%s_errp' % val] * offset
+            val = self.data[val] * offset
+            if convertz:
+                val = self.mh2z(val)
+                if err:
+                    valm = self.mh2z(valm)
+                    valp = self.mh2z(valp)
         lagei = self.data.lagei
         lagef = self.data.lagef
-        # double up sfr value
-        vals = np.ravel([(val[i], val[i]) for i in range(len(val))])
-        # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
-        lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
-        return lages, vals
 
-    def age_plot(self, val='sfr', ax=None, plt_kw={},
+        # double up value
+        if err:
+            lages = (lagei + lagef) / 2
+            return lages, val, valm, valp
+        else:
+            # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
+            lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
+            vals = np.ravel([(val[i], val[i]) for i in range(len(val))])
+            return lages, vals
+
+    def age_plot(self, val='sfr', ax=None, plt_kw={}, errors=True,
                  convertz=False, xlabel=None, ylabel=None,
                  sfr_offset=1e3):
         plt_kw = dict({'lw': 3, 'color': 'black'}.items() + plt_kw.items())
-        lages, sfrs = self.plot_bins()
+        eplt_kw = plt_kw.copy()
+        eplt_kw.update({'linestyle': 'None'})
+
+        lages, sfrs = self.plot_bins(offset=sfr_offset)
+        rlages, rsfrs, sfr_merrs, sfr_perrs = self.plot_bins(err=True,
+                                                             offset=sfr_offset)
 
         if val != 'sfr':
-            lages, vals = self.plot_bins(val=val)
-            if 'mh' in val:
+            lages, vals = self.plot_bins(val=val, convertz=convertz)
+            # mask values with no SF
+            isfr, = np.nonzero(sfrs==0)
+            vals[isfr] = 0.
+            if self.flag != 'setz':
+                rlages, rvals, val_merrs, val_perrs = self.plot_bins(val=val,
+                                                                     err=True)
                 # mask values with no SF
+                irsfr, = np.nonzero(rsfrs==0)
+                val_merrs[irsfr] = 0.
+                val_perrs[irsfr] = 0.
+            else:
+                errors = False
+            if 'mh' in val:
                 if ylabel is not None:
                     ylabel = r'$\rm{[M/H]}$'
                 if convertz:
-                    # from ResolvedStellarPops.convertz import convertz
-                    # convert mh to Z
-                    # vals = convertz(mh=vals)[1]
-                    # mh in match isn't really [M/H]..
-                    vals = 0.02 * 10 ** vals
                     ylabel = r'$Z$'
-                isfr, = np.nonzero(sfrs==0)
-                vals[isfr] = np.min(vals)
         else:
-            vals = sfrs * sfr_offset
             ylabel = r'$SFR\ %s (\rm{M_\odot/yr})$' % \
                      float2sci(1./sfr_offset).replace('$','')
+            vals = sfrs
+            rvals = rsfrs
+            val_merrs = sfr_merrs
+            val_perrs = sfr_perrs
         if ax is None:
             fig, ax = plt.subplots()
             xlabel = r'$\log Age\ \rm{(yr)}$'
 
         ax.plot(lages, vals, **plt_kw)
+        if errors:
+            ax.errorbar(rlages, rvals, yerr=[val_merrs, val_perrs], **eplt_kw)
 
         if xlabel is not None:
             ax.set_xlabel(xlabel, fontsize=20)
         if ylabel is not None:
             ax.set_ylabel(ylabel, fontsize=20)
         return ax
-
-
-def make_phot(gal, fname='phot.dat'):
-    '''
-    makes phot.dat input file for match, a list of V and I mags.
-    '''
-    np.savetxt(fname, np.column_stack((gal.mag1, gal.mag2)), fmt='%.4f')
-
-
-def make_match_param(gal, more_gal_kw=None):
-    '''
-    Make param.sfh input file for match
-    see rsp.match_utils.match_param_fmt()
-
-    takes calcsfh search limits to be the photometric limits of the stars in
-    the cmd.
-    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
-    comp50mag2 are there.
-
-    only set up for acs and wfpc, if other photsystems need to check syntax
-    with match filters.
-
-    All values passed to more_gal_kw overwrite defaults.
-    '''
-
-    more_gal_kw = more_gal_kw or {}
-
-    # load parameters
-    inp = fileio.input_parameters(default_dict=match_param_default_dict())
-
-    # add parameteres
-    cmin = gal.color.min()
-    cmax = gal.color.max()
-    vmin = gal.mag1.min()
-    imin = gal.mag2.min()
-
-    if 'acs' in gal.photsys:
-        V = gal.filter1.replace('F', 'WFC')
-        I = gal.filter2.replace('F', 'WFC')
-    elif 'wfpc' in gal.photsys:
-        V = gal.filter1.lower()
-        I = gal.filter2.lower()
-    else:
-        print(gal.photsys, gal.name, gal.filter1, gal.filter2)
-
-    # default doesn't move dmod or av.
-    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av,
-              'av2': gal.Av, 'V': V, 'I': I, 'Vmax': gal.comp50mag1,
-              'Imax': gal.comp50mag2, 'V-Imin': cmin, 'V-Imax': cmax,
-              'Vmin': vmin, 'Imin': imin}
-
-    # combine sources of params
-    phot_kw = dict(match_param_default_dict().items() \
-                   + gal_kw.items() + more_gal_kw.items())
-
-    inp.add_params(phot_kw)
-
-    # write out
-    inp.write_params('param.sfh', match_param_fmt())
-    return inp
 
 
 def match_param_default_dict():
@@ -363,13 +280,14 @@ def match_param_default_dict():
     return dd
 
 
-def match_param_fmt():
+def match_param_fmt(set_z=False, zinc=True):
     '''
     calcsfh parameter format, set up for dan's runs and parsec M<12.
     NOTE exclude and include gates are strings and must have a space at
     their beginning.
     '''
-    return '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
+
+    fmt = '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
 %(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
 %(BF).2f %(bad0).6f %(bad1).6f
 %(ncmds)i
@@ -426,147 +344,23 @@ def match_param_fmt():
 '''
 
 
-def make_exclude_gates(fits_files, trgb=True, make_plot=False):
-    '''
-    Create the string for the match input file 'exclude gates'
-    this only works for the trgb, assumes V vs V-I cmds in match
-    takes arbitary values for color max and min (hard coded)
-
-    send a string of fits_files (abspath preferred)
-
-    also has a hardcoded edge for hs117.
-    '''
-    def round_it(numb):
-        return np.round(numb * 20) / 20
-
-    #if make_plot is True:
-    #    fig, (axs) = graphics.GraphicsUtils.setup_multiplot(len(fits_files), figsize=(30,30))
-    #    axs = np.squeeze(np.concatenate(axs))
-
-    exclude_gate = ' %(c0).2f %(m0).2f %(c1).2f %(m1).2f %(c2).2f %(m2).2f %(c3).2f %(m3).2f'
-    exclude_gates = {}
-    gal_kw = {'filetype': 'fitstable', 'hla': True, 'angst': True, 'band': 'opt'}
-
-    for i, fits_file in enumerate(fits_files):
-        gal = Galaxy(fits_file, **gal_kw)
-        if trgb is True:
-            cmin = -0.5
-            if gal.filter1 == 'F475W':
-                cmax = 4
-            if gal.filter1 == 'F606W':
-                cmax = 3
-            Vmax = gal.mag1.min()
-            Vmin = gal.trgb
-        else:
-            print('need to code in cmin, cmax, vmin, vmax...')
-            return exclude_gates
-        if 'hs117' in fits_file:
-            cmax = 2
-            Vmax = 23
-        delta = 0.1
-        exclude_dict = {'c0': round_it(cmin) + delta, 'm0': round_it(cmin + Vmin) - delta,
-                        'c1': round_it(cmax) - delta, 'm1': round_it(cmax + Vmin) - delta,
-                        'c2': round_it(cmax) - delta, 'm2': round_it(Vmax) + delta,
-                        'c3': round_it(cmin) + delta, 'm3': round_it(Vmax) + delta}
-        exclude_gates[fits_file] = exclude_gate % exclude_dict
-
-        #if make_plot is True:
-        #    test_arr = np.column_stack(([exclude_dict['c0'], exclude_dict['m0']],
-        #                                [exclude_dict['c1'], exclude_dict['m1']],
-        #                                [exclude_dict['c1'], exclude_dict['m2']],
-        #                                [exclude_dict['c0'], exclude_dict['m2']],
-        #                                [exclude_dict['c0'], exclude_dict['m0']]))
-        #
-        #    gal.plot_cmd(gal.color, gal.mag1, levels=3, threshold=100,
-        #                 ax=axs[i], filter1=gal.filter1, yfilter=gal.filter1)
-
-        #    gal.photsys = 'wfc3snap'
-        #    gal.decorate_cmd(ax=axs[i], trgb=True, filter1=gal.filter1)
-        #    axs[i].plot(test_arr[0, :], test_arr[1,:], lw=3, ls='--', color='green')
-        #    axs[i].set_ylim(gal.mag1.max() + 1, Vmax - 1)
-    #if make_plot is True:
-    #    plt.savefig('exclude_gates_%i.png' % len(fits_files), dpi=300)
-    #    print('wrote exclude_gates_%i.png' % len(fits_files))
-    #    return exclude_gates, axs
-    return exclude_gates
-
-
-## All the code below is old, and could use rsp.fileIO or soemthing else.
-
-def read_zctmp(filename):
-    data = {'To': np.array([]),
-            'Tf': np.array([]),
-            'sfr': np.array([]),
-            'logz': np.array([])}
-
-    with open(filename,'r') as f:
-        lines = f.readlines()
-
-    nrow, ncol = map(int, lines[0].split())
-
-    data['logz'] = np.array(lines[1].split(), dtype=float)
-    for line in lines[2:]:
-        to = float(line.split()[0])
-        tf = float(line.split()[1])
-        sfr = map(float,line.split()[2:])
-        data['To'] = np.append(data['To'], to)
-        data['Tf'] = np.append(data['Tf'], tf)
-        data['sfr'] = np.append(data['sfr'], sfr)
-
-    data['sfr'] = data['sfr'].reshape(nrow, ncol)
-    return data
-
-
-def plot_zctmp(filename):
-    data = read_zctmp(filename)
-    from ResolvedStellarPops.convertz import convertz
-    z = np.round(convertz(feh=data['logz'])[1], 4)
-    z_plt_arr = np.array([0.0002, 0.0008, 0.001, 0.004, 0.008, 0.010, 0.015, 0.02, 0.03])
-
-    inds = [np.nonzero(z < zp)[0] for zp in z_plt_arr]
-    binned_sfr = np.array([[np.sum(data['sfr'][i][inds[j]]) for i in range(len(data['sfr']))] for j in range(len(inds))])
-    fig, ax = plt.subplots()
-
-    [ax.plot(data['To'], binned_sfr[i], ls='steps', lw=2, label='%.4f' % z_plt_arr[i])
-        for i in range(len(z_plt_arr))[::-1]]
-    plt.legend(loc=0)
-    ax.set_xlabel('$Gyr\ ago$', fontsize=20)
-    ax.set_ylabel('$SFR\ M_\odot/yr$', fontsize=20)
-    plt.savefig(filename + '.png')
-
-
-def read_match_sfh(filename, bgfile=False):
-    footer = 2
-    if bgfile is True:
-        footer += 2
-    col_head = ['to', 'tf', 'sfr', 'nstars', 'dlogz', 'dmod']
-    sfh = np.genfromtxt(filename, skip_header=2, skip_footer=footer, names=col_head)
-    sfh = sfh.view(np.recarray)
-    return sfh
-
-
-def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
-                      sarah_sim=False, footer=2, header=2):
+def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False):
     '''
     turn a match sfh output file into a sfr-z table for trilegal.
 
     check: after new isochrones, do we need to go from lage 10.15 to 10.13?
     todo: add possibility for z-dispersion.
     '''
-    if bgfile is True:
-        footer += 2
 
     fmt = '%.6g %.6g %.4g \n'
-    #to, tf, sfr, nstars, dlogz, dmod = np.genfromtxt(sfhfile, skip_header=header,
-    #                                                 skip_footer=footer,
-    #                                                 unpack=True)
+
     data = read_binned_sfh(sfhfile)
     to = data['lagei']
     tf = data['lagef']
     sfr = data['sfr']
-    from ResolvedStellarPops.convertz import convertz
-    dlogz = convertz(mh=data['mh'])[1]  # values of zero could be bad, but sfr == 0 skips below.
-
+    #from ResolvedStellarPops.convertz import convertz
+    #dlogz = convertz(mh=data['mh'])[1]  # values of zero could be bad, but sfr == 0 skips below.
+    dlogz = data['mh']
     half_bin = np.diff(dlogz[0: 2])[0] / 2.
     # correct age for trilegal isochrones.
     tf[tf == 10.15] = 10.13
@@ -580,8 +374,8 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', bgfile=False,
                 sfr[i] /= 2.
             else:
                 sfr[i] *= 1e3  # sfr is normalized in trilegal
-                z1 = 0.019 * 10 ** (dlogz[i] - half_bin)
-                z2 = 0.019 * 10 ** (dlogz[i] + half_bin)
+                z1 = 0.02 * 10 ** (dlogz[i] - half_bin)
+                z2 = 0.02 * 10 ** (dlogz[i] + half_bin)
             age1a = 1.0 * 10 ** to[i]
             age1p = 1.0 * 10 ** (to[i] + 0.0001)
             age2a = 1.0 * 10 ** tf[i]
@@ -699,43 +493,6 @@ def read_match_cmd(filename):
     names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
     cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
     return cmd
-
-
-def write_qsub(param, phot, fake, qsubfile, zinc=True, mc=False, cwd=None):
-    calcsfh_path = 'calcsfh'
-    flags = ''
-    if zinc is True:
-        flags = '-zinc'
-
-    if cwd is None:
-        cwd = os.getcwd()
-    fits = phot.split('/')[-1].split('.match')[0]
-    sfh = fits + '.sfh'
-    log = fits + '.log'
-    msg = fits + '.msg'
-    if mc is True:
-        if not re.search('mc', cwd):
-            log = 'mc/' + log
-            msg = 'mc/' + msg
-            sfh = 'mc/' + sfh
-
-    lines = '#PBS -l nodes=1:ppn=1 \n#PBS -j oe \n'
-    lines += '#PBS -o %s \n' % os.path.join(cwd, log)
-    lines += '#PBS -l walltime=12:00:00 \n'
-    if mc is False:
-        lines += '#PBS -M philrose@astro.washington.edu \n'
-
-    lines += '#PBS -m abe \n#PBS -V \n'
-    lines += 'cd %s \n' % cwd
-    if mc is False:
-        lines += '%s %s %s %s %s %s > %s \n' % (calcsfh_path, param, phot, fake, sfh, flags, msg)
-    else:
-        lines += '%s %s %s %s %s ' % (calcsfh_path, param, phot, fake, sfh)
-        lines += '-allstars -logterrsig=0.03 -mbolerrsig=0.41'
-        lines += ' %s > %s \n' % (flags, msg)
-
-    with open(qsubfile, 'w') as qsub:
-        qsub.write(lines)
 
 
 def check_for_bg_file(param):
@@ -861,36 +618,6 @@ def calcsfh_dict():
             'match_bg': ''}
 
 
-class CalcsfhParams(object):
-    '''
-    someday, this will be a generic parameter house... someday. someday.
-    '''
-    def __init__(self, default_dict=None):
-        if default_dict is None:
-            default_dict = calcsfh_dict()
-        assert len(default_dict) != 0, 'need values in default dictionary.'
-
-        self.calcsfh_possible_params(default_dict)
-
-    def calcsfh_possible_params(self, default_dict={}):
-        for k, v in default_dict.items():
-            self.__setattr__(k, v)
-
-    def update_params(self, new_dict):
-        '''
-        only overwrite attributes that already exist from dictionary
-        '''
-        for k, v in new_dict.items():
-            if hasattr(self, k):
-                self.__setattr__(k, v)
-
-    def add_params(self, new_dict):
-        '''
-        add or overwrite attributes from dictionary
-        '''
-        [self.__setattr__(k, v) for k, v in new_dict.items()]
-
-
 def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
                             kwargs={}):
     '''
@@ -909,7 +636,7 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
     they aren't optional. Sorry python gods.
 
     '''
-    calcsfh_pars = CalcsfhParams(default_dict=calcsfh_par_dict)
+    calcsfh_pars = fileio.InputFile(default_dict=calcsfh_par_dict)
     if galaxy is not None:
         gal = galaxy
         # take attributes from galaxy object
@@ -931,116 +658,10 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
     if calcsfh_pars.Av2 is None:
         calcsfh_pars.Av2 = calcsfh_pars.Av
 
-    line = calcsfh_pars_fmt(calcsfh_pars)
+    line = match_param_fmt(calcsfh_pars)
     #print calcsfh_pars.__dict__
     pm = open(pmfile, 'w')
     pm.write(line % calcsfh_pars.__dict__)
     pm.close()
     logger.info('%s wrote %s' % (make_calcsfh_param_file.__name__, pmfile))
     return pmfile
-
-
-def calcsfh_pars_fmt(calcsfh_pars):
-    '''
-    a pythonic way of writing calcsfh parameter file:
-    from match2.4 readme
-    IMF m-Mmin m-Mmax d(m-M) Avmin Avmax dAv
-    logZmin logZmax dlogZ
-    BF Bad0 Bad1
-    Ncmds
-    Vstep V-Istep fake_sm V-Imin V-Imax V, I  (per CMD)
-    Vmin Vmax V                              (per filter)
-    Imin Imax I                              (per filter)
-    Nexclude_gates exclude_gates Ncombine_gates combine_gates (per CMD)
-    Ntbins
-      To Tf (for each time bin) <--- NOT IMPLEMENTED!
-    optional background bins
-
-    exclude/include gates only works for one of each at most.
-    '''
-
-    line = '%(imf).2f %(dmod).2f %(dmod2).2f %(ddmod).3f %(Av).2f'
-    line += ' %(Av2).2f %(dAv).3f\n'
-    if not calcsfh_pars.zinc:
-        line += '%(logzmin).1f %(logzmax).1f %(dlogz).1f\n'
-    else:
-        line += '%(logzmin).1f %(logzmax).1f %(dlogz).1f %(ilogzmin).1f'
-        line += ' %(ilogzmax).1f %(flogzmin).1f %(flogzmax).1f\n'
-
-    line += '%(bf).2f %(bad0)f %(bad1)f\n'
-    line += '%(Ncmds)i\n'
-    line += '%(dmag).1f %(dcol).2f %(fake_sm)i %(colmin).1f %(colmax).1f'
-    line += ' %(filter1)s,%(filter2)s\n'
-    line += '%(bright1).2f %(faint1).2f %(filter1)s\n'
-    line += '%(bright2).2f %(faint2).2f %(filter2)s\n'
-    if calcsfh_pars.nexclude_gates != 0:
-        line += '%i %s' % (calcsfh_pars.nexclude_gates,
-                           poly2str(calcsfh_pars.nexclude_poly))
-        if calcsfh_pars.ncombine_gates != 0:
-            line += ' %i %s \n' % (calcsfh_pars.ncombine_gates,
-                                   poly2str(calcsfh_pars.ncombine_poly))
-    else:
-        line += '%(nexclude_gates)i %(ncombine_gates)i\n'
-    line += '%(ntbins)i\n'
-    # if ntbins != 0: something...[to tf\n for to, tf in zip(TO, TF)]
-    line += '%(dobg)i %(bg_hess).3f %(smooth)i%(match_bg)s\n'
-    line += '-1 1 -1\n'
-    return line
-
-
-def poly2str(arr):
-    '''
-    print an array as a string without brackets. I coulda done a better
-    google search to get this right.
-    '''
-    poly = ' '.join(str(arr))
-    return poly.replace('[','').replace(']','')
-
-
-def get_fit(filename):
-    fh = [f.strip() for f in open(filename, 'r').readlines()
-          if len(f.strip()) > 0]
-    chi2 = float(fh[-2].split(':')[-1])
-    fit = float(fh[-1].split(':')[-1])
-    return chi2, fit
-
-
-def match_light(gal, pm_file, match_phot, match_fake, match_out, msg,
-                flags=['zinc', 'PADUA_AGB'], make_plot=False, model_name=None,
-                figname=None, match_kwargs={}, loud=False):
-
-    # prepare parameter file
-    make_calcsfh_param_file(pm_file, galaxy=gal, kwargs=match_kwargs)
-
-    # run match
-    match_out = call_match(pm_file, match_phot, match_fake, match_out, msg,
-                           flags=flags, loud=loud)
-
-    if loud is True:
-        print([l.strip() for l in open(msg).readlines()])
-
-    if match_out == -1:
-        return -1., -1
-    # read the fit
-    chi2, fit = get_fit(match_out)
-    logger.info('%s Chi^2: %f Fit: %f' % (match_out, chi2, fit))
-
-    if make_plot is True:
-        # make plot
-        if model_name is None:
-            model_name = 'Model'
-
-        #alabel = r'$%s$' % model_name.replace('_','\ ')
-        cmdgrid = match_out + '.cmd'
-        #grid = match_graphics.pgcmd(cmdgrid,
-        #                            labels=[gal.target, alabel, '$Difference$', '$\chi^2=%.3f$' % chi2],
-        #                            **{'filter1': gal.filter1,
-        #                               'filter2': gal.filter2})
-        # save plot
-        if figname is None:
-            figname = fileio.replace_ext(cmdgrid, '.png')
-        plt.savefig(figname, dpi=300)
-        plt.close()
-        logger.info('%s wrote %s' % (match_light.__name__, figname))
-
-    return chi2, fit

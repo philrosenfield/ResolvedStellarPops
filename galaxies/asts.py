@@ -2,141 +2,117 @@
 from __future__ import print_function
 import os
 import numpy as np
-
-import logging
-logger = logging.getLogger()
-
+import matplotlib.pylab as plt
 from scipy.interpolate import interp1d
-from subprocess import PIPE, Popen
 import pyfits
 
-from .. import trilegal
-from ..fileio import fileIO
 from .. import astronomy_utils
-__all__ = ['ast_correct_trilegal_sim', 'ASTs']
+__all__ = ['ast_correct_starpop', 'ASTs', 'parse_pipeline']
 
-
-def ast_correct_trilegal_sim(sgal, fake_file=None, outfile=None,
-                             overwrite=False, spread_outfile=None,
-                             leo_method=False, spread_outfile2=None,
-                             asts_obj=None):
+def parse_pipeline(filename, filter1=None, filter2=None):
     '''
-    correct trilegal simulation with artificial star tests.
-    options to write the a copy of the trilegal simulation with the corrected
-    mag columns, and also just the color, mag into a file (spread_too).
-
-    ARGS:
-    sgal: simgalaxy instance with convert_mag method already called.
-    fake_file: string - matchfake file(s), or an artifical_star_tests instance(s).
-    outfile: string - ast_file to write
-    overwrite: overwrite output files, is also passed to write_spread
-    spread_too: call write_spread flag
-    spread_outfile: outfile for write_spread
-
-    RETURNS:
-    adds corrected mags to sgal.data.data_array and updates sgal.data.key_dict
-
-    if fake_file is an a list of opt and ir, will do the corrections twice.
-    fake_file as artificial_star_instance won't work if leo_method=True.
+    target, filter1, and filter2 are assigned:
+    PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_
     '''
-    ir_too = False
+    name = os.path.split(filename)[1]
+    if None in [filter1, filter2]:
+        try:
+            __, target, filter1, filter2, __ = name.split('_')
+        except:
+            try:
+                target, filter1, filter2e = name.split('_')
+                filter2 = filter2e.split('.')[0]
+            except:
+                try:
+                    __, target, __, filter1, filter2, _ = name.split('_')
+                except:
+                    try:
+                        __, target, filter1, filter2e = name.split('_')
+                        filter2 = filter2e.split('.')[0]
+                    except:
+                        return None, None, None
+    return target, filter1, filter2
 
-    def leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile):
-        # <hit enter>
-        EOF = os.path.join(os.environ['PYTHONPATH'], 'EOF')
 
-        cmd = '%s << %s\n' % (leo_code, EOF)
-        cmd += '\n'.join((fake_file, sim_file, spread_outfile, EOF))
+def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
+                        asts_obj=None, correct_kw={}, diag_plot=False,
+                        plt_kw={}):
+    '''
+    correct mags with artificial star tests.
 
-        logger.debug("%s + %s -> %s" % (sim_file, fake_file, spread_outfile))
-        logger.debug('Running %s...' % os.path.split(leo_code)[1])
-        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                  close_fds=True)
+    Parameters
+    ----------
+    sgal : galaxies.SimGalaxy or StarPop instance
+        must have apparent mags (corrected for dmod and Av)
 
-        stdout, stderr = (p.stdout, p.stderr)
-        p.wait()
-        return
+    fake_file : string
+         matchfake file
 
-    def add_cols_leo_method(sgal, spread_outfile):
-        spout = fileIO.readfile(spread_outfile)
-        ast_filts = [s for s in spout.dtype.names if '_cor' in s]
-        new_cols = {}
-        for ast_filt in ast_filts:
-            new_cols[ast_filt] = spout[ast_filt]
-            print(len(spout[ast_filt]))
-        print(len(sgal.mag2))
-        print(sgal.add_data(**new_cols))
+    outfile : string
+        if sgal, a place to write the table with ast_corrections
 
-    #assert fake_file is not None and asts_obj is not None, \
-    #    'ast_correct_trilegal_sim: fake_file now needs to be passed'
+    overwrite : bool
+        if sgal and outfile, overwite if outfile exists
 
-    if leo_method is True:
-        print('ARE YOU SURE YOU WANT TO USE THIS METHOD!?')
-        # this method tosses model stars where there are no ast corrections
-        # which is fine for completeness < .50 but not for completeness > .50!
-        # so don't use it!! It's also super fucking slow.
-        if spread_outfile is None:
-            raise ValueError('need spread_outfile set for Leo AST method')
+    asts_obj : AST instance
+        if not loading from fake_file
 
-        print("completeness using Leo's method")
+    correct_kw : dict
+        passed to ASTs.correct important to consider, dxy, xrange, yrange
+        see AST.correct.__doc__
 
-        sim_file = os.path.join(sgal.base, sgal.name)
+    diag_plot : bool
+        make a mag vs mag diff plot
 
-        # special version of spread_angst made for wfc3snap photsys!
-        # THIS IS BAD CODING HARD LINK?!
-        leo_code = '/home/rosenfield/research/TP-AGBcalib/SNAP/models/spread_angst'
+    plt_kw :
+        kwargs to pass to pylab.plot
 
-        if type(fake_file) == list:
-            assert spread_outfile2 is not None, \
-                'need another string for spread file name with four filters'
-            fake_file_ir = fake_file[1]
-            fake_file = fake_file[0]
-            ir_too = True
+    Returns
+    -------
+    adds corrected mag1 and mag2
 
-        leo_ast_correction(leo_code, fake_file, sim_file, spread_outfile)
-        add_cols_leo_method(sgal, spread_outfile)
-        if ir_too is True:
-            # run the out ast corrections through a version of spread_angst to
-            # correct the ir.
-            leo_code += '_ir'
-            leo_ast_correction(leo_code, fake_file_ir, spread_outfile, spread_outfile2)
-            add_cols_leo_method(sgal, spread_outfile2)
-            # no need to keep the spread_outfile now that we have a new one.
-            os.remove(spread_outfile)
+    If sgal, adds columns to sgal.data
+    '''
+    fmt = '%s_cor'
+    sgal.fake_file = fake_file
+    _, filter1, filter2 = parse_pipeline(fake_file)
+    if hasattr(sgal.data, fmt % filter1) and hasattr(sgal.data,
+                                                     fmt % filter2):
+        errfmt = '%s, %s ast corrections already in file.'
+        print(errfmt % (filter1, filter2))
+        return sgal.data[fmt % filter1], sgal.data[fmt % filter2]
+
+    if asts_obj is None:
+        ast = ASTs(fake_file)
     else:
-        if type(fake_file) is str:
-            fake_files = [fake_file]
-        else:
-            fake_files = fake_file
+        ast = asts_obj
 
-        sgal.fake_files = fake_files
+    mag1 = sgal.data[ast.filter1]
+    mag2 = sgal.data[ast.filter2]
 
-        if asts_obj is None:
-            asts_obj = [ASTs(fake_file) for fake_file in fake_files]
-        elif type(asts_obj) is str:
-            asts_obj = [asts_obj]
+    correct_kw = dict({'dxy': (0.2, 0.15)}.items() + correct_kw.items())
+    cor_mag1, cor_mag2 = ast.correct(mag1, mag2, **correct_kw)
+    names = ['%s_cor' % ast.filter1, '%s_cor' % ast.filter2]
+    data = [cor_mag1, cor_mag2]
+    sgal.add_data(names, data)
 
-        for asts in asts_obj:
-            # sgal.filter1 or sgal.mag1 doesn't have to match the asts.filter1
-            # in fact, it won't if this is done on both opt and nir data.
-            mag1 = sgal.data.get_col(asts.filter1)
-            mag2 = sgal.data.get_col(asts.filter2)
+    if outfile is not None:
+        sgal.write_data(outfile, overwrite=overwrite)
 
-            cor_mag1, cor_mag2 = asts.ast_correction(mag1, mag2,
-                                                     **{'binsize': 0.2})
-            new_cols = {'%s_cor' % asts.filter1: cor_mag1,
-                        '%s_cor' % asts.filter2: cor_mag2}
-            sgal.add_data(**new_cols)
-
-        if outfile is not None:
-            if overwrite is True or not os.path.isfile(outfile):
-                trilegal.write_trilegal_sim(sgal, outfile)
-            else:
-                logger.warning('%s exists, not overwriting' % outfile)
-
-        if spread_outfile is not None:
-            trilegal.write_spread(sgal, outfile=spread_outfile, overwrite=overwrite)
-
+    if diag_plot:
+        from ..fileio.fileIO import replace_ext
+        plt_kw = dict({'color': 'navy', 'alpha': 0.3, 'label': 'sim'}.items() \
+                      + plt_kw.items())
+        axs = ast.magdiff_plot()
+        mag1diff = cor_mag1 - mag1
+        mag2diff = cor_mag2 - mag2
+        rec, = np.nonzero((np.abs(mag1diff) < 10) & (np.abs(mag2diff) < 10))
+        axs[0].plot(mag1[rec], mag1diff[rec], '.', **plt_kw)
+        axs[1].plot(mag2[rec], mag2diff[rec], '.', **plt_kw)
+        if 'label' in plt_kw.keys():
+            [ax.legend(loc=0, frameon=False) for ax in axs]
+        plt.savefig(replace_ext(outfile, '_ast_correction.png'))
+    return cor_mag1, cor_mag2
 
 class ASTs(object):
     '''
@@ -153,29 +129,9 @@ class ASTs(object):
         self.filter2 = filter2
         self.filt_extra = filt_extra
 
-        self.parse_pipeline(filename)
+        self.target, self.filter1, self.filter2 = parse_pipeline(filename)
         self.read_file(filename)
-                
-    def parse_pipeline(self, filename):
-        '''
-        target, filter1, and filter2 are assigned:
-        PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_    
-        '''
-        if None in [self.filter1, self.filter2]:
-            try:
-                __, self.target, self.filter1, self.filter2, _ = \
-                    self.name.split('_')
-            except:
-                try:
-                    self.target, self.filter1, filter2 = self.name.split('_')
-                    self.filter2 = filter2.split('.')[0]
-                except:
-                    try:
-                        __, self.target, __, self.filter1, self.filter2, _ = \
-                            self.name.split('_')
-                    except:
-                        pass
-           
+
     def recovered(self, threshold=9.99):
         '''
         find indicies of stars with magdiff < threshold
@@ -187,9 +143,11 @@ class ASTs(object):
         self.rec: recovered stars in both filters
         rec1, rec2: recovered stars in filter1, filter2
         '''
-        rec1, = np.nonzero(self.mag1diff < threshold)
-        rec2, = np.nonzero(self.mag2diff < threshold)
+        rec1, = np.nonzero(np.abs(self.mag1diff) < threshold)
+        rec2, = np.nonzero(np.abs(self.mag2diff) < threshold)
         self.rec = list(set(rec1) & set(rec2))
+        if len(self.rec) == len(self.mag1diff):
+            print('warning: all stars recovered')
         return rec1, rec2
 
     def make_hess(self, binsize=0.1, yattr='mag2diff', hess_kw={}):
@@ -232,7 +190,7 @@ class ASTs(object):
         '''write matchfake file'''
         dat = np.array([self.mag1, self.mag2, self.mag1diff, self.mag2diff]).T
         np.savetxt(newfile, dat, fmt='%.3f')
-        
+
     def bin_asts(self, binsize=0.2, bins=None):
         '''
         bin the artificial star tests
@@ -258,17 +216,21 @@ class ASTs(object):
 
     def _random_select(self, arr, nselections):
         '''
-        randomly sample *arr* *nselections* times
+        randomly sample arr nselections times
 
-        ARGS:
-        arr: array or list to sample
-        nselections: int times to sample
+        Parameters
+        ----------
+        arr : array or list
+            input to sample
+        nselections : int
+            number of times to sample
 
-        RETURNS:
-        rands: list of selections, length nselections
+        Returns
+        -------
+        rands : array
+            len(nselections) of randomly selected from arr (duplicates included)
         '''
-        import random
-        rands = [random.choice(arr) for i in range(nselections)]
+        rands = np.array([np.random.choice(arr) for i in range(nselections)])
         return rands
 
     def ast_correction(self, obs_mag1, obs_mag2, binsize=0.2, bins=None,
@@ -312,7 +274,7 @@ class ASTs(object):
 
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
-            logger.error('mag arrays of different lengths')
+            print('error: mag arrays of different lengths')
             return -1
 
         # corrected mags are filled with nan.
@@ -362,6 +324,74 @@ class ASTs(object):
             #fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
 
+    def correct(self, obs_mag1, obs_mag2, bins=[100,200], xrange=[-0.5, 5.],
+                yrange=[15., 27.], not_rec_val=0., dxy=None):
+        """
+        apply AST correction to obs_mag1 and obs_mag2
+
+        Parameters
+        ----------
+        obs_mag1, obs_mag2 : arrays
+            input mags to correct
+
+        bins : [int, int]
+            bins to pass to graphics.plotting.crazy_histogram2d
+
+        xrange, yrange : shape 2, arrays
+            limits of cmd space send to graphics.plotting.crazy_histogram2d
+            since graphics.plotting.crazy_histogram2d is called twice it is
+            important to have same bin sizes
+
+        not_rec_val : float or nan
+            value to fill output arrays where obs cmd does not overlap with
+            ast cmd.
+
+        dxy : array shape 2,
+            color and mag step size to make graphics.plotting.crazy_histogram2d
+
+        Returns
+        -------
+        cor_mag1, cor_mag2 : arrays len obs_mag1, obs_mag2
+            corrections to obs_mag1 and obs_mag2
+        """
+        from ..graphics.plotting import crazy_histogram2d as chist
+
+        nstars = obs_mag1.size
+        if obs_mag1.size != obs_mag2.size:
+            print('error: mag arrays of different lengths')
+            return -1, -1
+
+        # corrected mags are filled with nan.
+        cor_mag1 = np.empty(nstars)
+        cor_mag1.fill(not_rec_val)
+        cor_mag2 = np.empty(nstars)
+        cor_mag2.fill(not_rec_val)
+
+        obs_color = obs_mag1 - obs_mag2
+        ast_color = self.mag1 - self.mag2
+
+        if dxy is not None:
+            # approx number of bins.
+            bins[0] = len(np.arange(*xrange, step=dxy[0]))
+            bins[1] = len(np.arange(*yrange, step=dxy[1]))
+
+        ckw = {'bins': bins, 'reverse_indices': True, 'xrange': xrange,
+                    'yrange': yrange}
+        SH, _, _, sixy, sinds = chist(ast_color, self.mag2, **ckw)
+        H, _, _, ixy, inds = chist(obs_color, obs_mag2, **ckw)
+
+        x, y = np.nonzero(SH * H > 0)
+        # there is a way to do this with masking ...
+        for i, j in zip(x, y):
+            sind, = np.nonzero((sixy[:, 0] == i) & (sixy[:, 1] == j))
+            hind, = np.nonzero((ixy[:, 0] == i) & (ixy[:, 1] == j))
+            nobs = int(H[i, j])
+            xinds = self._random_select(sinds[sind], nobs)
+            cor_mag1[inds[hind]] = self.mag1diff[xinds]
+            cor_mag2[inds[hind]] = self.mag2diff[xinds]
+
+        return obs_mag1 + cor_mag1, obs_mag2 + cor_mag2
+
     def completeness(self, combined_filters=False, interpolate=False):
         '''
         calculate the completeness of the data in each filter
@@ -409,12 +439,12 @@ class ASTs(object):
                                    bounds_error=False)
         return
 
-    def get_completeness_fraction(self, frac, dmag=0.01):
+    def get_completeness_fraction(self, frac, dmag=0.01, guess=24):
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
 
         # set up array to evaluate interpolation
-        arr_min = 16
+        arr_min = guess
         arr_max = 31
         search_arr = np.arange(arr_min, arr_max, dmag)
 
@@ -452,17 +482,18 @@ class ASTs(object):
 
         return comp1, comp2
 
-    def ast_plots(self):
+    def magdiff_plot(self, axs=None):
         ''' not finished... plot some interesting stuff '''
-        assert filename.endswith('fits'), 'must be a fits table to make plots'
-        # mag1 vs X; mag2 vs X; x vs x
-        for attr in ['SNR', 'SHARP', 'ROUND', 'CROWD', 'CHI']:
-            fig, axs = plt.subplots(ncols=2, figsize=(12,8))
-            for i, filt in enumerate([self.filter1, self.filter2]):
-                ykey = '%s_%s' % (filt, attr)
-                xkey = '%s%s' % (filt, self.filt_extra)
-                x = self.data[xkey][ast.data[xkey]<90]
-                y = self.data[ykey][ast.data[xkey]<90]
-                axs[i].plot(x, y, '.', color='k') 
-                axs[i].set_xlabel(xkey.replace('_', '\ '))
-                axs[i].set_ylabel(ykey.replace('_', '\ '))
+        if not hasattr(self, 'rec'):
+            self.completeness(combined_filters=True)
+        fig, axs = plt.subplots(ncols=2, figsize=(12,8))
+        axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.', color='k')
+        axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.', color='k')
+        xlab = r'${\rm Input}\ %s$'
+        axs[0].set_xlabel(xlab % self.filter1, fontsize=20)
+        axs[1].set_xlabel(xlab % self.filter2, fontsize=20)
+        axs[0].set_ylabel(r'${\rm Input} - {\rm Ouput}$', fontsize=20)
+        return axs
+
+    def completeness_plot(self, axs=None):
+        pass

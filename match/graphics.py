@@ -175,8 +175,7 @@ if __name__ == "__main__":
         plt.close()
 
     sfh_files = get_files(os.getcwd(), '*sfh')
-    if len(sfh_files) == 0:
-        sfh_files = get_files(os.getcwd(), '*zc')
+    sfh_files.extend(get_files(os.getcwd(), '*zc'))
 
     if len(sfh_files) > 0:
         from ResolvedStellarPops.match.utils import MatchSFH

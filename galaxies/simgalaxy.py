@@ -24,7 +24,7 @@ class SimGalaxy(StarPop):
 
         StarPop.__init__(self)
 
-        if table_data is True:
+        if table_data:
             self.data = trilegal_out
             self.base = trilegal_out.base
             self.name = trilegal_out.name

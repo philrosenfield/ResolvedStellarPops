@@ -85,13 +85,13 @@ def scatter_contour(x, y, levels=10, bins=40, threshold=50, log_counts=False,
 
     xerr, yerr : arrays
         x and y errors passed to pylab.errorbar
-        
+
     ax : pylab.Axes instance
         the axes on which to plot.  If not specified, the current
         axes will be used
     """
     if ax is None:
-        ax = plt.gca()
+        fig, ax = plt.subplots()
 
     # H, xbins, ybins = np.histogram2d(x, y, **histogram2d_args)
     # extent = [xbins[0], xbins[-1], ybins[0], ybins[-1]]
@@ -169,7 +169,9 @@ def latex_float(f, precision=0.2, delimiter=r'\times'):
         return float_str
 
 
-def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,reinterp=None):
+def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,
+                      reinterp=None, reverse_indices=False, xrange=None,
+                      yrange=None):
     """
     Compute the sparse bi-dimensional histogram of two data samples where *x*,
     and *y* are 1-D sequences of the same length. If *weights* is None
@@ -210,6 +212,9 @@ def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,rein
         if set, reinterpolation is made using mlab.griddata to fill missing
         data within the convex polygone that encloses the data
 
+    reverse_indices: bool, option
+        also return the bins of each x, y point as a 2d array
+
     Returns
     -------
     B: ndarray[ndim=2]
@@ -246,9 +251,19 @@ def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,rein
 
     if not (len(_x) == len(_y)) & (len(_y) == len(_w)):
         raise ValueError('Shape mismatch between x, y, and weights: {}, {}, {}'.format(_x.shape, _y.shape, _w.shape))
+    if xrange is None:
+        xmin, xmax = _x.min(), _x.max()
+    else:
+        xmin, xmax = xrange
+    if yrange is None:
+        ymin, ymax = _y.min(), _y.max()
+    else:
+        ymin, ymax = yrange
+    inds, = np.nonzero((_x > xmin) & (_x < xmax) & (_y > ymin) & (_y < ymax))
+    _x = _x[inds]
+    _y = _y[inds]
+    _w = _w[inds]
 
-    xmin, xmax = _x.min(), _x.max()
-    ymin, ymax = _y.min(), _y.max()
     dx = (xmax - xmin) / (nx - 1.0)
     dy = (ymax - ymin) / (ny - 1.0)
 
@@ -289,7 +304,11 @@ def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,rein
     else:  # reinterp
         xi = np.arange(nx, dtype=float)
         yi = np.arange(ny, dtype=float)
-        B = griddata(_grid.col.astype(float), _grid.row.astype(float), _grid.data, xi, yi, interp=reinterp)
+        B = griddata(_grid.col.astype(float), _grid.row.astype(float),
+                     _grid.data, xi, yi, interp=reinterp)
+
+    if reverse_indices:
+        return B, (xmin, xmax, ymin, ymax), (dx, dy), xyi.T, inds
 
     return B, (xmin, xmax, ymin, ymax), (dx, dy)
 

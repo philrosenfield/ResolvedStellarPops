@@ -49,10 +49,14 @@ class InputParameters(object):
         '''add or overwrite attributes from dictionary'''
         [self.__setattr__(k, v) for k, v in new_dict.items()]
 
-    def write_params(self, new_file, formatter):
+    def write_params(self, new_file, formatter=None):
         '''write self.__dict__ to new_file with format from formatter'''
         with open(new_file, 'w') as f:
-            f.write(formatter % self.__dict__)
+            if formatter is not None:
+                f.write(formatter % self.__dict__)
+            else:
+                for k in sorted(self.__dict__):
+                    f.write('{0: <16} {1}\n'.format(k, str(self.__dict__[k])))
 
     def __str__(self):
         '''pprint self.__dict__'''
@@ -60,17 +64,22 @@ class InputParameters(object):
         return ""
 
 
-def savetxt(filename, data, fmt='%.4f', header=None):
+def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False):
     '''
     np.savetxt wrapper that adds header. Some versions of savetxt
     already allow this...
     '''
-    with open(filename, 'w') as f:
-        if header is not None:
-            f.write(header)
-        np.savetxt(f, data, fmt=fmt)
-    print('wrote', filename)
-
+    if overwrite is True or not os.path.isfile(filename):
+        with open(filename, 'w') as f:
+            if header is not None:
+                if not header.endswith('\n'):
+                    header += '\n'
+                f.write(header)
+            np.savetxt(f, data, fmt=fmt)
+        print('wrote', filename)
+    else:
+        print(' warning: %s exists, not overwriting' % filename)
+    return
 
 class InputFile(object):
     '''
@@ -133,6 +142,7 @@ def load_input(filename):
                 continue
             if len(line.strip()) == 0:
                 continue
+            line = line.translate(None, '[]')
             key, val = line.strip().partition(' ')[0::2]
             d[key] = is_numeric(val.replace(' ', ''))
     # do we have a list?

@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import numpy as np
 from ...utils import is_numeric
+from .fileio import *
 
 class Track(object):
     '''
@@ -216,21 +217,21 @@ class Track(object):
                 int(l.split()[0])
             except ValueError:
                 skip_footer -= 1
-        
+
         self.header.extend([' # Footer: %s lines \n' % skip_footer])
         if skip_footer < 0:
-            
+
             self.header.extend(lines[skip_footer:])
         else:
             self.info['load_track warning'] = \
                 'No footer unfinished track? %s' % filename
-        
+
         # find ndarray titles (column keys)
         begin_track += 1
         col_keys = lines[begin_track].replace('#', '').strip().split()
-        
+
         begin_track += 1
-        
+
         # extra line for tracks that have been "colored"
         if 'information' in lines[begin_track + 1]:
             begin_track += 1
@@ -244,7 +245,7 @@ class Track(object):
         data = np.ndarray(shape=(nrows,), dtype=dtype)
         for row, i in enumerate(range(begin_track, iend)):
             data[row] = tuple(lines[i].split())
-        
+
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
 
@@ -263,7 +264,7 @@ class Track(object):
             uniq_tps, uniq_inds = np.unique(ntp, return_index=True)
             tps = np.array([np.nonzero(ntp == u)[0] for u in uniq_tps])
             return tps
-        
+
         def find_quiessent_points(tps, phi):
             '''
             The quiescent phase is the the max phase in each TP,
@@ -273,7 +274,7 @@ class Track(object):
             else:
                 qpts = np.unique([tp[np.argmax(phi[tp])] for tp in tps])
             return qpts
-        
+
         col_keys = ['MODE', 'status', 'NTP', 'AGE', 'MASS', 'LOG_Mdot',
                     'LOG_L', 'LOG_TE', 'Mcore', 'Y', 'Z', 'PHI_TP', 'CO']
         usecols = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
@@ -281,19 +282,19 @@ class Track(object):
         f = open(filename)
         line1 = f.readline()
         line2 = f.readline()
-        
+
         if 'information' in line2:
             line1 = line1.replace('L_*', 'LOG_L')
             line1 = line1.replace('step', 'MODE')
-            line1 = line1.replace('T_*', 'LOG_TE') 
+            line1 = line1.replace('T_*', 'LOG_TE')
             line1 = line1.replace('M_*', 'MASS')
             line1 = line1.replace('age/yr', 'AGE')
             line1 = line1.replace('dM/dt', 'LOG_Mdot')
             line1 = line1.replace('M_c', 'Mcore')
-            col_keys = line1.strip().replace('#', '').replace('lg', '').split()    
+            col_keys = line1.strip().replace('#', '').replace('lg', '').split()
             col_keys = self.add_to_col_keys(col_keys, line2)
             usecols = list(np.arange(len(col_keys)))
-        
+
         data = np.genfromtxt(filename, names=col_keys, usecols=usecols)
         self.data = data.view(np.recarray)
 
@@ -304,7 +305,7 @@ class Track(object):
         self.Y = self.data.Y[0]
         self.mass = self.data.MASS[0]
         self.col_keys = col_keys
-        
+
         # The first line in the agb track is 1. This isn't a quiescent stage.
         self.data.PHI_TP[0] = -99.
 
@@ -346,7 +347,7 @@ class Track(object):
         def update_args(header_line, old_dict):
             old_dict.update(parse_args(header_line))
             return old_dict
-        
+
         self.header_dict = {}
         for line in self.header:
             if line.count('=') > 1:

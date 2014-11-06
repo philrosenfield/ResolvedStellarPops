@@ -8,9 +8,9 @@ from ..graphics import scatter_contour, colorify, make_hess, plot_hess, plot_cmd
 from ..tools import get_dmodAv, mag2Mag, Mag2mag
 from ..angst_tables import angst_data
 from .. import utils
+from .. import fileio
 
-
-__all__ = ['StarPop', 'plot_cmd', 'color_by_arg']
+__all__ = ['StarPop', 'plot_cmd', 'color_by_arg' , 'stars_in_region']
 
 
 class StarPop(object):
@@ -162,9 +162,7 @@ class StarPop(object):
         utility for writing data files, sets header attribute and returns
         header string.
         '''
-        key_dict = self.data.key_dict
-        names = [k[0] for k in sorted(key_dict.items(),
-                                      key=lambda x: reversed(x))]
+        names = [k for k, v in sorted(self.key_dict.items(), key=lambda (k,v): v)]
         self.header = '# %s' % ' '.join(names)
         return self.header
 
@@ -249,45 +247,42 @@ class StarPop(object):
                 self.mag2 = Mag2mag(self.Mag2, self.filter2, self.photsys, **mag_covert_kw)
                 self.color = self.mag1 - self.mag2
 
-    def add_data(self, **new_cols):
+    def add_data(self, names, data):
         '''
-        add columns to data
-        new_cols: {new_key: new_vals}
-        new_vals must have same number of rows as data.
-        Ie, be same length as self.data.shape[0]
-        adds new data to self.data.data_array and self.data.key_dict
-        returns new header string (or -1 if nrows != len(new_vals))
-        '''
-        data = self.data.data_array.copy()
-        nrows = data.shape[0]
+        add columns to self.data, update self.key_dict
+        see numpy.lib.recfunctions.append_fields.__doc__
 
-        # new arrays must be equal length as the data
-        len_test = np.array([len(v) == nrows
-                            for v in new_cols.values()]).prod()
-        if not len_test:
-            'array lengths are not the same.'
-            return -1
+        Parameters
+        ----------
+        names : string, sequence
+            String or sequence of strings corresponding to the names
+            of the new fields.
+        data : array or sequence of arrays
+            Array or sequence of arrays storing the fields to add to the base.
+
+        Returns
+        -------
+        header
+        '''
+        import numpy.lib.recfunctions as nlr
+        data = nlr.append_fields(self.data, names, data).data
+        self.data = data.view(np.recarray)
+
+        # update key_dict
         header = self.get_header()
-        # add new columns to the data and their names to the header.
-        for k, v in new_cols.items():
-            header += ' %s' % k
-            data = np.column_stack((data, v))
-        # update self.data
-        self.data.data_array = data
+        header += ' ' + ' '.join(names)
         col_keys = header.replace('#', '').split()
-        self.data.key_dict = dict(zip(col_keys, range(len(col_keys))))
+        self.key_dict = dict(zip(col_keys, range(len(col_keys))))
         return header
 
-    def slice_data(self, data_to_slice, slice_inds):
-        '''
-        slice already set attributes by some index list.
-        '''
-        for d in data_to_slice:
+    def slice_data(self, keys, inds):
+        '''slice already set attributes by some index list.'''
+        for d in keys:
             if hasattr(self, d):
-                self.__setattr__(d, self.__dict__[d][slice_inds])
+                self.__setattr__(d, self.__dict__[d][inds])
             if hasattr(self, d.title()):
                 d = d.title()
-                self.__setattr__(d, self.__dict__[d][slice_inds])
+                self.__setattr__(d, self.__dict__[d][inds])
 
     def double_gaussian_contamination(self, all_verts, dcol=0.05, Color=None,
                                       Mag2=None, color_sep=None, diag_plot=False,
@@ -427,6 +422,12 @@ class StarPop(object):
         '''
         return stars_in_region(*args, **kwargs)
 
+    def write_data(self, outfile, overwrite=False):
+        '''call fileio.savetxt to write self.data'''
+        fileio.savetxt(outfile, self.data, fmt='%5g', header=self.get_header(),
+                       overwrite=overwrite)
+        return
+
 def stars_in_region(mag2, mag_dim, mag_bright, mag1=None,
                     verts=None, col_min=None, col_max=None):
     '''
@@ -452,6 +453,7 @@ def stars_in_region(mag2, mag_dim, mag_bright, mag1=None,
             points = np.column_stack((mag1 - mag2, mag2))
             inds, = np.nonzero(utils.points_inside_poly(points, verts))
     return inds
+
 
 def plot_cmd(starpop, color, mag, ax=None, xlim=None, ylim=None, xlabel=None,
              ylabel=None, contour_kwargs={}, scatter_kwargs={}, plot_kwargs={},
@@ -570,6 +572,65 @@ def plot_cmd(starpop, color, mag, ax=None, xlim=None, ylim=None, xlabel=None,
         plt.draw()
 
     return ax
+
+    def make_phot(self, fname='phot.dat'):
+        '''
+        makes phot.dat input file for match, a list of V and I mags.
+        '''
+        np.savetxt(fname, np.column_stack((self.mag1, self.mag2)), fmt='%.4f')
+
+
+def make_match_param(gal, more_gal_kw=None):
+    '''
+    Make param.sfh input file for match
+    see rsp.match_utils.match_param_fmt()
+
+    takes calcsfh search limits to be the photometric limits of the stars in
+    the cmd.
+    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
+    comp50mag2 are there.
+
+    only set up for acs and wfpc, if other photsystems need to check syntax
+    with match filters.
+
+    All values passed to more_gal_kw overwrite defaults.
+    '''
+
+    more_gal_kw = more_gal_kw or {}
+
+    # load parameters
+    inp = fileio.input_parameters(default_dict=match_param_default_dict())
+
+    # add parameteres
+    cmin = gal.color.min()
+    cmax = gal.color.max()
+    vmin = gal.mag1.min()
+    imin = gal.mag2.min()
+
+    if 'acs' in gal.photsys:
+        V = gal.filter1.replace('F', 'WFC')
+        I = gal.filter2.replace('F', 'WFC')
+    elif 'wfpc' in gal.photsys:
+        V = gal.filter1.lower()
+        I = gal.filter2.lower()
+    else:
+        print(gal.photsys, gal.name, gal.filter1, gal.filter2)
+
+    # default doesn't move dmod or av.
+    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av,
+              'av2': gal.Av, 'V': V, 'I': I, 'Vmax': gal.comp50mag1,
+              'Imax': gal.comp50mag2, 'V-Imin': cmin, 'V-Imax': cmax,
+              'Vmin': vmin, 'Imin': imin}
+
+    # combine sources of params
+    phot_kw = dict(match_param_default_dict().items() \
+                   + gal_kw.items() + more_gal_kw.items())
+
+    inp.add_params(phot_kw)
+
+    # write out
+    inp.write_params('param.sfh', match_param_fmt())
+    return inp
 
 
 def color_by_arg(starpop, xcol, ycol, colorcol, bins=None, cmap=None, ax=None,

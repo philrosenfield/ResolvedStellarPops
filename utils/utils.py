@@ -25,7 +25,7 @@ def count_uncert_ratio(numerator, denominator):
 
 def points_inside_poly(points, all_verts):
     """ Proxy to the correct way with mpl """
-    return Path(all_verts, close=True).contains_points(points)
+    return Path(all_verts).contains_points(points)
 
 
 def hist_it_up(mag2, res=0.1, threash=10):

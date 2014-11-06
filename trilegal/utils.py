@@ -2,15 +2,13 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-import logging
-logger = logging.getLogger()
 
 from .. import utils
 from .. import fileio
 from .. import graphics
 
 
-__all__ = ['HRD', 'PadovaIsoch', 'IsoTrack2', 'Trilegal_SFH',
+__all__ = ['HRD', 'PadovaIsoch', 'Trilegal_SFH',
            'change_galaxy_input', 'cmd_input_dict', 'cmd_input_fmt',
            'find_mag_num', 'find_photsys_number', 'galaxy_input_dict',
            'galaxy_input_fmt', 'get_args', 'get_label_stage', 'get_loop_data',
@@ -122,18 +120,13 @@ class PadovaIsoch(object):
         plt.savefig(figname)
 
 
-def write_trilegal_sim(sgal, outfile, slice_inds=None):
+def write_trilegal_sim(sgal, outfile, overwrite=False):
     '''
     writes trilegal sim to outfile.
     '''
-    header = sgal.get_header()
+    print("do not use write_trilegal_sim use starpop.write_data")
+    sys.exit()
 
-    with open(outfile, 'w') as f:
-        if not header.endswith('\n'):
-            header += '\n'
-        f.write('%s' % header)
-        np.savetxt(f, sgal.data.data_array, fmt='%10.5f')
-    return
 
 
 def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
@@ -142,7 +135,7 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
         # need someway to check if ast corrections were made.
         cors = [c for c in sgal.data.key_dict.keys() if '_cor' in c]
         if len(cors) == 0:
-            logger.error('can not make spread file without ast_corrections')
+            print('error can not make spread file without ast_corrections')
             return -1
 
         filt1, filt2 = np.sort(cors)
@@ -170,16 +163,16 @@ def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
         with open(outfile, 'w') as f:
             f.write('# %s %s \n' % (filt1, filt2))
             np.savetxt(f, cor_mags, fmt='%10.5f')
-        logger.info('wrote %s' % outfile)
+        print('wrote %s' % outfile)
     else:
-        logger.warning('%s exists, send overwrite=True arg to overwrite' % outfile)
+        print('warning %s exists, send overwrite=True arg to overwrite' % outfile)
     return outfile
 
 
 def change_galaxy_input(galaxy_input, **kwargs):
     '''
     if no kwargs are given, will write None as object_mass and object_sfr_file.
-    see galaxy_input_dict()-
+    see galaxy_input_dict()
     '''
     input_pars = fileio.input_parameters(galaxy_input_dict())
     input_pars.add_params(kwargs)
@@ -197,86 +190,87 @@ def find_mag_num(file_mag, filter1):
 
 
 def galaxy_input_dict(photsys=None, filter1=None, object_mass=None,
-                      object_sfr_file=None, aringer=False):
+                      object_sfr_file=None, aringer=False, **kwargs):
     photom_dir = 'odfnew'
     if aringer is True:
         photom_dir += 'bern'
     file_mag = 'tab_mag_%s/tab_mag_%s.dat' % (photom_dir, photsys)
-    return {'coord_kind': 1,
-            'coord1': 0.0,
-            'coord2': 0.0,
-            'field_area': 1.0,
-            'kind_mag': 3,
-            'file_mag': file_mag,
-            'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys,
-            'kind_dustM': 1,
-            'file_dustM': 'tab_dust/tab_dust_dpmod60alox40_%s.dat' % photsys,
-            'kind_dustC': 1,
-            'file_dustC': 'tab_dust/tab_dust_AMCSIC15_%s.dat' % photsys,
-            'mag_num': find_mag_num(file_mag, filter1),
-            'mag_limit_val': 20,
-            'mag_resolution': 0.1,
-            'r_sun': 8500.0,
-            'z_sun': 24.2,
-            'file_imf': 'tab_imf/imf_chabrier_lognormal.dat',
-            'binary_kind': 0,
-            'binary_frac': 0.0,
-            'binary_mrinf': 0.7,
-            'binary_mrsup': 1.0,
-            'extinction_kind': 0,
-            'extinction_rho_sun': 0.00015,
-            'extinction_infty': 0.045756,
-            'extinction_infty_disp': 0.0,
-            'extinction_h_r': 100000.0,
-            'extinction_h_z': 110.0,
-            'thindisk_kind': 0,
-            'thindisk_rho_sun': 59.0,
-            'thindisk_h_r': 2800.0,
-            'thindisk_r_min': 0.0,
-            'thindisk_r_max': 15000.0,
-            'thindisk_h_z0': 95.0,
-            'thindisk_hz_tau0': 4400000000.0,
-            'thindisk_hz_alpha': 1.6666,
-            'thindisk_sfr_file': 'tab_sfr/file_sfr_thindisk_mod.dat',
-            'thindisk_sfr_mult_factorA': 0.8,
-            'thindisk_sfr_mult_factorB': 0.0,
-            'thickdisk_kind': 0,
-            'rho_thickdisk_sun': 0.0015,
-            'thickdisk_h_r': 2800.0,
-            'thickdisk_r_min': 0.0,
-            'thickdisk_r_max': 15000.0,
-            'thickdisk_h_z': 800.0,
-            'thickdisk_sfr_file': 'tab_sfr/file_sfr_thickdisk.dat',
-            'thickdisk_sfr_mult_factorA': 1.0,
-            'thickdisk_sfr_mult_factorB': 0.0,
-            'halo_kind': 0,
-            'halo_rho_sun': 0.00015,
-            'halo_r_eff': 2800.0,
-            'halo_q': 0.65,
-            'halo_sfr_file': 'tab_sfr/file_sfr_halo.dat',
-            'halo_sfr_mult_factorA': 1.0,
-            'halo_sfr_mult_factorB': 0.0,
-            'bulge_kind': 0,
-            'bulge_rho_central': 76.0,
-            'bulge_am': 1900.0,
-            'bulge_a0': 100.0,
-            'bulge_eta': 0.5,
-            'bulge_csi': 0.6,
-            'bulge_phi': 20.0,
-            'bulge_cutoffmass': 0.8,
-            'bulge_sfr_file': 'tab_sfr/file_sfr_bulge.dat',
-            'bulge_sfr_mult_factorA': 1.0,
-            'bulge_sfr_mult_factorB': 0.0,
-            'object_kind': 1,
-            'object_mass': object_mass,
-            'object_dist': 10.,
-            'object_avkind': 1,
-            'object_av': 0.0,
-            'object_cutoffmass': 0.8,
-            'object_sfr_file': object_sfr_file,
-            'object_sfr_mult_factorA': 1.0,
-            'object_sfr_mult_factorB': 0.0,
-            'output_file_type': 1}
+    default = dict({'coord_kind': 1,
+                    'coord1': 0.0,
+                    'coord2': 0.0,
+                    'field_area': 1.0,
+                    'kind_mag': 3,
+                    'file_mag': file_mag,
+                    'file_bcspec': 'bc_odfnew/%s/bc_cspec.dat' % photsys,
+                    'kind_dustM': 1,
+                    'file_dustM': 'tab_dust/tab_dust_dpmod60alox40_%s.dat' % photsys,
+                    'kind_dustC': 1,
+                    'file_dustC': 'tab_dust/tab_dust_AMCSIC15_%s.dat' % photsys,
+                    'mag_num': find_mag_num(file_mag, filter1),
+                    'mag_limit_val': 20,
+                    'mag_resolution': 0.1,
+                    'r_sun': 8500.0,
+                    'z_sun': 24.2,
+                    'file_imf': 'tab_imf/imf_chabrier_lognormal.dat',
+                    'binary_kind': 0,
+                    'binary_frac': 0.0,
+                    'binary_mrinf': 0.7,
+                    'binary_mrsup': 1.0,
+                    'extinction_kind': 0,
+                    'extinction_rho_sun': 0.00015,
+                    'extinction_infty': 0.045756,
+                    'extinction_infty_disp': 0.0,
+                    'extinction_h_r': 100000.0,
+                    'extinction_h_z': 110.0,
+                    'thindisk_kind': 0,
+                    'thindisk_rho_sun': 59.0,
+                    'thindisk_h_r': 2800.0,
+                    'thindisk_r_min': 0.0,
+                    'thindisk_r_max': 15000.0,
+                    'thindisk_h_z0': 95.0,
+                    'thindisk_hz_tau0': 4400000000.0,
+                    'thindisk_hz_alpha': 1.6666,
+                    'thindisk_sfr_file': 'tab_sfr/file_sfr_thindisk_mod.dat',
+                    'thindisk_sfr_mult_factorA': 0.8,
+                    'thindisk_sfr_mult_factorB': 0.0,
+                    'thickdisk_kind': 0,
+                    'rho_thickdisk_sun': 0.0015,
+                    'thickdisk_h_r': 2800.0,
+                    'thickdisk_r_min': 0.0,
+                    'thickdisk_r_max': 15000.0,
+                    'thickdisk_h_z': 800.0,
+                    'thickdisk_sfr_file': 'tab_sfr/file_sfr_thickdisk.dat',
+                    'thickdisk_sfr_mult_factorA': 1.0,
+                    'thickdisk_sfr_mult_factorB': 0.0,
+                    'halo_kind': 0,
+                    'halo_rho_sun': 0.00015,
+                    'halo_r_eff': 2800.0,
+                    'halo_q': 0.65,
+                    'halo_sfr_file': 'tab_sfr/file_sfr_halo.dat',
+                    'halo_sfr_mult_factorA': 1.0,
+                    'halo_sfr_mult_factorB': 0.0,
+                    'bulge_kind': 0,
+                    'bulge_rho_central': 76.0,
+                    'bulge_am': 1900.0,
+                    'bulge_a0': 100.0,
+                    'bulge_eta': 0.5,
+                    'bulge_csi': 0.6,
+                    'bulge_phi': 20.0,
+                    'bulge_cutoffmass': 0.8,
+                    'bulge_sfr_file': 'tab_sfr/file_sfr_bulge.dat',
+                    'bulge_sfr_mult_factorA': 1.0,
+                    'bulge_sfr_mult_factorB': 0.0,
+                    'object_kind': 1,
+                    'object_mass': object_mass,
+                    'object_dist': 10.,
+                    'object_avkind': 1,
+                    'object_av': 0.0,
+                    'object_cutoffmass': 0.8,
+                    'object_sfr_file': object_sfr_file,
+                    'object_sfr_mult_factorA': 1.0,
+                    'object_sfr_mult_factorB': 0.0,
+                    'output_file_type': 1}.items() + kwargs.items())
+    return default
 
 
 def galaxy_input_fmt():
@@ -287,7 +281,7 @@ def galaxy_input_fmt():
 %(file_bcspec)s
 %(kind_dustM)i %(file_dustM)s # kind_dustM, file_dustM
 %(kind_dustC)i %(file_dustC)s # kind_dustC, file_dustC
-%(mag_num)i %(mag_limit_val)i %(mag_resolution).1f # Magnitude: num, limiting value, resolution
+%(mag_num)i %(mag_limit_val).1f %(mag_resolution).1f # Magnitude: num, limiting value, resolution
 
 %(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)
 
@@ -503,6 +497,7 @@ class Trilegal_SFH(object):
         boost_z = 0.001
         boost_table = ''
 
+
 def find_photsys_number(photsys, filter1):
     '''
     grabs the index of the filter in the tab mag file for this photsys.
@@ -538,20 +533,20 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
             os.system('cp %s .' % cmd_input)
     cmd_input = os.path.split(cmd_input)[1]
 
-    logger.info('running trilegal...')
+    if loud:
+        print('running trilegal...')
 
     # trilegal 2.3 not working on my mac...
     if 'Linux' in os.uname():
         ver = 2.3
     else:
         ver = 2.2
-    cmd = 'code_%.1f/main -f %s -a -l %s %s' % (ver, cmd_input, galaxy_input,
-                                                output)
-
-    logger.debug(cmd)
+    cmd = 'code_%.1f/main -f %s -a -l %s %s > %s.scrn' % (ver, cmd_input,
+                                                          galaxy_input, output,
+                                                          output)
 
     if dry_run is True:
-        print cmd
+        print(cmd)
     else:
         try:
             retcode = subprocess.call(cmd, shell=True)
@@ -562,7 +557,8 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
         except OSError, err:
             print >> sys.stderr, 'TRILEGAL failed:', err
 
-    logger.info('done.')
+    if loud:
+        print('done.')
 
     if rmfiles is True:
         os.remove(cmd_input)
@@ -616,7 +612,7 @@ def get_loop_data(cmd_input_file, metallicity):
                                  filename.replace('isotrack/', ''))
     z, y, mh, files = read_isotrack_file(file_isotrack)
     if not metallicity in z:
-        logger.warning('%s: metallicity not found.' % get_loop_data.__name__)
+        print('warning %s: metallicity not found.' % get_loop_data.__name__)
 
     ptcri = [f[0] for f in files if str(metallicity) in f[0] and
              f[0].endswith('INT2')][0].replace('isotrack/', '')
@@ -634,56 +630,11 @@ def string_in_lines(lines):
                 print line, strs
 
 
-class IsoTrack2(object):
-    def __init__(self, filename):
-        self.read_ptcri2(filename)
-        self.base, self.name = os.path.split(filename)
-
-    def read_ptcri2(self, filename):
-        '''
-        header fmt:
-        2 # number of isochrones sets with same eeps. in this case 2 (could be has 1st TP vs only C_BUR)
-        1 18 # which isochrones have first eep set
-        19 26 # which isochrones have the second eep set
-        26 # number of isochrones
-        384 398 395 397 392 ... number of age steps in each isochrone
-        1.750000 1.800000 1.850000 ... masses of each isochrone
-        '''
-        lines = [l.strip() for l in open(filename, 'r').readlines()]
-        # file made to be read by C, going line by line for header info.
-        eep_sets = int(lines[0])
-        set_inds = np.array([map(int, lines[i + 1].split()) for i in range(eep_sets)])
-        set_inds[:, 0] -= 1
-        nsets = int(lines[eep_sets + 1])
-        len_tracks = np.array(lines[eep_sets + 2].split(), dtype=int)
-        masses = np.array(lines[eep_sets + 3].split(), dtype=float)
-        start_ind = eep_sets + 4
-
-        start_inds = np.cumsum(len_tracks) + start_ind
-        start_inds = np.insert(start_inds, 0, start_ind)
-        end_inds = start_inds - 1
-
-        # each one is too long
-        end_inds = end_inds[1:]
-        start_inds = start_inds[:-1]
-
-        self.eep_sets = eep_sets
-        self.nsets = nsets
-        self.masses = masses
-        for i in range(eep_sets):
-            set_start, set_end = set_inds[i]
-            isoc_strs = [lines[start_inds[j]: end_inds[j]] for j in np.arange(*set_inds[i])]
-            isoc_data = np.array([np.array([isoc_strs[j][k].split()[:3] for k in range(len(isoc_strs[j]))], dtype=float) for j in range(len(isoc_strs))])
-            isoc_masses = ['%.4f' % m for m in masses[np.arange(*set_inds[i])]]
-            self.__setattr__('iso_str%i' % (i + 1), {isoc_masses[j]: isoc_strs[j] for j in range(len(isoc_masses))})
-            self.__setattr__('iso_data%i' % (i + 1), {isoc_masses[j]: isoc_data[j] for j in range(len(isoc_masses))})
-# get the EEPS too?? I donno what you need the data for besides plotting...
-
-
 def read_leos_tracks(fname):
     data = np.genfromtxt(fname, usecols=(1,2,3,4,5),
                          names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
     return data.view(np.recarray)
+
 
 def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
             force=False):
@@ -698,7 +649,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
     mode 2: Write a sequence of isochrones in age
         option1s = filenames option2s = Z option3s = log age min, max, dt
         option4s = kinds of isocrhone table (probably want 5, with crit pts)
-    
+
     mode 3: Write a sequence of isochrones in age
         option1s = filenames option2s = age option3s = log zmin, max, dz
         option4s = kinds of isocrhone table (probably want 5, with crit pts)
@@ -708,7 +659,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
     '''
     import pexpect
     import time
-    
+
     if mode == 33:
         # 33 -> Prints a single interpolated track ?
         opt1 = 'Mass'
@@ -741,7 +692,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
     time.sleep(45)
     # the last option in cmd_2.3 is #35 ... could find some other string
     found = child.expect(['35', pexpect.EOF])
-    
+
     if found == 0:
         for i in range(len(option1s)):
             if os.path.isfile(fnames[i]) and not force:
@@ -761,7 +712,7 @@ def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
                 found = child.expect([opt4])
                 if found == 0:
                     child.send('%s\n' % option4s[i])
-                
+
         child.send('100000\n')
     else:
        import pdb; pdb.set_trace()
@@ -1013,5 +964,3 @@ class trilegal_sfh(object):
                    fmt='%.3f %g %.4f')
 
         print 'wrote %s' % filename
-
-
