@@ -618,7 +618,7 @@ def calcsfh_dict():
             'match_bg': ''}
 
 
-def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
+def make_calcsfh_param_file(pmfile, starpop=None, calcsfh_par_dict=None,
                             kwargs={}):
     '''
     to search over range of av: set Av Av2 dAv as kwargs.
@@ -637,8 +637,8 @@ def make_calcsfh_param_file(pmfile, galaxy=None, calcsfh_par_dict=None,
 
     '''
     calcsfh_pars = fileio.InputFile(default_dict=calcsfh_par_dict)
-    if galaxy is not None:
-        gal = galaxy
+    if starpop is not None:
+        gal = starpop
         # take attributes from galaxy object
         calcsfh_pars.update_params(gal.__dict__)
         calcsfh_pars.faint1 = gal.comp50mag1
