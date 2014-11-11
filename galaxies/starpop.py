@@ -428,21 +428,35 @@ class StarPop(object):
                        overwrite=overwrite)
         return
 
-def stars_in_region(mag2, mag_dim, mag_bright, mag1=None,
-                    verts=None, col_min=None, col_max=None):
+def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
+                    col_min=None, col_max=None):
     '''
-    counts stars in a region. Give mag2 and the mag2 limits.
-    If col_min, col_max, and verts are none, will just give all stars
-    between those mag limits (if no color info is used mag2 can actually
-    be mag1.)
-    If verts are given (Nx2) array, will use those, otherwise will build
-    a polygon from col_* and mag_* limits.
+    counts stars in a region of a CMD or LF
 
-    Returns indices inside.
+    Parameters
+    ----------
+    mag1, mag2 : array mag1 optional
+        arrays of star mags. If mag1 is supplied stars are assumed to be in a
+        CMD, not LF.
+
+    mag_dim, mag_bright : float, float
+        faint and bright limits of mag2.
+
+    col_min, col_max : float, float optional
+        color min and max of CMD box.
+
+    verts : array
+        array shape 2, of verticies of a CMD polygon to search within
+
+    Returns
+    -------
+    inds : array
+        indices of mag2 inside LF or
+        indices of mag1 and mag2 inside CMD box or verts
     '''
     if verts is None:
         if col_min is None:
-            inds = utils.between(mag2, mag_dim, mag_bright)
+            return utils.between(mag2, mag_dim, mag_bright)
         else:
             verts = np.array([[col_min, mag_dim],
                               [col_min, mag_bright],
@@ -450,8 +464,8 @@ def stars_in_region(mag2, mag_dim, mag_bright, mag1=None,
                               [col_max, mag_dim],
                               [col_min, mag_dim]])
 
-            points = np.column_stack((mag1 - mag2, mag2))
-            inds, = np.nonzero(utils.points_inside_poly(points, verts))
+    points = np.column_stack((mag1 - mag2, mag2))
+    inds, = np.nonzero(utils.points_inside_poly(points, verts))
     return inds
 
 

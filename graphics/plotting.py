@@ -142,7 +142,7 @@ def scatter_contour(x, y, levels=10, bins=40, threshold=50, log_counts=False,
         if xerr is not None:
             ax.errorbar(x, y, fmt=None, xerr=xerr, yerr=yerr, capsize=0,
                         ecolor='gray')
-    return fig, ax
+    return ax
 
 
 def latex_float(f, precision=0.2, delimiter=r'\times'):

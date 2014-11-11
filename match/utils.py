@@ -156,6 +156,15 @@ class MatchSFH(object):
         with open(filename, 'r') as infile:
             lines = infile.readlines()
 
+        if len(lines) == 0:
+            print('empty file: %s' % filename)
+            self.header = []
+            self.footer = []
+            self.bestfit = np.nan
+            self.match_out = ''
+            self.data = []
+            return
+
         self.header = lines[0:6]
         self.footer = lines[-1]
         bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
