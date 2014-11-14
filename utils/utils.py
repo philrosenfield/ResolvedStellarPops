@@ -8,7 +8,29 @@ __all__ = ['between', 'bin_up', 'brighter', 'closest_match', 'closest_match2d',
            'double_gaussian', 'extrap1d', 'find_peaks', 'gaussian',
            'get_verts', 'hist_it_up', 'inside', 'is_numeric', 'min_dist2d',
            'mp_double_gauss', 'points_inside_poly', 'smooth', 'spread_bins',
-           'count_uncert_ratio', 'sort_dict']
+           'count_uncert_ratio', 'sort_dict', 'add_data']
+
+def add_data(old_data, names, new_data):
+    '''
+    add columns to self.data, update self.key_dict
+    see numpy.lib.recfunctions.append_fields.__doc__
+
+    Parameters
+    ----------
+    names : string, sequence
+        String or sequence of strings corresponding to the names
+        of the new fields.
+    data : array or sequence of arrays
+        Array or sequence of arrays storing the fields to add to the base.
+
+    Returns
+    -------
+    header
+    '''
+    import numpy.lib.recfunctions as nlr
+    data = nlr.append_fields(old_data, names, new_data).data
+    data = data.view(np.recarray)
+    return data
 
 
 def sort_dict(dictionary):

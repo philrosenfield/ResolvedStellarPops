@@ -251,8 +251,6 @@ if __name__ == "__main__":
         from ResolvedStellarPops.match.utils import MatchSFH
         for sfh_file in sfh_files:
             msfh = MatchSFH(sfh_file)
-            try:
-                len(msfh.data)
-            except TypeError:
+            if len(msfh.data) == 0:
                 continue
             sfh_plot(msfh)

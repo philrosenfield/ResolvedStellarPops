@@ -264,9 +264,7 @@ class StarPop(object):
         -------
         header
         '''
-        import numpy.lib.recfunctions as nlr
-        data = nlr.append_fields(self.data, names, data).data
-        self.data = data.view(np.recarray)
+        self.data = utils.add_data(self.data, names, data)
 
         # update key_dict
         header = self.get_header()

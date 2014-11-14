@@ -1,4 +1,5 @@
 
+"""
 class f4_file(object):
     def __init__(self, filename):
         self.base, self.name = os.path.split(filename)
@@ -58,7 +59,7 @@ class f4_file(object):
         8-end_H:  composition as indicated, H HE3 etc.. at the H zone
         8-end_C:  composition as indicated, H HE3 etc.. at the C zone
         '''
-        '/Users/phil/research/BRratio/models/model_grid/PH_COV0.5_ENV0.50_Z0.01_Y0.2663/PH_COV0.5_ENV0.50_Z0.01_Y0.2663/Z0.01Y0.2663OUTA1.74_F4_M5.00'
+        #'/Users/phil/research/BRratio/models/model_grid/PH_COV0.5_ENV0.50_Z0.01_Y0.2663/PH_COV0.5_ENV0.50_Z0.01_Y0.2663/Z0.01Y0.2663OUTA1.74_F4_M5.00'
         #import copy
         #data = fileIO.readfile(filename, col_key_line=3)
         self.surface = fileIO.readfile(filename, col_key_line=3)[::3]
@@ -67,16 +68,4 @@ class f4_file(object):
         self.surface.dtype.names = tuple('Surface MODE ALTER Q_BOT QINTE TINTE B_SLX B_SLNU'.split()) + self.surface.dtype.names[8:]
         self.hburning.dtype.names = tuple('Hburning MODE SLX T_BOT QHEL THEL B_SLY B_SEG'.split()) + self.hburning.dtype.names[8:]
         self.center.dtype.names = tuple('Center CNO SLY RH_BOT LOG_L LOG_TE B_SLC HM_CHE'.split()) + self.center.dtype.names[8:]
-
-
-def verify_ptcri_file(ptcri_file, track_files):
-    ptcri =  critical_point.load_ptcri(ptcri_file)
-    tracks = [Track(t, min_lage=0) for t in track_files]
-    for track in tracks:
-        modes = ptcri.data_dict['M%.3f' % track.mass]
-        modes = ptcri.data_dict['M%.3f' % track.mass]
-        print track.mass
-        mmodes = modes[modes > 0]
-        print track.data.MODE[mmodes-2]
-        print np.sort(np.concatenate([np.nonzero(track.data.MODE == m)[0]
-                                        for m in mmodes]))
+"""
