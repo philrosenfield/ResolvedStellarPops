@@ -44,6 +44,34 @@ except ImportError:
             self.mass = mass
             self.eep_dict = dict(zip(eep_list, np.array(ieep)))
 
+class PadovaTrack(object):
+    """leo's trilegal track"""
+    def __init__(self, filename):
+        self.base, self.name = os.path.split(filename)
+        self.data = self.load_ptcri(filename)
+
+    def load_ptcri(self, fname):
+        header = 6
+        footer = 22
+        all_data = np.genfromtxt(fname, usecols=(0,1,2), skip_header=header,
+                                 skip_footer=footer,
+                                 names=['age', 'logl', 'logte'])
+        lines = open(fname, 'r').readlines()
+
+        inds, = np.nonzero(all_data['age'] == 0)
+        masses = np.array([lines[i+header].split('M=')[1].split()[0]
+                           for i in inds], dtype=float)
+
+        inds = np.append(inds, -1)
+        indss = [np.arange(inds[i], inds[i+1]) for i in range(len(inds)-1)]
+
+        track_dict = {}
+        for i, ind in enumerate(indss):
+            track_dict['M%.4f' % masses[i]] = all_data[ind]
+
+        self.all_data = all_data
+        self.track_dict = track_dict
+
 
 class PadovaIsoch(object):
     def __init__(self, ptcri_file):

@@ -4,7 +4,7 @@ This code calls padova_tracks which does three main things:
 1) Redefines some equivalent evolutionary points (EEPs) from PARSEC
 2) Interpolates the tracks so they all have the same number of points between
    defined EEPs.
-3) 
+3)
 '''
 from __future__ import print_function
 from copy import deepcopy
@@ -230,7 +230,8 @@ def initialize_inputs():
                   'overwrite_ptcri': True,
                   'overwrite_match': True,
                   'prepare_makemod': False,
-                  'track_diag_plot': False}
+                  'track_diag_plot': False,
+                  'hb_age_offset_fraction': 0.}
     return input_dict
 
 
@@ -278,7 +279,7 @@ def prepare_makemod(inputs):
     if imax == -1 and imin == 0:
         masses = umasses
     elif imax == -1:
-        masses = umasses[imin - 1::]    
+        masses = umasses[imin - 1::]
     else:
         masses = umasses[imin - 1: imax + 1]
 
@@ -351,4 +352,3 @@ if __name__ == '__main__':
         prepare_makemod(inp_obj)
 
     parsec2match(inp_obj, loud=loud)
-

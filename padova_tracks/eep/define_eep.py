@@ -16,6 +16,9 @@ inte_mass = 12.
 # from high mass and above find MS_BEG in this code
 high_mass = 19.
 
+# for low mass stars with no MS_TO listed, where to place it (and ms_tmin)
+max_age = 10e10
+
 class DefineEeps(object):
     '''
     Define the stages if not simply using Sandro's defaults.
@@ -132,9 +135,12 @@ class DefineEeps(object):
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
 
         if track.data.XCEN[track.sptcri[4]] < .6:
+            msg = 'overwrote Sandro for closer match to XCEN=0.6'
             track.info['MS_BEG'] = \
                 'Sandro\'s MS_BEG but could be wrong XCEN < 0.6, %.f' % \
                 track.data.XCEN[track.sptcri[4]]
+            better_msbeg = np.argmin(np.abs(0.6 - track.data.XCEN))
+            self.add_eep(track, 'MS_BEG', better_msbeg, message=msg)
         # if this is high mass or if Sandro's MS_BEG is wrong:
         if track.mass >= high_mass:
             #print('M=%.4f is high mass' % track.mass)
@@ -145,9 +151,16 @@ class DefineEeps(object):
             # no MSTO according to Sandro
             [self.add_eep(track, cp, 0, message='No MS_TO')
              for cp in self.ptcri.please_define]
+            ims_beg = track.iptcri[self.ptcri.get_ptcri_name('MS_BEG',
+                                                             sandro=False)]
+            ims_to = self.add_eep_with_age(track, 'MS_TO', max_age)
+            ims_tmin = self.add_eep_with_age(track, 'MS_TMIN', (max_age / 2.))
+            # it's possible that MS_BEG occurs after max_age / 2
+            # if that's the case, take the average age between ms_beg and ms_to
+            if ims_tmin <= ims_beg:
+                age = (track.data.AGE[ims_to] + track.data.AGE[ims_beg]) / 2.
+                ims_tmin = self.add_eep_with_age(track, 'MS_TMIN', age)
 
-            self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
-            self.add_eep_with_age(track, 'MS_TO', 13.7e9)
             return
 
         # Intermediate mass tracks
@@ -267,7 +280,7 @@ class DefineEeps(object):
         self.add_eep(track, 'RG_BMP1', rg_bmp1, message=msg)
         self.add_eep(track, 'RG_BMP2', rg_bmp2, message=msg)
         self.add_eep(track, 'RG_TIP', rg_tip, message=msg)
-    
+
         # there is a switch for high mass tracks in the add_cen_eeps and
         # add_quiesscent_he_eep functions. If the mass is higher than
         # high_mass the functions use MS_TO as the initial EEP for peak_finder.
@@ -760,12 +773,13 @@ class DefineEeps(object):
         iage = np.argmin(np.abs(track.data.AGE - age))
         age_diff = np.min(np.abs(track.data.AGE - age))
         msg = 'By AGE = %g and is %g' % (age, track.data.AGE[iage])
-        if (age_diff/age) > tol:
+        if (age_diff / age) > tol:
             print('possible bad age match for eep.')
             print('frac diff, mass, eep_name, age, final track age')
             print('%g' % (age_diff/age), track.mass, eep_name,
                   '%g' % age, '%g' % track.data.AGE[-1])
         self.add_eep(track, eep_name, iage, message=msg)
+        return iage
 
     def add_eep(self, track, eep_name, ind, hb=False, message='no info',
                 loud=False):
@@ -1008,12 +1022,12 @@ class DefineEeps(object):
 
         if parametric_interp is True use AGE with LOG_TE and LOG_L
            if linear is also False use log10 Age
-        
+
         Parameters
         ----------
         track: object
             rsp.padodv_tracks.Track object
-    
+
         inds : list
             segment of track to do the interpolation
 
@@ -1028,21 +1042,21 @@ class DefineEeps(object):
 
         xfunc, yfunc : string
             wih eval, function to operate on the xdata,ydata
-            eval('%s(data)' % func        
-        
+            eval('%s(data)' % func
+
         parafunc : string
             wih eval, function to operate on the parametric data
             eval('%s(paradata)' % parafunc
-        
+
         xcol, ycol, paracol : str, str, str
             xaxis column name, xaxis column name, column for parametric
             (probably LOG_TE, LOG_L, AGE)
-        
+
         Returns
         -------
         tckp : array
             an input to scipy.optimize.splev
-        
+
         step_size : float
             recommended stepsize to use for interpolated array
 
@@ -1145,10 +1159,10 @@ class DefineEeps(object):
         ----------
         track : object
             rsp.padova_tracks.Track object
-        
+
         ycen1 : str
             end EEP to look for beginning of He burning
-        
+
         start : str ['RG_TIP']
             start EEP to look for beginning of He burning
 
@@ -1199,7 +1213,7 @@ class InDevelopment(object):
         ''' wip: toward eleminating the use of Sandro's eeps '''
         for i in range(70):
             ind = [ farther(inds1, i, 5)]
-    
+
     def farther(arr, ind, dist):
         ''' wip: toward eleminating the use of Sandro's eeps '''
         return arr[np.nonzero(np.abs(arr - arr[ind]) > dist)[0]]
@@ -1218,7 +1232,7 @@ class InDevelopment(object):
             #if saved[i] == saved[i-1]:
             #    break
         return saved
-    
+
     def convective_core_test(self, track):
         '''
         only uses sandro's defs, so doesn't need load_critical_points
@@ -1403,4 +1417,3 @@ class InDevelopment(object):
 
             if np.min(np.diff(track.iptcri)) <= 1:
                 self.check_sandros_eeps(track)
-

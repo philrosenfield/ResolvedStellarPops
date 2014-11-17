@@ -148,7 +148,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 print('not overwriting %s' % outfile)
                 continue
             match_track = self.prepare_track(track, inputs.ptcri, outfile,
-                                             hb=inputs.hb)
+                                             hb=inputs.hb,
+                                             hb_age_offset_fraction=inputs.hb_age_offset_fraction)
 
             info_dict['M%.3f' % track.mass] = track.info
 
@@ -170,9 +171,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             dp_kw = {'hb': inputs.hb, 'plot_dir': inputs.plot_dir,
                      'pat_kw': {'ptcri': inputs.ptcri}, 'match_tracks': True}
             if inputs.hb:
-                ax = self.diag_plots(self.hbtracks, **dp_kw)
+                self.diag_plots(self.hbtracks, **dp_kw)
             else:
-                ax = self.diag_plots(self.tracks, **dp_kw)
+                self.diag_plots(self.tracks, **dp_kw)
 
         logfile = os.path.join(inputs.outfile_dir,
                                filename % self.prefix.lower())
@@ -190,7 +191,8 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                     out.write('%s: %s\n' % (k, v))
         return flag_dict
 
-    def prepare_track(self, track, ptcri, outfile, hb=False):
+    def prepare_track(self, track, ptcri, outfile, hb=False,
+                      hb_age_offset_fraction=0.):
         """
         Do MATCH interpolation, save files
 
@@ -202,8 +204,11 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         ptcri : padova_tracks.critical_point object
         outfile : str
             MATCH interpolated filename to write to
-        hb : bool
+        hb : bool default is False
             specification of a Horizontal Branch track
+        hb_age_offset_fraction : float default is 0.0
+            to artificially increase the age of the HB:
+            log_hb_age = log_hb_age * (1. + hb_age_offset_fraction)
 
         Returns
         -------
@@ -225,26 +230,20 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         track = ptcri.load_eeps(track, sandro=False)
         if track.flag is not None:
             return
-        ndefined_ptcri = len(np.nonzero(track.iptcri >= 0)[0])
+        nptcri = len(track.iptcri)
 
-        for i in range(ndefined_ptcri-1):
+        for i in range(nptcri-1):
+            if track.iptcri[i+1] == 0:
+                # The end of the track
+                break
             this_eep = ptcri.get_ptcri_name(i, **ptcri_kw)
             next_eep = ptcri.get_ptcri_name(i+1, **ptcri_kw)
 
             ithis_eep = track.iptcri[i]
             inext_eep = track.iptcri[i+1]
-            # interpolate from ithis_eep to inext_eep-1 but include
-            # final track point (ndefined_ptcri-1)
-
-            #if not i == ndefined_ptcri-2:
-            #    inext_eep -= 1
 
             mess = '%.3f %s=%i %s=%i' % (track.mass, this_eep, ithis_eep,
                                          next_eep, inext_eep)
-
-            if i != 0 and track.iptcri[i+1] == 0:
-                # The end of the track
-                break
 
             if ithis_eep == -1:
                 track.info[mess] = 'Interpolation failed. eep == -1'
@@ -259,6 +258,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
 
             lagenew, lnew, tenew = \
                 self.interpolate_along_track(track, inds, nticks[i], mess=mess)
+
+            if hb is True:
+                lagenew = lagenew * (1. + hb_age_offset_fraction)
 
             if type(lagenew) is int:
                 pdb.set_trace()
@@ -277,6 +279,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         mass_arr = np.repeat(track.mass, len(logL))
         eep = critical_point.Eep()
         if len(logL) not in [eep.nms, eep.nhb, eep.nlow, eep.ntot]:
+            print('array size is wrong')
             pdb.set_trace()
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
 
@@ -354,7 +357,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         Returns
         -------
         arrays of interpolated values for Log Age, Log L, Log Te
-        
+
         Note: a little rewrite could merge a bit of this into _interpolate
         """
         def call_interp1d(track, inds, nticks, mess=None):

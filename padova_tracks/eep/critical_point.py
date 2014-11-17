@@ -117,6 +117,10 @@ class critical_point(object):
         # the final column is a filename.
         all_keys = lines[begin + 1].replace('#', '').strip().split()
         col_keys = all_keys[3:-1]
+        try:
+            col_keys[col_keys.index('C_BUR')] = 'TPAGB'
+        except ValueError:
+            pass
         # ptcri file has filename as col #19 so skip the last column
         usecols = range(0, len(all_keys) - 1)
         # invalid_raise will skip the last rows that Sandro uses to fake the
