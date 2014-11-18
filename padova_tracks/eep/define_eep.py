@@ -88,11 +88,15 @@ class DefineEeps(object):
         pass
 
     def check_for_monotonic_increase(self, track):
-        negatives = np.nonzero(np.diff(track.iptcri[track.iptcri > 0]) <= 0)[0]
-        if len(negatives) > 0:
-            track.flag = 'p2m eeps not monotonically increasing'
-            if self.debug:
-                pdb.set_trace()
+        if track.flag is not None:
+            # issues are already documented.
+            pass
+        else:
+            negatives = np.nonzero(np.diff(track.iptcri[track.iptcri > 0]) <= 0)[0]
+            if len(negatives) > 0:
+                if self.debug:
+                    pdb.set_trace()
+                track.flag = 'p2m eeps not monotonically increasing'
 
     def define_eep_stages(self, track, hb=False, plot_dir=None,
                           diag_plot=True, agb=False, debug=False):
@@ -267,6 +271,16 @@ class DefineEeps(object):
 
         fin = len(track.data.LOG_L) - 1
         cens = self.add_cen_eeps(track, istart=ms_to)
+        # in some high mass tracks, YCEN drops very fast so
+        # YCEN=0.005's closest match will be at 0.000, in that case
+        # cens[-1] will occur at fin even though the track is complete.
+        # this is a little reset to push that YCEN=0.000 between
+        # YCEN_0.005 and fin
+        if track.data.YCEN[cens[-2]] == 0.0:
+            #import pdb; pdb.set_trace()
+            cens[-1] = (cens[-2] + fin) / 2
+            self.add_eep(track, 'YCEN_0.000', cens[-1],
+                         message='Reset between YCEN=0.005 and final point')
         heb_beg  = self.add_quiesscent_he_eep(track, cens[0], start=ms_to)
         self.add_eep(track, 'TPAGB', fin, message='Last track value')
 
@@ -295,7 +309,7 @@ class DefineEeps(object):
             self.check_for_monotonic_increase(track)
 
         if cens[-1] >= fin:
-            print('final point on track is cut before final ycen M=%.3f' % track.mass)
+            track.flag = 'final point on track is cut before final ycen M=%.3f' % track.mass
 
         return np.concatenate(([ms_beg, ms_tmin, ms_to, heb_beg], cens, [fin]))
 
@@ -334,7 +348,7 @@ class DefineEeps(object):
             # for monotonic increase, even if there is another flare up in
             # He burning, this limits the matching indices to begin at this
             # new eep index.
-            inds = np.arange(icen, len(track.data.YCEN))
+            inds = np.arange(icen + 1, len(track.data.YCEN))
             icens.append(icen)
         return icens
 

@@ -242,8 +242,8 @@ def prepare_makemod(inputs):
                             dtype=float))
 
     # limits of metallicity grid
-    modelIZmin = np.int(np.floor(np.log10(np.min(zs) / zsun) * 10))
-    modelIZmax = np.int(np.ceil(np.log10(np.max(zs) / zsun) * 10))
+    modelIZmin = np.int(np.ceil(np.log10(np.min(zs) / zsun) * 10))
+    modelIZmax = np.int(np.floor(np.log10(np.max(zs) / zsun) * 10))
 
     # metallicities
     zs_str = ','.join(np.array(zs, dtype=str))

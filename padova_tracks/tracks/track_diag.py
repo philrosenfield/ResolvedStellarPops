@@ -250,6 +250,10 @@ class TrackDiag(object):
         extras is the filename extra associated with each mass split
            length == mass_split + 1
         '''
+        poop = [t for t in tracks if t.flag is not None]
+        for t in poop:
+            print('diag_plots skipping M=%.3f: %s' % (t.mass, t.flag))
+        tracks = [t for t in tracks if t.flag is None]
         if hasattr(self, 'prefix'):
             prefix = self.prefix
         else:

@@ -5,7 +5,7 @@ from __future__ import print_function
 import os
 import numpy as np
 from ...utils import is_numeric
-from .fileio import *
+#from .fileio import *
 
 class Track(object):
     '''
@@ -260,15 +260,17 @@ class Track(object):
         usecols = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
         '''
         def find_thermal_pulses(ntp):
-            ''' find the thermal pulsations'''
+            '''find the thermal pulsations'''
             uniq_tps, uniq_inds = np.unique(ntp, return_index=True)
             tps = np.array([np.nonzero(ntp == u)[0] for u in uniq_tps])
             return tps
 
         def find_quiessent_points(tps, phi):
             '''
+            find the quiessent points
             The quiescent phase is the the max phase in each TP,
-            i.e., closest to 1'''
+            i.e., closest to 1
+            '''
             if tps.size == 1:
                 qpts = np.argmax(phi)
             else:
