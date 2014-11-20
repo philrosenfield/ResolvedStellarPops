@@ -2,6 +2,8 @@ from __future__ import print_function
 import os
 import numpy as np
 
+high_mass = 19.
+inte_mass = 12.
 
 class Eep(object):
     '''
@@ -43,7 +45,8 @@ class critical_point(object):
     which tells which critical points of Sandro's to ignore and which new
     ones to define. Definitions of new eeps are in the Track class.
     '''
-    def __init__(self, filename, sandro=True):
+    def __init__(self, filename, sandro=True, debug=False):
+        self.debug = debug
         self.base, self.name = os.path.split(filename)
         self.load_ptcri(filename, sandro=sandro)
         self.get_args_from_name(filename)
@@ -110,9 +113,18 @@ class critical_point(object):
         with open(filename, 'r') as f:
             lines = f.readlines()
 
+
         # the lines have the path name, and the path has F7.
         begin, = [i for i in range(len(lines)) if lines[i].startswith('#')
                   and 'F7' in lines[i]]
+
+        if sandro:
+            try:
+                self.fnames = [l.strip().split('../F7/')[1]
+                               for l in lines[(begin+2):]]
+            except IndexError:
+                self.fnames = [l.strip().split('../F7/')[1]
+                               for l in lines[(begin+2):-2]]
 
         # the final column is a filename.
         all_keys = lines[begin + 1].replace('#', '').strip().split()
@@ -153,7 +165,11 @@ class critical_point(object):
             # are no HB eeps in the ptcri files. Define them all here.
             self.please_define_hb = eep_obj.eep_list_hb
 
+
         self.eep = eep_obj
+        if sandro:
+            [self.check_ptcri(self.masses[i], data[i][3:].astype(int))
+             for i in range(len(data))]
 
     def load_eeps(self, track, sandro=True):
         '''load the eeps from the ptcri file'''
@@ -199,3 +215,81 @@ class critical_point(object):
                 f.write(linefmt % (i+1, track.mass, ptcri_str,
                                    os.path.join(track.base, track.name)))
         #print('wrote %s' % filename)
+
+    def check_ptcri(self, mass, arr):
+        ndefined = len(np.nonzero(arr > 0)[0])
+        needed = 15
+
+        if (mass > inte_mass) and (mass <= high_mass):
+            if ndefined != needed:
+                print('check_ptcri error: M%.3f does not have enough EEPs' % mass)
+                masses = np.array([f.split('F7_M')[1].replace('.PMS', '')
+                                   for f in self.fnames], dtype=float)
+                inds, = np.nonzero(mass == masses)
+                print('files in question:')
+                print(np.array(self.fnames)[inds])
+                for ind in inds:
+                    self.fix_ptcri(np.array(self.fnames)[ind])
+        #low_mass = [1.25, ]
+
+
+    def fix_ptcri(self, fname):
+        import matplotlib.pylab as plt
+        plt.ion()
+
+        from ..tracks import TrackDiag, Track
+        from ..eep.define_eep import DefineEeps
+
+        de = DefineEeps()
+        td = TrackDiag()
+
+        track_dir = self.base.replace('data', 'tracks')
+        track_file = os.path.join(track_dir, '/'.join(fname.split('/')[1:]))
+        track = self.load_eeps(Track(track_file))
+
+        nsptcri = len(self.sandro_eeps)
+        ntrack_sptcri = len(track.sptcri)
+
+        import pdb; pdb.set_trace()
+
+        ax = td.plot_sandro_ptcri(track, ptcri=self)
+
+        if ntrack_sptcri != nsptcri and track.mass >= inte_mass:
+            # fill any missing values with zero
+            track = self.load_eeps(track, sandro=False)
+            track.sptcri = np.append(track.sptcri, np.zeros(nsptcri - ntrack_sptcri, dtype=int))
+            track.iptcri = np.append(track.iptcri, np.zeros(len(self.eep.eep_list) -  len(track.iptcri), dtype=int))
+
+            # not sure what has failed in Sandro's code.
+            # but this is a quick way of estimating the rg eeps and then
+            # getting the right (after rg_minl is found)
+            fmt = 'guess %s: %i'
+            print(fmt % ('TPAGB', len(track.data)-1))
+            irgb = np.argmin(np.abs(track.data.YCEN - 0.1))
+            de.ptcri = self
+            de.add_eep(track, 'RG_TIP', irgb)
+            de.add_eep(track, 'RG_BMP1', irgb - 12)
+            de.add_eep(track, 'RG_BMP2', irgb - 8)
+            de.add_sg_rg_eeps(track)
+            inds = np.arange(track.iptcri[7], irgb)
+            ind = np.argmax(track.data.LOG_L[inds])
+            irgb = inds[ind]
+            msg = 'Reset to peak L after RG_MINL'
+            de.add_eep(track, 'RG_TIP', irgb, message=msg)
+            msg = 'Reset to 12 before RG_TIP'
+            de.add_eep(track, 'RG_BMP1', irgb - 12, message=msg)
+            msg = 'Reset to 8 before RG_TIP'
+            de.add_eep(track, 'RG_BMP2', irgb - 8, message=msg)
+
+            # for some reason Sandro doesn't always have complete data for
+            # inte_mass tracks what happens is NEAR_ZAM is missing.
+            # The hack is two-fold. One, go into the ptcri file and delete
+            # masses. Two, call MS_BEG sandro's NEAR_ZAM and don't use point_c
+            # instead use sandros MS_BEG, which is actually MS_TO
+            if len(track.sptcri) <= 11 and track.mass >= inte_mass:
+                self.add_eep(track, 'MS_BEG', track.sptcri[3],
+                             message='Using Sandro\'s NEAR_ZAM as MS_BEG')
+                inds = np.arange(track.sptcri[3], track.sptcri[4])
+
+        if len(track.sptcri) <= 11 and track.mass > inte_mass:
+                more_than_one = 'first'

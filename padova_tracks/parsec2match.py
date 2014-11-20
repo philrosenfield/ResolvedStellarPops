@@ -1,10 +1,9 @@
 '''
 Interpolate PARSEC tracks for use in MATCH.
-This code calls padova_tracks which does three main things:
+This code calls padova_tracks:
 1) Redefines some equivalent evolutionary points (EEPs) from PARSEC
 2) Interpolates the tracks so they all have the same number of points between
    defined EEPs.
-3)
 '''
 from __future__ import print_function
 from copy import deepcopy
@@ -17,6 +16,28 @@ from eep.define_eep import DefineEeps
 from eep.critical_point import critical_point, Eep
 from match import TracksForMatch
 from match import CheckMatchTracks
+
+def add_version_info(input_file):
+    """Copy the input file and add the git hash and time the run started."""
+    from time import localtime, strftime
+
+    # create info file with time of run
+    now = strftime("%Y-%m-%d %H:%M:%S", localtime())
+    fname = fileio.replace_ext(input_file, 'info')
+    with open(fname, 'w') as out:
+        out.write('parsec2match run started %s \n' % now)
+        out.write('ResolvedStellarPops git hash: ')
+
+    # the best way to get the git hash?
+    here = os.getcwd()
+    rsp_home = os.path.split(os.path.split(fileio.__file__)[0])[0]
+    os.chdir(rsp_home)
+    os.system('git rev-parse --short HEAD >> %s' % os.path.join(here, fname))
+    os.chdir(here)
+
+    # add the input file
+    os.system('cat %s >> %s' % (input_file, fname))
+    return
 
 def parsec2match(input_obj, loud=False):
     '''do an entire set and make the plots'''
@@ -150,9 +171,9 @@ def define_eeps(tfm, inputs):
     de = DefineEeps()
     crit_kw = {'plot_dir': inputs.plot_dir,
                'diag_plot': inputs.track_diag_plot,
-               'debug': inputs.debug}
+               'debug': inputs.debug,
+               'hb': inputs.hb}
 
-    crit_kw['hb'] = inputs.hb
     track_str = 'tracks'
     defined = inputs.ptcri.please_define
     filename = 'define_eeps_%s.log'
@@ -160,13 +181,12 @@ def define_eeps(tfm, inputs):
         track_str = 'hbtracks'
         defined = inputs.ptcri.please_define_hb
         filename = 'define_eeps_hb_%s.log'
-    # load critical points calles de.define_eep
+    # load critical points calls de.define_eep
     tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
               for track in tfm.__getattribute__(track_str)]
 
     # write log file
-    info_file = os.path.join(inputs.outfile_dir,
-                             filename % inputs.prefix.lower())
+    info_file = os.path.join(inputs.log_dir, filename % inputs.prefix.lower())
     with open(info_file, 'w') as out:
         for t in tracks:
             out.write('# %.3f\n' % t.mass)
@@ -183,8 +203,19 @@ def define_eeps(tfm, inputs):
 
 def set_outdirs(input_obj, prefix):
     '''
-    set up the directories for output and plotting
-    returns a copy of input_obj
+    set up and ensure the directories for output and plotting
+    diagnostic plots: tracks_dir/diag_plots/prefix
+    match output: tracks_dir/match/prefix
+    define_eep and match_interp logs: tracks_dir/logs/prefix
+    Parameters
+    ----------
+    input_obj : rsp.fileio.InputParameters object
+        must have attrs: tracks_dir, prefix, plot_dir, outfile_dir
+        the final two can be 'default'
+
+    Returns
+    -------
+    new_inputs : A copy of input_obj with plot_dir, log_dir, outfile_dir set
     '''
     new_inputs = deepcopy(input_obj)
     new_inputs.prefix = prefix
@@ -193,13 +224,16 @@ def set_outdirs(input_obj, prefix):
         new_inputs.plot_dir = os.path.join(input_obj.tracks_dir,
                                            'diag_plots',
                                            new_inputs.prefix)
-        fileio.ensure_dir(new_inputs.plot_dir)
 
     if input_obj.outfile_dir == 'default':
         new_inputs.outfile_dir = os.path.join(input_obj.tracks_dir,
                                               'match',
                                               new_inputs.prefix)
         fileio.ensure_dir(new_inputs.outfile_dir)
+        new_inputs.log_dir = os.path.join(input_obj.tracks_dir, 'logs')
+
+    for d in [new_inputs.plot_dir, new_inputs.outfile_dir, new_inputs.log_dir]:
+        fileio.ensure_dir(d)
 
     return new_inputs
 
@@ -231,7 +265,8 @@ def initialize_inputs():
                   'overwrite_match': True,
                   'prepare_makemod': False,
                   'track_diag_plot': False,
-                  'hb_age_offset_fraction': 0.}
+                  'hb_age_offset_fraction': 0.,
+                  'log_dir': os.getcwd()}
     return input_dict
 
 
@@ -280,6 +315,8 @@ def prepare_makemod(inputs):
         masses = umasses
     elif imax == -1:
         masses = umasses[imin - 1::]
+    elif imin ==0:
+        masses = umasses[imin: imax + 1]
     else:
         masses = umasses[imin - 1: imax + 1]
 
@@ -340,6 +377,7 @@ cd ..; make PARSEC; cd PARSEC; ./makemod
 
 if __name__ == '__main__':
     inp_obj = fileio.InputFile(sys.argv[1], default_dict=initialize_inputs())
+    add_version_info(sys.argv[1])
     loud = False
     if len(sys.argv) > 2:
         loud = True
@@ -351,4 +389,7 @@ if __name__ == '__main__':
     if inp_obj.prepare_makemod:
         prepare_makemod(inp_obj)
 
+    if inp_obj.hb:
+        parsec2match(inp_obj, loud=loud)
+        inp_obj.hb = False
     parsec2match(inp_obj, loud=loud)

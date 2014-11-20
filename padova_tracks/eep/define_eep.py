@@ -130,8 +130,6 @@ class DefineEeps(object):
             self.hb_eeps(track, diag_plot=diag_plot, plot_dir=plot_dir)
             return
 
-        #print('M=%.3f' % track.mass, end=' ')
-
         self.check_pms_beg(track)
 
         # initalize to zero
@@ -139,16 +137,16 @@ class DefineEeps(object):
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
 
         if track.data.XCEN[track.sptcri[4]] < .6:
-            msg = 'overwrote Sandro for closer match to XCEN=0.6'
             track.info['MS_BEG'] = \
                 'Sandro\'s MS_BEG but could be wrong XCEN < 0.6, %.f' % \
                 track.data.XCEN[track.sptcri[4]]
-            better_msbeg = np.argmin(np.abs(0.6 - track.data.XCEN))
-            self.add_eep(track, 'MS_BEG', better_msbeg, message=msg)
-        # if this is high mass or if Sandro's MS_BEG is wrong:
+            if track.mass <= low_mass:
+                self.add_ms_beg_eep(track)
+
         if track.mass >= high_mass:
             #print('M=%.4f is high mass' % track.mass)
-            return self.add_high_mass_eeps(track)
+            self.add_high_mass_eeps(track)
+            return
 
         # Low mass tracks
         if len(track.sptcri) <= 6:
@@ -157,13 +155,13 @@ class DefineEeps(object):
              for cp in self.ptcri.please_define]
             ims_beg = track.iptcri[self.ptcri.get_ptcri_name('MS_BEG',
                                                              sandro=False)]
-            ims_to = self.add_eep_with_age(track, 'MS_TO', max_age)
-            ims_tmin = self.add_eep_with_age(track, 'MS_TMIN', (max_age / 2.))
+            ims_to, age = self.add_eep_with_age(track, 'MS_TO', max_age)
+            ims_tmin, _ = self.add_eep_with_age(track, 'MS_TMIN', (age / 2.))
             # it's possible that MS_BEG occurs after max_age / 2
             # if that's the case, take the average age between ms_beg and ms_to
             if ims_tmin <= ims_beg:
                 age = (track.data.AGE[ims_to] + track.data.AGE[ims_beg]) / 2.
-                ims_tmin = self.add_eep_with_age(track, 'MS_TMIN', age)
+                ims_tmin, _ = self.add_eep_with_age(track, 'MS_TMIN', age)
 
             return
 
@@ -186,6 +184,12 @@ class DefineEeps(object):
 
         self.add_sg_rg_eeps(track)
         self.check_for_monotonic_increase(track)
+
+    def add_ms_beg_eep(self, track, xcen=0.6):
+        msg = 'overwrote Sandro for closer match to XCEN=%g' % xcen
+        imsbeg = np.argmin(np.abs(xcen - track.data.XCEN))
+        self.add_eep(track, 'MS_BEG', imsbeg, message=msg)
+        return imsbeg
 
     def hb_eeps(self, track, diag_plot=True, plot_dir=None):
         '''Call the HB EEP functions.'''
@@ -513,7 +517,6 @@ class DefineEeps(object):
         def delta_te_eeps(track, before, after):
             xdata = track.data.LOG_L
             return np.abs(np.diff((xdata[before], xdata[after])))
-
         inds = self.ptcri.inds_between_ptcris(track, 'MS_BEG', 'POINT_C',
                                               sandro=True)
 
@@ -605,7 +608,7 @@ class DefineEeps(object):
             self.add_eep(track, 'MS_TMIN', half_way,
                          message='Half way from MS_BEG to Fin')
             #self.add_eep_with_age(track, 'MS_TMIN', (13.7e9/2.))
-            self.add_eep_with_age(track, 'MS_TO', 13.7e9)
+            self.add_eep_with_age(track, 'MS_TO', max_age)
         return ms_tmin, ms_to
 
     def add_sg_rg_eeps(self, track):
@@ -619,40 +622,66 @@ class DefineEeps(object):
         This function calls add_sg_maxl_eep and add_rg_minl_eep in different
         ways to pull out the correct values of each.
         '''
+        def check_minl(imin_l, msto, track):
+            return [imin_l - msto < 50,
+                    imin_l == -1,
+                    (np.abs(imin_l - track.sptcri[7]) > 100),
+                    np.round(track.data.XCEN[imin_l], 4) > 0]
+
         eep2 = 'RG_BMP1'
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
 
+        more_than_one = 'last'
+
         # first shot, uses the last LOG_L min after the MS_TO before RG_BMP1
-        imin_l = self.add_rg_minl_eep(track, eep2=eep2)
+        imin_l = self.add_rg_minl_eep(track, eep2=eep2,
+                                      more_than_one=more_than_one)
 
-        # using sandro's rgbase as a guide, imin_l should be close.
-        if imin_l == -1 or (np.abs(imin_l - track.sptcri[7]) > 100):
+        more_than_ones = ['last', 'first', 'min of min']
+        i = 0
+        while True in check_minl(imin_l, msto, track):
             # try using the min of the LOG_L mins between MS_TO and RG_BMP1
-            imin_l = self.add_rg_minl_eep(track, more_than_one='min of min')
+            if i == 3:
+                break
+            imin_l = self.add_rg_minl_eep(track, more_than_one=more_than_ones[i])
+            i += 1
 
-        if imin_l == -1 or (imin_l - msto < 10):
+        i == 0
+        while True in check_minl(imin_l, msto, track):
             # ok, try to do SG_MAXL first, though typically the issues
             # in RG_MAXL are on the RG_BMP1 side ...
             # print('failed to find RG_MINL before SG_MAXL')
+            if i == 3:
+                break
             imax_l = self.add_sg_maxl_eep(track, eep2=eep2)
-            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
-        else:
+            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2,
+                                          more_than_one=more_than_ones[i])
+            i += 1
+
+        if True in check_minl(imin_l, msto, track):
+            imin_l = track.sptcri[7]
+            msg = 'Set RG_MINL to Sandro\'s RG_BASE'
+            self.add_eep(track, 'RG_MINL', imin_l, message=msg)
+
+        if not True in check_minl(imin_l, msto, track):
+            imin_l = track.sptcri[7]
+            msg = 'Set RG_MINL to Sandro\'s RG_BASE'
+            self.add_eep(track, 'RG_MINL', imin_l, message=msg)
             # find the SG_MAXL between MS_TO and RG_MINL
-            imax_l = self.add_sg_maxl_eep(track)
+
+        imax_l = self.add_sg_maxl_eep(track)
         # high mass, low z, have hard to find base of rg, but easier to find
         # sg_maxl. This flips the order of finding. Also an issue is if
         # the L min after the MS_TO is much easier to find than the RG Base.
         if imax_l <= 0:
             imax_l = self.add_sg_maxl_eep(track, eep2=eep2)
-            imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
+            #imin_l = self.add_rg_minl_eep(track, eep1='SG_MAXL', eep2=eep2)
 
         if imax_l == -1:
             self.check_for_monotonic_increase(track)
 
-        if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
-            imin_l = track.sptcri[7]
-            msg = 'Set RG_MINL to Sandro\'s RG_BASE'
-            self.add_eep(track, 'RG_MINL', imin_l, message=msg)
+        #if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
+
 
         return
 
@@ -685,7 +714,6 @@ class DefineEeps(object):
         min_l = self.peak_finder(track, 'LOG_L', eep1, eep2, **pf_kw)
         msg = '%s Min LOG_L between %s and %s' % (more_than_one, eep1, eep2)
         msg += ' with parametric interp'
-
         if min_l == -1 or track.mass < low_mass:
             # try without parametric interp and with less linear fit
             pf_kw.update({'parametric_interp': False, 'less_linear_fit': True})
@@ -736,7 +764,7 @@ class DefineEeps(object):
             max_l = np.argmin(np.abs(track.data.AGE - mean_age))
             msg = 'Set SG_MAXL to be mean age between MS_TO and RG_MINL'
             self.add_eep(track, 'SG_MAXL', max_l, message=msg)
-            self.check_for_monotonic_increase(track)
+            #self.check_for_monotonic_increase(track)
             return max_l
 
         extreme = 'max of max'
@@ -789,11 +817,11 @@ class DefineEeps(object):
         msg = 'By AGE = %g and is %g' % (age, track.data.AGE[iage])
         if (age_diff / age) > tol:
             print('possible bad age match for eep.')
-            print('frac diff, mass, eep_name, age, final track age')
+            print('frac diff mass eep_name age_attempted age_set')
             print('%g' % (age_diff/age), track.mass, eep_name,
-                  '%g' % age, '%g' % track.data.AGE[-1])
+                  '%g' % age, '%g' % track.data.AGE[iage])
         self.add_eep(track, eep_name, iage, message=msg)
-        return iage
+        return iage, track.data.AGE[iage]
 
     def add_eep(self, track, eep_name, ind, hb=False, message='no info',
                 loud=False):

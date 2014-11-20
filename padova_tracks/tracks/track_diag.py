@@ -139,7 +139,7 @@ def add_ptcris(track, between_ptcris, sandro=False):
 def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
                clean=False, sandro=False, cmd=False, convert_mag_kw={},
                norm='', arrows=False, yscale='linear', xscale='linear',
-               ptcri_inds=False, add_ptcris=False, between_ptcris=[0, -1],
+               ptcri_inds=False, ptcris=False, between_ptcris=[0, -1],
                add_mass=False):
     '''
     ainds is passed to annotate plot, and is to only plot a subset of crit
@@ -194,7 +194,7 @@ def plot_track(track, xcol, ycol, reverse='', ax=None, inds=None, plt_kw=None,
     if 'y' in reverse:
         ax.set_ylim(ax.get_ylim()[::-1])
 
-    if add_ptcris:
+    if ptcris:
         # very simple ... use annotate for the fancy boxes
         pinds = add_ptcris(track, between_ptcris, sandro=sandro)
         ax.plot(xdata[pinds], ydata[pinds], 'o', color='k')
@@ -400,10 +400,19 @@ class TrackDiag(object):
             fc = 'blue'
             iptcri = track.iptcri
         else:
+            ptcri = kwargs.get('ptcri')
+            assert ptcri is not None, 'Must pass Sandro\'s eeps via ptcri obj'
             fc = 'red'
             iptcri = track.sptcri
+            eep_list = ptcri.sandro_eeps
 
+        if len(ptcri_names) == 0:
+            # assume all
+            ptcri_names = eep_list
         pts = [eep_list.index(i) for i in ptcri_names]
+        if pts > len(iptcri):
+            #print('Warning: more ptcri names than values. Assuming they are in order!')
+            pts = pts[:len(iptcri)]
         # do not plot ptcri indices == 0, these are not defined!
         pinds = iptcri[pts][iptcri[pts] > 0]
         if inds is not None:
@@ -521,21 +530,25 @@ class TrackDiag(object):
             self.plot_sandro_ptcri(track, plot_dir=plot_dir)
         return axs
 
-    def plot_sandro_ptcri(self, track, plot_dir=None, ptcri=None):
-        ax = self.plot_track(track, 'LOG_TE', 'LOG_L', reverse='x',
+    def plot_sandro_ptcri(self, track, plot_dir=None, ptcri=None, hb=False):
+        x = 'LOG_TE'
+        y = 'LOG_L'
+        ax = self.plot_track(track, x, y, reverse='x',
                              inds=np.nonzero(track.data.AGE > 0.2)[0])
 
-        ax = self.plot_track(track, 'LOG_TE', 'LOG_L', ax=ax, annotate=True,
-                             sandro=True, ptcri=ptrci)
+        ax = self.annotate_plot(track, ax, x, y, hb=hb,
+                                sandro=True, ptcri=ptcri)
         title = 'M = %.3f Z = %.4f Y = %.4f' % (track.mass, track.Z, track.Y)
         ax.set_title(title, fontsize=20)
+        ax.set_xlabel((r'$%s$' % x).replace('_', r'\_'), fontsize=20)
+        ax.set_ylabel((r'$%s$' % y).replace('_', r'\_'), fontsize=20)
         figname = 'sandro_ptcri_Z%g_Y%g_M%.3f.png' % (track.Z, track.Y,
                                                       track.mass)
         if plot_dir is not None:
             figname = os.path.join(plot_dir, figname)
-        plt.savefig(figname)
-        plt.close()
-        return
+            plt.savefig(figname)
+            plt.close()
+        return ax
 
     def kippenhahn(self, track, col_keys=None, heb_only=True, ptcri=None,
                    four_tops=False, xscale='linear', between_ptcris=[0,-2],

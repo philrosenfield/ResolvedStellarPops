@@ -64,7 +64,8 @@ class InputParameters(object):
         return ""
 
 
-def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False):
+def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False,
+            loud=False):
     '''
     np.savetxt wrapper that adds header. Some versions of savetxt
     already allow this...
@@ -76,9 +77,10 @@ def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False):
                     header += '\n'
                 f.write(header)
             np.savetxt(f, data, fmt=fmt)
-        print('wrote', filename)
+        if loud:
+            print('wrote', filename)
     else:
-        print(' warning: %s exists, not overwriting' % filename)
+        print('error: %s exists, not overwriting' % filename)
     return
 
 class InputFile(object):

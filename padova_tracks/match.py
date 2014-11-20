@@ -2,6 +2,7 @@
 from __future__ import print_function
 import numpy as np
 import os
+from ..fileio import savetxt
 from eep import critical_point, DefineEeps
 from tracks import TrackSet
 from scipy.interpolate import splev
@@ -123,11 +124,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         if not inputs.hb:
             tracks = self.tracks
             filename = 'match_interp_%s.log'
-            lname = 'lines_check_%s.dat'
         else:
             tracks = self.hbtracks
             filename = 'match_interp_hb_%s.log'
-            lname = 'lines_check_hb_%s.dat'
 
         if inputs.outfile_dir is None or inputs.outfile_dir == 'default':
             inputs.outfile_dir = inputs.tracks_base
@@ -139,11 +138,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
             if track.flag is not None:
                 print('skipping track M=%.3f because of flag: %s' %
                       (track.mass, track.flag))
+                info_dict['M%.3f' % track.mass] = track.flag
                 continue
 
             # interpolate tracks for match
             outfile = os.path.join(inputs.outfile_dir, \
                         'match_%s.dat' % track.name.replace('.PMS', ''))
+
             if not inputs.overwrite_match and os.path.isfile(outfile):
                 print('not overwriting %s' % outfile)
                 continue
@@ -163,8 +164,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                       xcol=xcol, hb=inputs.hb,
                                       match_track=match_track)
 
-            self.write_line_check(os.path.join(inputs.outfile_dir,
-                                               lname % self.prefix.lower()))
             self.mtracks.append(match_track)
 
         if inputs.diag_plot:
@@ -174,22 +173,48 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                 self.diag_plots(self.hbtracks, **dp_kw)
             else:
                 self.diag_plots(self.tracks, **dp_kw)
-
-        logfile = os.path.join(inputs.outfile_dir,
-                               filename % self.prefix.lower())
-        with open(logfile, 'w') as out:
-            mass, info = zip(*sorted(info_dict.items(),
-                                     key=lambda (k, v): (v, k)))
-            for m, d in zip(mass, info):
-                try:
-                    sorted_keys, vals = zip(*sorted(d.items(), \
-                                                    key=lambda (k, v): (v, k)))
-                except ValueError:
-                    continue
-                out.write('# %s\n' % m)
-                for k, v in  zip(sorted_keys, vals):
-                    out.write('%s: %s\n' % (k, v))
+        logfile = os.path.join(inputs.log_dir, filename % self.prefix.lower())
+        self.write_log(logfile, info_dict)
         return flag_dict
+
+    def write_log(self, logfile, info_dict):
+        """write interpolation dictionary to file"""
+        def sortbyval(d):
+            """sortes keys and values of dict by values"""
+            keys, vals = zip(*d.items())
+            mkeys = np.array([k.replace('M', '') for k in d.keys()], dtype=float)
+            ikeys = np.argsort(mkeys)
+            skeys = np.array(keys)[ikeys]
+            svals = np.array(vals)[ikeys]
+            return skeys, svals
+
+        def sortbyeep(d, eep):
+            keys, vals = zip(*d.items())
+            all_inds = np.arange(len(keys))
+            inds = np.argsort([eep.eep_list.index(k) for k in keys
+                               if k in eep.eep_list])
+            not_eep = [i for i in all_inds if i not in inds]
+            if len(not_eep) > 0:
+                inds = np.concatenate([inds, not_eep])
+            skeys = np.array(keys)[inds]
+            svals = np.array(vals)[inds]
+            return skeys, svals
+
+        eep = critical_point.Eep()
+        with open(logfile, 'w') as out:
+            # sort by mass
+            mass, info = sortbyval(info_dict)
+            for m, d in zip(mass, info):
+                out.write('# %s\n' % m)
+                try:
+                    # sort by EEP
+                    keys, vals = sortbyeep(d, eep)
+                except AttributeError:
+                    out.write('%s\n' % d)
+                    continue
+                for k, v in zip(keys, vals):
+                    out.write('%s: %s\n' % (k, v))
+        return
 
     def prepare_track(self, track, ptcri, outfile, hb=False,
                       hb_age_offset_fraction=0.):
@@ -280,48 +305,13 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         eep = critical_point.Eep()
         if len(logL) not in [eep.nms, eep.nhb, eep.nlow, eep.ntot]:
             print('array size is wrong')
-            pdb.set_trace()
+            if self.debug:
+                pdb.set_trace()
+
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
-
-        with open(outfile, 'w') as f:
-            f.write(header)
-            np.savetxt(f, to_write, fmt='%.8f')
-
-        self.add_lines_check(outfile)
-        #print('wrote %s' % outfile)
+        savetxt(outfile, to_write, header=header, fmt='%.8f',
+                overwrite=True)
         return Track(outfile, track_data=to_write, match=True, hb=hb)
-
-    def add_lines_check(self, outfile):
-        """
-        add the number of lines, z, y, and mass of the the match interpolated
-        file
-        """
-        fmt = '%i %g %g %.3f %s\n'
-        if not hasattr(self, 'lines_check'):
-            self.lines_check = '# Nlines Z Y Mass TrackType\n'
-
-        fname = os.path.split(outfile)[1]
-        zymlt, _, mext = fname.replace('match_', '').split('_')
-        z, y = zymlt.split('Y')
-        z = float(z.replace('Z', ''))
-        y = float(y.replace('Y', '').split('OUT')[0])
-        m = float('.'.join(mext.replace('M', '').split('.')[:2]))
-        nlines = len(np.loadtxt(outfile))
-        extra = 'PMS'
-        if 'HB' in mext:
-            extra = 'HB'
-
-        eep = critical_point.Eep()
-        if nlines not in [eep.nms, eep.nhb, eep.nlow, eep.ntot]:
-            print('Match interpolation failed near %s')
-            print(fmt.replace('\n', '') % (nlines, z, y, m, extra))
-
-        self.lines_check += fmt % (nlines, z, y, m, extra)
-
-    def write_line_check(self, filename):
-        """write self.lines_check to filename"""
-        with open(filename, 'w') as f:
-            f.write(self.lines_check)
 
     def interpolate_along_track(self, track, inds, nticks, mess=None):
         """
