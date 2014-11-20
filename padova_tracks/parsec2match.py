@@ -290,13 +290,25 @@ def prepare_makemod(inputs):
 
     all_masses = np.array([])
     # masses N x len(zs) array
+    # guess for limits of mbol, log_te grid
+    mod_l0 = 1.0
+    mod_l1 = 1.0
+    mod_t0 = 4.0
+    mod_t1 = 4.0
     for p in prefixs:
         this_dir = os.path.join(inputs.tracks_dir, p)
         track_names = fileio.get_files(this_dir, '*.PMS')
         masses = np.array([os.path.split(t)[1].split('M')[1].replace('.P', '')
                            for t in track_names], dtype=float)
         all_masses = np.append(all_masses, masses)
-
+        this_dir = os.path.join(inputs.tracks_dir, 'match', p)
+        track_names = fileio.get_files(this_dir, '*.dat')
+        for t in track_names:
+            data = np.genfromtxt(t, names=['logte', 'mbol'], usecols=(2,3))
+            mod_t0 = np.min([mod_t0, np.min(data['logte'])])
+            mod_t1 = np.max([mod_t1, np.min(data['logte'])])
+            mod_l0 = np.min([mod_l0, np.min(data['mbol'])])
+            mod_l1 = np.max([mod_l1, np.min(data['mbol'])])
     # find a common low and high mass at all Z.
     umasses = np.sort(np.unique(all_masses))
     min_mass = umasses[0]
@@ -333,10 +345,20 @@ def prepare_makemod(inputs):
              'zs_str': zs_str,
              'modelIZmax': modelIZmax,
              'modelIZmin': modelIZmin,
-             'zsun': zsun}
+             'zsun': zsun,
+             'mod_l0': mod_l0,
+             'mod_l1': mod_l1,
+             'mod_t0': mod_t0,
+             'mod_t1': mod_t1}
+
     fname = 'makemod_%s_%s.txt' % (inputs.tracks_dir.split('/')[-2], p.split('_Z')[0])
     with open(fname, 'w') as out:
         out.write(makemod_fmt() % mdict)
+        out.write('\nmay need to adjust for rounding error:\n')
+        out.write(''.join(('mod_l0: %.4f \n' % mod_l0,
+                           'mod_l1: %.4f \n' % mod_l1,
+                           'mod_t0: %.4f \n' % mod_t0,
+                           'mod_t1: %.4f \n' % mod_t1)))
 
 def makemod_fmt():
     return """
@@ -356,10 +378,10 @@ static const int modelIZmax = %(modelIZmax)i;
 static const int NHRD=3;
 
 // range of Mbol and logTeff
-static const double MOD_L0 = -8.0;
-static const double MOD_LF = 13.0;
-static const double MOD_T0 = 3.30;
-static const double MOD_TF = 5.00;
+static const double MOD_L0 = %(mod_l0).2f;
+static const double MOD_LF = %(mod_l1).2f;
+static const double MOD_T0 = %(mod_t0).2f;
+static const double MOD_TF = %(mod_t1).2f;
 
 static const int ML0 = 9; // number of mass loss steps
 //static const int ML0 = 0; // number of mass loss steps
@@ -371,7 +393,11 @@ static const int NPT_MS = %(npt_ms)i; // MS tracks points
 static const int NPT_TR = %(npt_tr)i; // transition MS->HB points
 static const int NPT_HB = %(npt_hb)i; // HB points
 
+--------------------------
 cd ..; make PARSEC; cd PARSEC; ./makemod
+Move current data into a safe place
+Remember there are two instances of filename formats hard coded, after
+that the value for mass is found by a character offset.
 """
 
 
@@ -390,6 +416,9 @@ if __name__ == '__main__':
         prepare_makemod(inp_obj)
 
     if inp_obj.hb:
+        prefixs = inp_obj.prefixs
         parsec2match(inp_obj, loud=loud)
         inp_obj.hb = False
+        inp_obj.prefixs = prefixs
+
     parsec2match(inp_obj, loud=loud)

@@ -107,15 +107,14 @@ class DefineEeps(object):
         ----------
         track : object
             rsp.padova_track.Track object
-
         hb : bool [False]
-            is track and HB track
+            track is an HB track
         plot_dir : str
             loction to put plots (if diag_plot)
         diag_plot : bool
             make diagnostic plots
         agb : bool
-            is track an AGB track
+            track is an AGB track
         """
         self.debug = debug
         track.info = {}
@@ -815,11 +814,11 @@ class DefineEeps(object):
         iage = np.argmin(np.abs(track.data.AGE - age))
         age_diff = np.min(np.abs(track.data.AGE - age))
         msg = 'By AGE = %g and is %g' % (age, track.data.AGE[iage])
-        if (age_diff / age) > tol:
-            print('possible bad age match for eep.')
-            print('frac diff mass eep_name age_attempted age_set')
-            print('%g' % (age_diff/age), track.mass, eep_name,
-                  '%g' % age, '%g' % track.data.AGE[iage])
+        #if (age_diff / age) > tol:
+        #    print('possible bad age match for eep.')
+        #    print('frac diff mass eep_name age_attempted age_set')
+        #    print('%g' % (age_diff/age), track.mass, eep_name,
+        #          '%g' % age, '%g' % track.data.AGE[iage])
         self.add_eep(track, eep_name, iage, message=msg)
         return iage, track.data.AGE[iage]
 
