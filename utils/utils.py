@@ -1,31 +1,35 @@
-""" Missing documentation """
+""" General untilities used throughout the package """
 from __future__ import print_function
 import numpy as np
-from scipy.interpolate import interp1d
-from matplotlib.path import Path
 
-__all__ = ['between', 'bin_up', 'brighter', 'closest_match', 'closest_match2d',
-           'double_gaussian', 'extrap1d', 'find_peaks', 'gaussian',
-           'get_verts', 'hist_it_up', 'inside', 'is_numeric', 'min_dist2d',
-           'mp_double_gauss', 'points_inside_poly', 'smooth', 'spread_bins',
-           'count_uncert_ratio', 'sort_dict', 'add_data']
+__all__ = ['add_data', 'count_uncert_ratio', 'between', 'brighter',
+           'closest_match', 'closest_match2d', 'double_gaussian', 'extrap1d',
+           'find_peaks', 'gaussian', 'get_verts', 'is_numeric', 'min_dist2d',
+           'mp_double_gauss', 'points_inside_poly', 'smooth', 'sort_dict']
 
 def add_data(old_data, names, new_data):
     '''
+    use with Starpop, Track, or any object with data attribute that is a
+    np.recarray
+
     add columns to self.data, update self.key_dict
     see numpy.lib.recfunctions.append_fields.__doc__
 
     Parameters
     ----------
+    old_data : recarray
+        original data to add columns to
+
+    new_data : array or sequence of arrays
+        new columns to add to old_data
+
     names : string, sequence
         String or sequence of strings corresponding to the names
-        of the new fields.
-    data : array or sequence of arrays
-        Array or sequence of arrays storing the fields to add to the base.
+        of the new_data.
 
     Returns
     -------
-    header
+    array with old_data and new_data
     '''
     import numpy.lib.recfunctions as nlr
     data = nlr.append_fields(old_data, names, new_data).data
@@ -35,7 +39,7 @@ def add_data(old_data, names, new_data):
 
 def sort_dict(dictionary):
     ''' zip(*sorted(dictionary.items(), key=lambda(k,v):(v,k))) '''
-    return zip(*sorted(dictionary.items(), key=lambda(k,v):(v,k)))
+    return zip(*sorted(dictionary.items(), key=lambda(k,v): (v,k)))
 
 
 def count_uncert_ratio(numerator, denominator):
@@ -47,49 +51,12 @@ def count_uncert_ratio(numerator, denominator):
 
 def points_inside_poly(points, all_verts):
     """ Proxy to the correct way with mpl """
+    from matplotlib.path import Path
     return Path(all_verts).contains_points(points)
 
 
-def hist_it_up(mag2, res=0.1, threash=10):
-    # do fine binning and hist
-    bins = np.arange(np.nanmin(mag2), np.nanmax(mag2), res)
-    hist = np.histogram(mag2, bins=bins)[0]
-    # drop the too fine bins
-    binds = spread_bins(hist, threash=threash)
-    # return the hist, bins.
-    if len(binds) == 0:
-        binds = np.arange(len(bins))
-    return np.histogram(mag2, bins=bins[binds])
-
-
-def spread_bins(hist, threash=10):
-    '''
-    goes through in index order of hist and returns indices such that
-    each bin will add to at least threash.
-    Returns the indices of the new bins to use (should then re-hist)
-    ex:
-    bins is something set that works well for large densities
-    h = np.histogram(mag2, bins=bins)[0]
-    binds = spread_bins(h)
-    hist, bins = np.histogram(mag2, bins=bins[binds])
-    '''
-    b = []
-    i = 1
-    j = 0
-    while i < len(hist):
-        while np.sum(hist[j:i]) < threash:
-            i += 1
-            #print j, i, len(hist)
-            if i > len(hist):
-                break
-        j = i
-        b.append(j)
-    return np.array(b[:-1])
-
-
 def brighter(mag2, trgb, inds=None):
-    ''' number of stars brighter than trgb, make sure mag2 is
-        the same filter as trgb!'''
+    ''' Indices of mag2 or mag2[inds] brighter (<) than trgb'''
     i, = np.nonzero(mag2 < trgb)
     if inds is not None:
         i = np.intersect1d(i, inds)
@@ -98,11 +65,23 @@ def brighter(mag2, trgb, inds=None):
 
 def extrap1d(x, y, xout_arr):
     '''
-    linear extapolation from interp1d class, a way around bounds_error.
+    linear extapolation from interp1d class with a way around bounds_error.
     Adapted from:
     http://stackoverflow.com/questions/2745329/how-to-make-scipy-interpolate-give-an-extrapolated-result-beyond-the-input-range
-    Returns the interpolator class and yout_arr
+
+    Parameters
+    ----------
+    x, y : arrays
+        values to interpolate
+
+    xout_arr : array
+        x array to extrapolate to
+
+    Returns
+    -------
+    f, yo : interpolator class and extrapolated y array
     '''
+    from scipy.interpolate import interp1d
     # Interpolator class
     f = interp1d(x, y)
     xo = xout_arr
@@ -126,8 +105,22 @@ def extrap1d(x, y, xout_arr):
 
 def find_peaks(arr):
     '''
+    find maxs and mins of an array
     from
     http://stackoverflow.com/questions/4624970/finding-local-maxima-minima-with-numpy-in-a-1d-numpy-array
+    Parameters
+    ----------
+    arr : array
+        input array to find maxs and mins
+
+    Returns
+    -------
+    turning_points : dict
+        keys:
+        maxima_number: int, how many maxima in arr
+        minima_number: int, how many minima in arr
+        maxima_locations: list, indicies of maxima
+        minima_locations: list, indicies of minima
     '''
     gradients = np.diff(arr)
     #print gradients
@@ -159,7 +152,20 @@ def find_peaks(arr):
 
 
 def min_dist2d(xpoint, ypoint, xarr, yarr):
-    '''index and distance of point in [xarr, yarr] nearest to [xpoint, ypoint]'''
+    '''
+    index and distance of point in [xarr, yarr] nearest to [xpoint, ypoint]
+
+    Parameters
+    ----------
+    xpoint, ypoint : floats
+
+    xarr, yarr : arrays
+
+    Returns
+    -------
+    ind, dist : int, float
+        index of xarr, arr and distance
+    '''
     dist = np.sqrt((xarr - xpoint) ** 2 + (yarr - ypoint) ** 2)
     return np.argmin(dist), np.min(dist)
 
@@ -170,30 +176,27 @@ def closest_match2d(ind, x1, y1, x2, y2, normed=False):
     by minimizing the radius of a circle.
     '''
     if normed is True:
-        dist = np.sqrt((x1 / np.max(x1) - x2[ind] / np.max(x2)) ** 2 + (y1 / np.max(y1) - y2[ind] / np.max(y2)) ** 2)
+        dist = np.sqrt((x1 / np.max(x1) - x2[ind] / np.max(x2)) ** 2 + \
+                       (y1 / np.max(y1) - y2[ind] / np.max(y2)) ** 2)
     else:
         dist = np.sqrt((x1 - x2[ind]) ** 2 + (y1 - y2[ind]) ** 2)
     return np.argmin(dist), np.min(dist)
 
 
-def closest_match(num, somearray):
-    '''return closest index and its difference of sumarray to num '''
+def closest_match(num, arr):
+    '''index and difference of closet point of arr to num'''
     index = -1
-    somearray = np.nan_to_num(somearray)
-    difference = np.abs(num - somearray[0])
-    for i in range(len(somearray)):
-        if difference > np.abs(num - somearray[i]):
-            difference = np.abs(num - somearray[i])
+    arr = np.nan_to_num(arr)
+    difference = np.abs(num - arr[0])
+    for i in range(len(arr)):
+        if difference > np.abs(num - arr[i]):
+            difference = np.abs(num - arr[i])
             index = i
     return index, difference
 
 
 def between(arr, mdim, mbrt, inds=None):
-    '''
-    return indices between two floats, mdim and mbrt. A quick check exists so
-    this will work with regular numbers, not just stupid magnitudes.
-    if inds, will return intersection of between and inds
-    '''
+    '''indices of arr or arr[inds] between mdim and mbrt'''
     if mdim < mbrt:
         mtmp = mbrt
         mbrt = mdim
@@ -204,32 +207,29 @@ def between(arr, mdim, mbrt, inds=None):
     return i
 
 
-def inside(x, y, u, v, verts=False, get_verts_args={}):
-    ''' return the indices of u, v that are within the boundries of x, y. '''
-    if not verts:
-        verts = get_verts(x, y, **get_verts_args)
-    else:
-        verts = np.column_stack((x, y))
-    points = np.column_stack((u, v))
-    mask = points_inside_poly(points, verts)
-    ind, = np.nonzero(mask)
-    return ind
-
-
-def get_verts(x, y, **kwargs):
+def get_verts(x, y, dx=None, dy=None, nbinsx=10, nbinsy=10, smooth=False):
     '''
     simple edge detection returns n, 2 array
-    '''
-    dx = kwargs.get('dx')
-    dy = kwargs.get('dy')
-    nbinsx = kwargs.get('nbinsx', 10)
-    nbinsy = kwargs.get('nbinsy', 10)
-    smooth = kwargs.get('smooth')
+    Parameters
+    ----------
+    x, y : arrays
+        x,y points
 
-    if smooth is None:
-        smooth = 0
-    else:
-        smooth = 1
+    dx, dy : floats
+        bin size in each direction of grid to draw verts
+
+    nbinsx, nbinsy : ints
+        number of bins in each grid direction to draw verts
+
+    smooth : bool
+        in each bin, use the average +/- 3 sigma for x values of verts instead
+        of the min and max
+
+    Returns
+    -------
+    verts : 2d array
+        verticies of x, y
+    '''
     ymin = y.min()
     ymax = y.max()
     xmin = x.min()
@@ -238,8 +238,7 @@ def get_verts(x, y, **kwargs):
     if dx is None and dy is None:
         dx = (xmax - xmin) / nbinsx
         dy = (ymax - ymin) / nbinsy
-
-    if nbinsx is None and nbinsy is None:
+    else:
         nbinsy = (ymax - ymin) / dy
         nbinsx = (xmax - xmin) / dx
 
@@ -252,7 +251,7 @@ def get_verts(x, y, **kwargs):
         # counter intuitive because I'm dealing with mags...
         ind = np.nonzero((y > yinner) & (y < youter))[0]
         if len(ind) > 0:
-            if smooth == 1:
+            if smooth is True:
                 min_x.append(np.average(x[ind]) - 3. * np.std(x[ind]))
                 max_x.append(np.average(x[ind]) + 3. * np.std(x[ind]))
                 ymid.append((yinner + youter) / 2.)
@@ -281,7 +280,7 @@ def get_verts(x, y, **kwargs):
 
 def is_numeric(lit):
     """
-    Return value of numeric literal string or ValueError exception
+    value of numeric: literal, string, int, float, hex, binary
     From http://rosettacode.org/wiki/Determine_if_a_string_is_numeric#Python
     """
     # Empty String
@@ -319,48 +318,6 @@ def is_numeric(lit):
     return lit
 
 
-def bin_up(x, y, nbinsx=None, nbinsy=None, dx=None, dy=None, **kwargs):
-    """
-    Adapted from contour_plus writen by Oliver Fraser.
-    Commented out a means to bin up by setting dx, dy. I found it more useful
-    to choose the number of bins in the x and y direction (nbinsx, nbinsy)
-
-    # xrange = np.arange(xmin, xmax, dx)
-    # yrange = np.arange(ymin, ymax, dy)
-    # nbinsx = xrange.shape[0]
-    # nbinsy = yrange.shape[0]
-
-    Returns Z, xrange, yrange
-    """
-    npts = len(x)
-    xmin = float(x.min())  # cast these for matplotlib's w/o np support
-    xmax = float(x.max())
-    ymin = float(y.min())
-    ymax = float(y.max())
-    if nbinsx is None:
-        nbinsx = (xmax - xmin) / dx
-    if nbinsy is None:
-        nbinsy = (ymax - ymin) / dy
-    if dx is None:
-        dx = (xmax - xmin) / nbinsx
-    if dy is None:
-        dy = (ymax - ymin) / nbinsy
-
-    xrange = kwargs.get('xrange', np.linspace(xmin, xmax, nbinsx))
-    yrange = kwargs.get('yrange', np.linspace(ymin, ymax, nbinsy))
-    Z = np.zeros((nbinsy, nbinsx))
-    xbin = np.zeros(npts)
-    ybin = np.zeros(npts)
-    # assign each point to a bin
-    for i in range(npts):
-        xbin[i] = min(int((x[i] - xmin) / dx), nbinsx - 1)
-        ybin[i] = min(int((y[i] - ymin) / dy), nbinsy - 1)
-        # and count how many are in each bin
-        Z[ybin[i]][xbin[i]] += 1
-
-    return Z, xrange, yrange
-
-
 def smooth(x, window_len=11, window='hanning'):
     """
     taken from http://www.scipy.org/Cookbook/SignalSmooth
@@ -371,27 +328,31 @@ def smooth(x, window_len=11, window='hanning'):
     (with the window size) in both ends so that transient parts are minimized
     in the begining and end part of the output signal.
 
-    input:
-        x: the input signal
-        window_len: the dimension of the smoothing window; should be an odd integer
-        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-            flat window will produce a moving average smoothing.
+    Parameters
+    ----------
+    x : array
+        the input signal
+    window_len : int
+        the dimension of the smoothing window; should be an odd integer
+    window : str
+        the type of window from 'flat', 'hanning', 'hamming', 'bartlett',
+            'blackman'
+        flat window will produce a moving average smoothing.
 
-    output:
+    Returns:
+    y : array
         the smoothed signal
 
-    example:
-
+    Example
+    -------
     >>> t = np.linspace(-2, 2, 0.1)
     >>> x = np.sin(t) + np.random.randn(len(t)) * 0.1
     >>> y = smooth(x)
 
-    see also:
-
+    See Also
+    --------
     np.hanning, np.hamming, np.bartlett, np.blackman, np.convolve
     scipy.signal.lfilter
-
-    TODO: the window parameter could be the window itself if an array instead of a string
     """
 
     if x.ndim != 1:
@@ -417,9 +378,7 @@ def smooth(x, window_len=11, window='hanning'):
 
 
 def gaussian(x, p):
-    '''
-    gaussian(arr,p): p[0] = norm, p[1] = mean, p[2]=sigma
-    '''
+    '''gaussian(arr,p): p[0] = norm, p[1] = mean, p[2]=sigma'''
     return p[0] * np.exp( -1 * (x - p[1]) ** 2 / (2 * p[2] ** 2))
 
 
@@ -432,9 +391,7 @@ def double_gaussian(x, p):
 
 
 def mp_double_gauss(p, fjac=None, x=None, y=None, err=None):
-    '''
-    double gaussian for mpfit
-    '''
+    '''double gaussian for mpfit'''
     model = double_gaussian(x, p)
     status = 0
     return [status, (y - model) / err]

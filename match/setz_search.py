@@ -11,6 +11,7 @@ doing the runs themselves.
 import numpy as np
 import sys
 from ResolvedStellarPops.fileio.fileIO import readfile, savetxt
+import glob
 
 # max processors for taskset will order 0 to max_proc-1
 max_proc = 8
@@ -44,8 +45,8 @@ def insert_ext(ext, string):
     strings = string.split('.')
     return '.'.join(np.insert(strings, -1, ext))
 
-def setz_matchparam_files(zmin, zmax, dz, zdisp, template_match_param,
-                          flag=''):
+def vary_mpars(template_match_param, gmin, gmax, dg, zdisp=0.0005, flag='',
+               vary='setz'):
     """
     take a match parameter file set up with the -setz option and make many
     at a given z and zdisp.
@@ -53,32 +54,44 @@ def setz_matchparam_files(zmin, zmax, dz, zdisp, template_match_param,
     with open(template_match_param, 'r') as infile:
         lines = [l.strip() for l in infile.readlines()]
 
-    zs = np.arange(zmin, zmax + dz / 2, dz)
-    mhs = np.log10(zs / 0.02)
-    mdisp = np.log10(zdisp / 0.02)
+    if vary == 'setz':
+        zs = np.arange(gmin, gmax + dg / 2, dg)
+        gs = np.log10(zs / 0.02)
+        mdisp = np.log10(zdisp / 0.02)
+
+    if vary == 'imf':
+        gs = np.arange(gmin, gmax, dg)
+
     fnames = []
-    for i in range(len(mhs)):
-        lines[1] = '%.3f' % mdisp
-        for j in np.arange(9, len(lines)-1):
-            to, tf, mh = lines[j].strip().split()
-            lines[j] = '     %s %s %.3f' % (to, tf, mhs[i])
-        outfile = insert_ext(str(zs[i]), template_match_param)
+    for i in range(len(gs)):
+        if vary == 'setz':
+            lines[1] = '%.3f' % mdisp
+            for j in np.arange(9, len(lines)-1):
+                to, tf, mh = lines[j].strip().split()
+                lines[j] = '     %s %s %.3f' % (to, tf, gs[i])
+                sext = 'z%g' % zs[i]
+
+        if vary == 'imf':
+            data = lines[0].split()
+            data[0] = str(gs[i])
+            lines[0] = ' '.join(data)
+            sext = 'imf%g' % np.abs(gs[i])
+
+        outfile = insert_ext(sext, template_match_param)
         if flag != '':
-            outfile = insert_ext(flag.split('=')[1], outfile)
+            sflag = flag.split('=')[1]
+            if not sflag in outfile:
+                outfile = insert_ext(sflag, outfile)
         with open(outfile, 'w') as out:
             out.write('\n'.join(lines))
+
         fnames.append(outfile)
     return fnames
 
-def run_setzs(phot, fake, zmin, zmax, dz, zdisp, template_match_param,
-              flag='', flag0='-setz', cmd='', nproc=0):
-    """
-    create a bash script to run calsfh, zcombine, and make plots in parallel
-    """
-    outfiles = []
-    fnames = setz_matchparam_files(zmin, zmax, dz, zdisp, template_match_param,
-                                   flag=flag)
 
+def calcsfh_zcombine(phot, fake, fnames, flag='', flag0='-setz', cmd='',
+                     nproc=0):
+    outfiles = []
     for i, mparam in enumerate(fnames):
         cmd, nproc, outfile = call_calcsfh(phot, fake, mparam, flag0=flag0,
                                            flag=flag, nproc=nproc, cmd=cmd)
@@ -91,19 +104,32 @@ def run_setzs(phot, fake, zmin, zmax, dz, zdisp, template_match_param,
         nproc += 1
     nproc, cmd = reset_proc(nproc, cmd)
 
-    return cmd, nproc
+    return nproc, cmd
+
+
+def run_grid(phot, fake, template_match_param, gmin, gmax, dg, zdisp=0.0005,
+             flag='', flag0='-setz', cmd='', nproc=0, vary='setz'):
+    """
+    create a bash script to run calsfh, zcombine, and make plots in parallel
+    """
+    fnames = vary_mpars(template_match_param, gmin, gmax, dg, zdisp=zdisp,
+                        flag=flag, vary=vary)
+
+    nproc, cmd = calcsfh_zcombine(phot, fake, fnames, flag=flag, flag0=flag0,
+                                  cmd=cmd, nproc=nproc)
+    return nproc, cmd
 
 def call_calcsfh(phot, fake, mparam, flag0='-setz', flag='', nproc=0, cmd=''):
     """add a line to a script to run calcsfh"""
     nproc, cmd = check_proc(nproc, cmd)
 
     if flag == '':
-        flag = [o for o in mparam.split('.') if 'ov' in o]
+        flag = [o for o in mparam.split('.') if 'ov' in o or 'v1.1' in o or 'hb2' in o]
         if len(flag) > 0:
             flag = '-sub=%s' % flag[0]
         else:
             flag = ''
-    if 's12' in flag:
+    if 's12' in flag and not '_' in flag:
         flag = ''
     calcsfh = 'taskset -c %i $HOME/research/match2.5/bin/calcsfh' % nproc
     scrn = mparam.replace('matchparam', 'scrn')
@@ -135,18 +161,6 @@ def call_hmc(hmcinp, nproc=0, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.015'):
     hmc = 'taskset -c %i $HOME/research/match2.5/bin/hybridMC' % nproc
     cmd += '%s %s.dat %s %s > %s & \n' % (hmc, hmcinp, hmcout, flag, hmcscrn)
     return cmd, nproc, hmcout
-
-
-def setz_grid(phot, fake, zmin, zmax, dz, zdisp, template_match_param):
-    flags = ['-sub=%s' % s for s in ['s12', 'ov3', 'ov4', 'ov5', 'ov6']]
-    nproc = 0
-    cmd = ''
-    for f in flags:
-        cmd, nproc = run_setzs(phot, fake, zmin, zmax, dz, zdisp,
-                               template_match_param, flag=f, cmd=cmd,
-                               nproc=nproc)
-
-    write_script('setz_script.sh', cmd)
 
 
 def mcmc_run(phot, fake, match_params, cmd='', nproc=0, flags=None,
@@ -213,6 +227,7 @@ def setz_results(fname='setz_results.dat'):
     plt.close()
     return
 
+
 def find_best():
     """
 
@@ -225,7 +240,7 @@ def find_best():
     av = np.array(av, dtype=float)
     dmod = np.array(dmod, dtype=float)
     try:
-        ov = np.array([f.split('.')[-2].replace('ov', '').replace('s', '')
+        ov = np.array([f.split('.')[-2].replace('ov', '').replace('s', '').replace('v', '')
                        for f in fnames], dtype=int)
     except:
         ov = np.zeros(len(dmod)) + 5
@@ -246,6 +261,7 @@ def find_best():
         mparams.append(mparam)
     return mparams
 
+
 def check_boundaries():
     mparam = find_best()[0]
     data = readfile('setz_results.dat')
@@ -261,15 +277,20 @@ def check_boundaries():
         if len(np.nonzero(data['Av'] == av0)[0]) > 0:
             print 'error need to decrease av0 past %.2f' % av0
 
-def call_setz(zmin=0.002, zmax=0.008, dz=0.0005, zdisp=0.0005):
-    import glob
+
+def call_grid(template_match_param, gmin=0.002, gmax=0.008, dg=0.0005,
+              zdisp=0.0005, func='setz', dirs=None, flags=['']):
+    cmd = ''
+    nproc = 0
     phot, = glob.glob1('.', '*match')
     fake, = glob.glob1('.', '*fake')
-    template_match_param, = glob.glob1('.', '*matchparam')
-    setz_grid(phot, fake, zmin, zmax, dz, zdisp, template_match_param)
+    for f in flags:
+        nproc, cmd = run_grid(phot, fake, template_match_param, gmin, gmax, dg,
+                              zdisp=zdisp, vary=func, flag=f, cmd=cmd,
+                              nproc=nproc)
+    write_script('%s_script.sh' % func, cmd)
 
 def call_mcmc_run():
-    import glob
     phot, = glob.glob1('.', '*match')
     fake, = glob.glob1('.', '*fake')
     match_params = find_best()
@@ -277,11 +298,18 @@ def call_mcmc_run():
 
 if __name__ == '__main__':
     func = sys.argv[1]
+    flags = ['-sub=s12_hb2']
     if 'setz' in func:
-        call_setz(zmax=0.0079)
-    if 'zres' in func:
+        template_match_param, = glob.glob1('.', '*matchparam')
+        #flags = ['-sub=%s' % s for s in ['s12', 'ov3', 'ov4', 'ov5', 'ov6']]
+        call_grid(template_match_param, gmax=0.0079, func=func, flags=flags)
+    elif 'zres' in func:
         check_boundaries()
         find_best()
         setz_results()
-    if 'mcmc' in func:
+    elif 'mcmc' in func:
         call_mcmc_run()
+    elif 'imf' in func:
+        call_grid(sys.argv[2], gmin=-0.5, gmax=-0.1, dg=0.1, func=func, flags=flags)
+    else:
+        print('choose from setz, zres, mcmc, imf mparam')

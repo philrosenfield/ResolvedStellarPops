@@ -6,6 +6,7 @@ import sys
 from pprint import pprint
 import difflib
 from ..utils import is_numeric
+from ast import literal_eval
 
 
 __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
@@ -123,54 +124,66 @@ class InputFile2(dict):
         self.update(**load_input(filename))
 
 
-def load_input(filename):
+def load_input(filename, comment_char='#', list_sep=','):
     '''
-    reads an input file into a dictionary.
-    file must have key first then value(s)
-    Will make 'True' into a boolean True
-    Will understand if a value is a float, string, or list, etc.
-    Ignores all lines that start with #, but not with # on the same line as
-    key, value.
-    '''
-    try:
-        literal_eval
-    except NameError:
-        from ast import literal_eval
+    read an input file into a dictionary
 
+    Ignores all lines that start with #
+    each line in the file has format key  value
+    True and False are interpreted as bool
+    converts values to float, string, or list
+    also accepts dictionary with one key and one val
+        e.g: inp_dict      {'key': val1}
+
+    Parameters
+    ----------
+    filename : string
+        filename to parse
+    comment_char : string
+        skip line if it starts with comment_char
+    list_sep : string
+        within a value, if it's a list, split it by this value
+        if it's numeric, it will make a np.array of floats.
+    Returns
+    -------
+    d : dict
+        parsed information from filename
+    '''
     d = {}
     with open(filename) as f:
-        for line in f.readlines():
-            if line.startswith('#'):
-                continue
-            if len(line.strip()) == 0:
-                continue
-            line = line.translate(None, '[]')
-            key, val = line.strip().partition(' ')[0::2]
-            d[key] = is_numeric(val.replace(' ', ''))
-    # do we have a list?
+        # skip comment_char, empty lines, strip out []
+        lines = [l.strip().translate(None, '[]') for l in f.readlines()
+                 if not l.startswith(comment_char) and len(l.strip()) > 0]
+
+    # fill the dict
+    for line in lines:
+        key, val = line.partition(' ')[0::2]
+        d[key] = is_numeric(val.replace(' ', ''))
+
+    # check the values
     for key in d.keys():
-        # float
+        # is_numeric already got the floats and ints
         if type(d[key]) == float or type(d[key]) == int:
             continue
-        # list:
-        temp = d[key].split(',')
+        # check for a comma separated list
+        temp = d[key].split(list_sep)
         if len(temp) > 1:
             try:
-                d[key] = map(float, temp)
+                # assume list of floats.
+                d[key] = [is_numeric(t) for t in temp]
             except:
                 d[key] = temp
-        # dict:
+        # check for a dictionary
         elif len(d[key].split(':')) > 1:
             temp1 = d[key].split(':')
             d[key] = {is_numeric(temp1[0]): is_numeric(temp1[1])}
         else:
             val = temp[0]
-            # boolean
+            # check bool
             true = val.upper().startswith('TRUE')
             false = val.upper().startswith('FALSE')
             if true or false:
                 val = literal_eval(val)
-            # string
             d[key] = val
     return d
 
@@ -184,14 +197,15 @@ def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
     if col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
-        col_keys = line.replace(comment_char, '').strip().split()
+        col_keys = line.replace(comment_char, '').strip().translate(None, '/[]-').split()
     else:
         with open(filename, 'r') as f:
             lines = f.readlines()
-        col_keys = lines[col_key_line].replace(comment_char, '').strip().split()
+        col_keys = lines[col_key_line].replace(comment_char, '').strip().translate(None, '/[]').split()
     usecols = range(len(col_keys))
 
     if only_keys is not None:
+        only_keys = [o for o in only_keys if o in col_keys]
         usecols = list(np.sort([col_keys.index(i) for i in only_keys]))
         col_keys = list(np.array(col_keys)[usecols])
 
