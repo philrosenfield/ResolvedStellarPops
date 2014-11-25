@@ -2,11 +2,11 @@
 from __future__ import print_function
 import numpy as np
 import os
-from ..fileio import savetxt
+
+from interpolate import Interpolator
 from eep import critical_point, DefineEeps
-from tracks import TrackSet
+from tracks import TrackSet, Track, TrackDiag
 from scipy.interpolate import splev
-from tracks import TrackDiag
 from scipy.interpolate import interp1d
 import pdb
 
@@ -85,7 +85,7 @@ class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
                     match_info.append(['inds:', bads1])
 
 
-class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
+class TracksForMatch(TrackSet, DefineEeps, TrackDiag, Interpolator):
     """
     This class is for interpolating tracks for use in MATCH. DefineEeps is made
     for one track at a time, TracksForMatch takes a track set as input.
@@ -94,6 +94,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         TrackDiag.__init__(self)
         TrackSet.__init__(self, inputs=inputs)
         DefineEeps.__init__(self)
+        Interpolator.__init__(self)
         self.debug = inputs.debug
 
     def match_interpolation(self, inputs):
@@ -239,7 +240,6 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
         -------
         adds MATCH interpolated data to track object as to_write attribute
         """
-        from .tracks.track import Track
         header = '# logAge Mass logTe Mbol logg C/O \n'
 
         if hb:
@@ -429,3 +429,5 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag):
                                                      mess=mess)
 
         return lagenew, lnew, tenew
+
+

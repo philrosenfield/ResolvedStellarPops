@@ -11,20 +11,21 @@ class Track(object):
     '''
     Padova stellar track.
     '''
-    def __init__(self, filename, match=False, agb=False, hb=False,
-                 track_data=None):
+    def __init__(self, filename, match=False, agb=False, track_data=None):
         '''
         filename [str] the path to the PMS or PMS.HB file
         '''
-
         (self.base, self.name) = os.path.split(filename)
+        self.hb = False
+        if 'hb' in self.name.lower():
+            self.hb = True
         # will house error string(s)
         self.flag = None
         self.info = {}
         self.match = False
         if match:
             self.load_match_track(filename, track_data=track_data)
-            self.track_mass(hb=hb)
+            self.track_mass()
             self.filename_info()
             self.match = True
         elif agb:
@@ -33,14 +34,14 @@ class Track(object):
             self.load_track(filename)
             self.filename_info()
             if self.flag is None:
-                self.track_mass(hb=hb)
+                self.track_mass()
 
         if self.flag is None:
-            self.check_track(hb=hb)
+            self.check_track()
             if not match:
                 self.check_header_arg(loud=True)
 
-    def check_track(self, hb=False):
+    def check_track(self):
         '''check if age decreases'''
         try:
             age = np.round(self.data.AGE, 6)
@@ -55,7 +56,7 @@ class Track(object):
             except AttributeError:
                 from ..eep.critical_point import Eep
                 eep = Eep()
-                if hb:
+                if self.hb:
                     nticks = eep.nticks_hb
                     names = eep.eep_list_hb
                 else:
@@ -67,7 +68,7 @@ class Track(object):
                 import pdb; pdb.set_trace()
         return
 
-    def track_mass(self, hb=False):
+    def track_mass(self):
         ''' choose the mass based on the physical track starting points '''
         try:
             good_age, = np.nonzero(self.data.AGE > 0.2)
@@ -78,10 +79,10 @@ class Track(object):
             self.flag = 'unfinished track'
             self.mass = self.data.MASS[-1]
             return self.mass
-        self.mass = self.data.MASS[good_age[0]]
+        self.mass, = self.data.MASS[good_age[0]]
 
         ind = -1
-        if hb:
+        if self.hb:
             #extension is .PMS.HB
             ind = -2
 
@@ -189,8 +190,6 @@ class Track(object):
                     print lines[-2:]
         '''
 
-        footers = ['Comp', 'EXCEED', 'burning', 'REACHED', 'STOP', 'END']
-
         with open(filename, 'r') as infile:
             lines = infile.readlines()
 
@@ -210,7 +209,7 @@ class Track(object):
             return
 
         # find the footer assuming it's no longer than 5 lines (for speed)
-        # (the footer will not start with the MODEL number)
+        # (the footer will not start with the integer MODEL number)
         skip_footer = 0
         for l in lines[-5:]:
             try:
@@ -220,7 +219,6 @@ class Track(object):
 
         self.header.extend([' # Footer: %s lines \n' % skip_footer])
         if skip_footer < 0:
-
             self.header.extend(lines[skip_footer:])
         else:
             self.info['load_track warning'] = \
@@ -229,7 +227,6 @@ class Track(object):
         # find ndarray titles (column keys)
         begin_track += 1
         col_keys = lines[begin_track].replace('#', '').strip().split()
-
         begin_track += 1
 
         # extra line for tracks that have been "colored"
@@ -248,7 +245,6 @@ class Track(object):
 
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
-
         return
 
     def load_agb_track(self, filename, cut=True):
@@ -357,6 +353,11 @@ class Track(object):
 
     def check_header_arg(self, ok_eval='%f>1.3e10', arg='AGELIMIT',
                          errstr='AGE EXCEEDS AGELIMIT', loud=False):
+        """
+        To save computational time, tracks can be calculated with an
+        artificial age limit. However, a fully populated age grid is needed
+        in match.
+        """
         if not hasattr(self, 'header_dict'):
             self.add_header_args_dict()
         check = len([i for i, l in enumerate(self.header) if errstr in l])

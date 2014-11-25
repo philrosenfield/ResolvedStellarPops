@@ -6,155 +6,15 @@ import numpy as np
 from .. import utils
 from .. import fileio
 from .. import graphics
+from .tracks import PadovaTrack
 
-
-__all__ = ['HRD', 'PadovaIsoch', 'Trilegal_SFH',
+__all__ = ['Trilegal_SFH', 'IsoTrack',
            'change_galaxy_input', 'cmd_input_dict', 'cmd_input_fmt',
            'find_mag_num', 'find_photsys_number', 'galaxy_input_dict',
            'galaxy_input_fmt', 'get_args', 'get_label_stage', 'get_loop_data',
            'get_stage_label', 'read_cmd_input_file', 'read_isotrack_file',
-           'read_loop_from_ptrci', 'read_ptcri', 'read_ptcri2', 'run_trilegal',
-           'string_in_lines', 'write_spread', 'write_trilegal_sim', 'trilegal_sfh']
-
-try:
-    from collections import namedtuple
-
-    def HRD(age, logl, logte, mass, eep_list, ieep):
-        """ Same as class HRD
-        However, built-ins are faster in general
-
-        Rule of thumb: if a class only has a __init__
-        and does not use inheritance, a function does better
-        """
-        hrd = namedtuple('HRD', 'age logl logte mass eep_dict'.split())
-        hrd.age = np.array(age)
-        hrd.logl = np.array(logl)
-        hrd.logte = np.array(logte)
-        hrd.mass = mass
-        hrd.eep_dict = dict(zip(eep_list, np.array(ieep)))
-        return hrd
-
-except ImportError:
-    class HRD(object):
-        """ HR diagram """
-        def __init__(self, age, logl, logte, mass, eep_list, ieep):
-            self.age = np.array(age)
-            self.logl = np.array(logl)
-            self.logte = np.array(logte)
-            self.mass = mass
-            self.eep_dict = dict(zip(eep_list, np.array(ieep)))
-
-class PadovaTrack(object):
-    """leo's trilegal track"""
-    def __init__(self, filename):
-        self.base, self.name = os.path.split(filename)
-        self.data = self.load_ptcri(filename)
-
-    def load_ptcri(self, fname):
-        header = 6
-        footer = 22
-        all_data = np.genfromtxt(fname, usecols=(0,1,2), skip_header=header,
-                                 skip_footer=footer,
-                                 names=['age', 'logl', 'logte'])
-        lines = open(fname, 'r').readlines()
-
-        inds, = np.nonzero(all_data['age'] == 0)
-        masses = np.array([lines[i+header].split('M=')[1].split()[0]
-                           for i in inds], dtype=float)
-
-        inds = np.append(inds, -1)
-        indss = [np.arange(inds[i], inds[i+1]) for i in range(len(inds)-1)]
-
-        track_dict = {}
-        for i, ind in enumerate(indss):
-            track_dict['M%.4f' % masses[i]] = all_data[ind]
-
-        self.all_data = all_data
-        self.track_dict = track_dict
-
-
-class PadovaIsoch(object):
-    def __init__(self, ptcri_file):
-        self.ptcri_file = ptcri_file
-        self.read_padova_isoch()
-
-    def read_padova_isoch(self):
-        '''
-        returns age, logl, logte.
-        '''
-        with open(self.ptcri_file, 'r') as p:
-            lines = np.array(p.readlines())
-
-        # keep the space because !M exists in the files.
-        inds, masses = zip(*[(i, float(l.split(' M=')[1].split()[0])) for
-                             (i, l) in enumerate(lines) if ' M=' in l])
-
-        last = [i for (i, l) in enumerate(lines) if '!M' in l][0] - 2
-        inds = np.append(inds, last)
-        self.masses = np.array(masses)
-        for i in range(len(inds) - 1):
-            mass = masses[i]
-            isoc_inds = np.arange(inds[i], inds[i + 1])
-            age, logl, logte = zip(*[map(float, l[:35].split())
-                                     for l in lines[isoc_inds]])
-            eep_list, ieep = zip(*[l[35:].split() for l in lines[isoc_inds]
-                                   if len(l[35:].split()) == 2])
-            ieep = map(int, ieep)
-            self.__setattr__('iso_m%s' % self.strmass(mass),
-                             HRD(age, logl, logte, mass, eep_list, ieep))
-
-        return
-
-    def strmass(self, mass):
-        return ('%.3f' % mass).replace('.', '_')
-
-    def plot_padova_isoch(self, figname=None, masses=None):
-        if figname is None:
-            figname = fileio.replace_ext(self.ptcri_file, '.png')
-        figtitle = os.path.split(self.ptcri_file)[1].replace('_', '\_')
-
-        if masses is None:
-            masses = self.masses
-
-        max = np.max([len(self.__dict__['iso_m%s' % self.strmass(m)].eep_dict.values()) for m in masses])
-        cols = graphics.GraphicsUtils.discrete_colors(max)
-        ax = plt.axes()
-        for j, mass in enumerate(masses):
-            isoch = self.__dict__['iso_m%s' % self.strmass(mass)]
-            logte = isoch.logte
-            logl = isoch.logl
-            ptinds = np.array(isoch.eep_dict.values())
-
-            ax.plot(logte, logl, color='black', alpha=0.2)
-            if len(masses) == 1:
-                ax.plot(logte[ptinds], logl[ptinds], '.', color='blue', alpha=0.3)
-
-            sinds = np.argsort(ptinds)
-            ptinds = ptinds[sinds]
-            labels = np.array(isoch.eep_dict.keys())[sinds]
-            for i in range(len(ptinds)):
-                if j == 0:
-                    ax.plot(logte[ptinds[i]], logl[ptinds[i]], 'o',
-                            color=cols[i], label='%s' % labels[i].replace('_', '\_'))
-                else:
-                    ax.plot(logte[ptinds[i]], logl[ptinds[i]], 'o',
-                            color=cols[i])
-
-        ax.set_xlim(4.6, 3.5)
-        ax.set_xlabel('$LOG\ TE$', fontsize=20)
-        ax.set_ylabel('$LOG\ L$', fontsize=20)
-        ax.set_title(r'$\textrm{%s}$' % figtitle, fontsize=16)
-        plt.legend()
-        plt.savefig(figname)
-
-
-def write_trilegal_sim(sgal, outfile, overwrite=False):
-    '''
-    writes trilegal sim to outfile.
-    '''
-    print("do not use write_trilegal_sim use starpop.write_data")
-    sys.exit()
-
+           'read_loop_from_ptrci', 'run_trilegal',
+           'string_in_lines', 'write_spread', 'trilegal_sfh']
 
 
 def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
@@ -299,92 +159,6 @@ def galaxy_input_dict(photsys=None, filter1=None, object_mass=None,
                     'object_sfr_mult_factorB': 0.0,
                     'output_file_type': 1}.items() + kwargs.items())
     return default
-
-
-def galaxy_input_fmt():
-    fmt = \
-        """%(coord_kind)i %(coord1).1f %(coord2).1f %(field_area).1f # 1: galactic l, b (deg), field_area (deg2) # 2: ra dec in ore ( gradi 0..24)
-
-%(kind_mag)i %(file_mag)s # kind_mag, file_mag
-%(file_bcspec)s
-%(kind_dustM)i %(file_dustM)s # kind_dustM, file_dustM
-%(kind_dustC)i %(file_dustC)s # kind_dustC, file_dustC
-%(mag_num)i %(mag_limit_val).1f %(mag_resolution).1f # Magnitude: num, limiting value, resolution
-
-%(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)
-
-%(file_imf)s # file_imf
-%(binary_kind)i # binary_kind: 0=none, 1=yes
-%(binary_frac).2f # binary_frac: binary fraction
-%(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1
-
-%(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty
-%(extinction_rho_sun)f  # extinction_rho_sun: local extinction density Av, in mag/pc
-%(extinction_infty)f %(extinction_infty_disp).1f  # extinction_infty: extinction Av at infinity in mag, dispersion
-%(extinction_h_r).1f %(extinction_h_z).1f  # extinction_h_r, extinction_h_z: radial and vertical scales
-
-%(thindisk_kind)i  # thindisk kind: 0=none, 1=z_exp, 2=z_sech, 3=z_sech2
-%(thindisk_rho_sun).1f  # thindisk_rho_sun: local thindisk surface density, in stars formed/pc2
-%(thindisk_h_r).1f %(thindisk_r_min).1f %(thindisk_r_max).1f  # thindisk_h_r, thindisk_r_min,max: radial scale, truncation radii
-%(thindisk_h_z0).1f %(thindisk_hz_tau0).1f %(thindisk_hz_alpha)%f # thindisk_h_z0, thindisk_hz_tau0, thindisk_hz_alpha: height now, increase time, exponent
-%(thindisk_sfr_file)s %(thindisk_sfr_mult_factorA).1f %(thindisk_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B (from A*t + B)
-
-%(thickdisk_kind)i # thickdisk kind: 0=none, 1=z_exp, 2=z_sech2, 3=z_sech2
-%(rho_thickdisk_sun)f  # rho_thickdisk_sun: local thickdisk volume density, in stars formed/pc3
-%(thickdisk_h_r).1f %(thickdisk_r_min).1f %(thickdisk_r_max).1f # thickdisk_h_r, thickdisk_r_min,max: radial scale, truncation radii
-%(thickdisk_h_z).1f # thickdisk_h_z: scale heigth (a single value)
-%(thickdisk_sfr_file)s %(thickdisk_sfr_mult_factorA).1f %(thickdisk_sfr_mult_factorB).1f  # File with (t, SFR, Z), factors A, B
-
-%(halo_kind)i # halo kind: 0=none, 1=1/r^4 cf Young 76, 2=oblate cf Gilmore
-%(halo_rho_sun)f # 0.0001731 0.0001154 halo_rho_sun: local halo volume density, to be done later: 0.001 for 1
-%(halo_r_eff).1f %(halo_q).2f #  halo_r_eff, halo_q: effective radius on plane (about r_sun/3.0), and oblateness
-%(halo_sfr_file)s %(halo_sfr_mult_factorA).1f %(halo_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
-
-%(bulge_kind)i  # bulge kind: 0=none, 1=cf. Bahcall 86, 2=cf. Binney et al. 97
-%(bulge_rho_central).1f # bulge_rho_central: central bulge volume density, unrelated to solar position
-%(bulge_am).1f %(bulge_a0).1f #  bulge_am, bulge_a0: scale length and truncation scale length
-%(bulge_eta).1f %(bulge_csi).1f %(bulge_phi).1f #  bulge_eta, bulge_csi, bulge_phi0: y/x and z/x axial ratios, angle major-axis sun-centre-line (deg)
-%(bulge_cutoffmass).1f # bulge_cutoffmass: (Msun) masses lower than this will be ignored
-%(bulge_sfr_file)s %(bulge_sfr_mult_factorA).1f %(bulge_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
-
-%(object_kind)i # object kind: 0=none, 1=at fixed distance
-%(object_mass)g %(object_dist).1f # object_mass, object_dist: total mass inside field, distance
-%(object_avkind)i %(object_av).1f # object_avkind, object_av: Av added to foregroud if =0, not added if =1
-%(object_cutoffmass).1f # object_cutoffmass: (Msun) masses lower than this will be ignored
-%(object_sfr_file)s %(object_sfr_mult_factorA).1f %(object_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B # la vera eta' e' t_OK=A*(t+B)
-
-%(output_file_type)i # output file: 1=data points"""
-    return fmt
-
-
-def cmd_input_fmt():
-    fmt = \
-        """%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams
-%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb
-%(kind_postagb)i %(file_postagb)s # kind_postagb, file_postagb DA VERIFICARE file_postagb
-%(ifmr_kind)i %(file_ifmr)s # ifmr_kind, file with ifmr
-%(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency
-################################explanation######################
-kind_tracks: 1= normal file
-file_isotrack: tracks for low+int mass
-file_lowzams: tracks for low-ZAMS
-kind_tpagb: 0= none
-        1= Girardi et al., synthetic on the flight, no dredge up
-        2= Marigo & Girardi 2001, from file, includes mcore and C/O
-        3= Marigo & Girardi 2007, from file, includes period, mode and mloss
-        4= Marigo et al. 2011, from file, includes slope
-file_tpagb: tracks for TP-AGB
-
-kind_postagb: 0= none
-        1= from file
-file_postagb: PN+WD tracks
-
-kind_ifmr: 0= default
-           1= from file
-
-kind_rgbmloss: 0=off
-               1=on (with law=Reimers for the moment)"""
-    return fmt
 
 
 def cmd_input_dict():
@@ -616,10 +390,12 @@ def get_args(filename, ext='.dat'):
     return d
 
 
-def get_stage_label(region):
+def get_stage_label(region=None):
     # see parametri.h
     regions = ['PMS', 'MS', 'SUBGIANT', 'RGB', 'HEB', 'RHEB', 'BHEB', 'EAGB',
                'TPAGB', 'POSTAGB', 'WD']
+    if region is None:
+        return regions
     if type(region) == int:
         stage_lab = regions[region]
     elif type(region) == str:
@@ -631,8 +407,8 @@ def get_stage_label(region):
 
 def get_label_stage(stage_lab):
     '''phasing out'''
-    return get_stage_label(stage_lab)
-
+    print('use get_stage_label(stage_lab)')
+    return
 
 def get_loop_data(cmd_input_file, metallicity):
     filename = read_cmd_input_file(cmd_input_file)['file_isotrack']
@@ -656,153 +432,6 @@ def string_in_lines(lines):
         if len(strs) != 0:
             if ' M=' in line:
                 print line, strs
-
-
-def read_leos_tracks(fname):
-    data = np.genfromtxt(fname, usecols=(1,2,3,4,5),
-                         names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
-    return data.view(np.recarray)
-
-
-def run_cmd(infile, mode, option1s, option2s, option3s, option4s=None,
-            force=False):
-    '''
-    Only works for a few modes: 2, 3, and 33 (see code)
-    Uses pexpect to run Leo's cmd code in batch mode (needs interactive user based input)
-    To exend this to other modes use cmd interactively and hardcode options.
-
-    all options must string arrays of the same length.
-    force will overwrite a file if it already exists.
-
-    mode 2: Write a sequence of isochrones in age
-        option1s = filenames option2s = Z option3s = log age min, max, dt
-        option4s = kinds of isocrhone table (probably want 5, with crit pts)
-
-    mode 3: Write a sequence of isochrones in age
-        option1s = filenames option2s = age option3s = log zmin, max, dz
-        option4s = kinds of isocrhone table (probably want 5, with crit pts)
-
-    mode 33: (print a single interpolated track)
-        option1s = masses option2s = zs option3s = filenames
-    '''
-    import pexpect
-    import time
-
-    if mode == 33:
-        # 33 -> Prints a single interpolated track ?
-        opt1 = 'Mass'
-        opt2 = 'Z'
-        opt3 = 'file'
-        fnames = option3s
-        opt4 = None
-    elif mode == 3:
-        # 3 -> Scrive sequenza isocrone in metalicita' ?
-        opt1 = 'file'
-        opt2 = 'eta'
-        opt3 = 'Zmin'
-        fnames = option1s
-        opt4 = 'Bertelli'
-    elif mode == 2:
-        opt1 = 'file'
-        opt2 = 'Z'
-        opt3 = 'eta'
-        fnames = option1s
-        opt4 = 'Bertelli'
-    else:
-        print 'mode %i not supported' % mode
-        sys.exit()
-
-    cmdroot = os.environ['CMDROOT']
-    cmd = '%scode/main %s' % (cmdroot, infile)
-    child = pexpect.spawn(cmd)
-    child.logfile = sys.stdout
-    # wait for the tracks to be read
-    time.sleep(45)
-    # the last option in cmd_2.3 is #35 ... could find some other string
-    found = child.expect(['35', pexpect.EOF])
-
-    if found == 0:
-        for i in range(len(option1s)):
-            if os.path.isfile(fnames[i]) and not force:
-                print 'not overwriting %s' % fnames[i]
-                continue
-            child.send('%i\n' % mode)
-            found = child.expect([opt1, pexpect.EOF])
-            if found == 0:
-                child.send('%s\n' % option1s[i])
-            found = child.expect([opt2, pexpect.EOF])
-            if found == 0:
-                child.send('%s\n' % option2s[i])
-            found = child.expect([opt3])
-            if found == 0:
-                child.send('%s\n' % option3s[i])
-            if opt4 is not None:
-                found = child.expect([opt4])
-                if found == 0:
-                    child.send('%s\n' % option4s[i])
-
-        child.send('100000\n')
-    else:
-       import pdb; pdb.set_trace()
-
-
-def read_ptcri(ptcri_file):
-    d = {}
-    lines = open(ptcri_file, 'r').readlines()
-    for line in lines:
-        if not 'kind' in line:
-            continue
-        try:
-            age, logL, logTe, mod, model, cript, M, mass, npt, kind = \
-                line.strip().split()
-            try:
-                float(cript)
-            except ValueError:
-                mass = float(mass)
-                if not mass in d.keys():
-                    d[mass] = {}
-                if not cript in d[mass].keys():
-                    d[mass][cript] = {}
-                d[mass][cript] = {'age': float(age),
-                                  'logTe': float(logTe),
-                                  'logL': float(logL),
-                                  'model': np.int(model),
-                                  'mod': np.int(mod)}
-        except ValueError:
-            pass
-    return d
-
-
-def read_ptcri2(ptcri_file):
-    '''
-    after .revisegrid
-    '''
-    lines = open(ptcri_file, 'r').readlines()
-    mline = []
-    for i, line in enumerate(lines):
-        if 'M=' in line:
-            mline.append(i)
-            continue
-    d = {}
-    for j in range(len(mline) - 1):
-        mass = float(lines[mline[j]].split('M=')[-1].split('PMS')[0])
-        for k in range(mline[j] + 1, mline[j + 1] - 1):
-            try:
-                a, l, t, m = map(float, lines[k].strip().split())
-            except:
-                data = lines[k].strip().split()
-                age, logL, logTe = map(float, data[0:3])
-                cript = data[-2]
-                model = int(data[-1])
-                if not mass in d.keys():
-                    d[mass] = {}
-                if not cript in d[mass].keys():
-                    d[mass][cript] = {}
-                d[mass][cript] = {'age': age, 'logTe': logTe, 'logL': logL,
-                                  'model': model}
-        if mass == 12:
-            break
-    return d
 
 
 def read_loop_from_ptrci(ptcri_file):
@@ -836,16 +465,20 @@ def read_loop_from_ptrci(ptcri_file):
     return d
 
 
+class IsoTrack(object):
+    def __init__(self, filename):
+        self.base, self.name = os.path.split(filename)
+        self.Z, self.Y, self.MH, self.fnames = read_isotrack_file(filename)
+
+    def load_int2(self):
+        int2s = [f for f in self.fnames if f.endswith('INT2')]
+        self.int2s = [PadovaTrack(i) for i in int2s]
+        self.mhefs = np.array([pt.masses[0] for pt in self.int2s])
+
+
 def read_isotrack_file(filename):
-    if os.path.split(filename)[1].startswith('cmd_input'):
-        file_isotrack = read_cmd_input_file(filename)['file_isotrack']
-        filename = os.path.join(os.environ['ISOTRACK'],
-                                file_isotrack.replace('isotrack/', ''))
-    try:
-        isotf = open(filename, 'r').readlines()
-    except:
-        fname = os.path.join(os.environ['ISOTRACK'], 'parsec', filename)
-        isotf = open(fname, 'r').readlines()
+    with open(filename, 'r') as inp:
+        isotf = inp.readlines()
     nmets = int(isotf[0])
     z = np.zeros(nmets)
     y = np.zeros(nmets)
@@ -861,6 +494,7 @@ def read_isotrack_file(filename):
             met_count += 1
         else:
             files.append(line)
+    files = np.concatenate(files)
     return z, y, mh, files
 
 
@@ -992,3 +626,92 @@ class trilegal_sfh(object):
                    fmt='%.3f %g %.4f')
 
         print 'wrote %s' % filename
+
+
+### input file formats
+
+
+def galaxy_input_fmt():
+    fmt = \
+        """%(coord_kind)i %(coord1).1f %(coord2).1f %(field_area).1f # 1: galactic l, b (deg), field_area (deg2) # 2: ra dec in ore ( gradi 0..24)
+
+%(kind_mag)i %(file_mag)s # kind_mag, file_mag
+%(file_bcspec)s
+%(kind_dustM)i %(file_dustM)s # kind_dustM, file_dustM
+%(kind_dustC)i %(file_dustC)s # kind_dustC, file_dustC
+%(mag_num)i %(mag_limit_val).1f %(mag_resolution).1f # Magnitude: num, limiting value, resolution
+
+%(r_sun).1f %(z_sun).1f # r_sun, z_sun: sun radius and height on disk (in pc)
+
+%(file_imf)s # file_imf
+%(binary_kind)i # binary_kind: 0=none, 1=yes
+%(binary_frac).2f # binary_frac: binary fraction
+%(binary_mrinf).1f %(binary_mrsup).1f  # binary_mrinf, binary_mrsup: limits of mass ratios if binary_kind=1
+
+%(extinction_kind)i  # extinction kind: 0=none, 1=exp with local calibration, 2=exp with calibration at infty
+%(extinction_rho_sun)f  # extinction_rho_sun: local extinction density Av, in mag/pc
+%(extinction_infty)f %(extinction_infty_disp).1f  # extinction_infty: extinction Av at infinity in mag, dispersion
+%(extinction_h_r).1f %(extinction_h_z).1f  # extinction_h_r, extinction_h_z: radial and vertical scales
+
+%(thindisk_kind)i  # thindisk kind: 0=none, 1=z_exp, 2=z_sech, 3=z_sech2
+%(thindisk_rho_sun).1f  # thindisk_rho_sun: local thindisk surface density, in stars formed/pc2
+%(thindisk_h_r).1f %(thindisk_r_min).1f %(thindisk_r_max).1f  # thindisk_h_r, thindisk_r_min,max: radial scale, truncation radii
+%(thindisk_h_z0).1f %(thindisk_hz_tau0).1f %(thindisk_hz_alpha)%f # thindisk_h_z0, thindisk_hz_tau0, thindisk_hz_alpha: height now, increase time, exponent
+%(thindisk_sfr_file)s %(thindisk_sfr_mult_factorA).1f %(thindisk_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B (from A*t + B)
+
+%(thickdisk_kind)i # thickdisk kind: 0=none, 1=z_exp, 2=z_sech2, 3=z_sech2
+%(rho_thickdisk_sun)f  # rho_thickdisk_sun: local thickdisk volume density, in stars formed/pc3
+%(thickdisk_h_r).1f %(thickdisk_r_min).1f %(thickdisk_r_max).1f # thickdisk_h_r, thickdisk_r_min,max: radial scale, truncation radii
+%(thickdisk_h_z).1f # thickdisk_h_z: scale heigth (a single value)
+%(thickdisk_sfr_file)s %(thickdisk_sfr_mult_factorA).1f %(thickdisk_sfr_mult_factorB).1f  # File with (t, SFR, Z), factors A, B
+
+%(halo_kind)i # halo kind: 0=none, 1=1/r^4 cf Young 76, 2=oblate cf Gilmore
+%(halo_rho_sun)f # 0.0001731 0.0001154 halo_rho_sun: local halo volume density, to be done later: 0.001 for 1
+%(halo_r_eff).1f %(halo_q).2f #  halo_r_eff, halo_q: effective radius on plane (about r_sun/3.0), and oblateness
+%(halo_sfr_file)s %(halo_sfr_mult_factorA).1f %(halo_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
+
+%(bulge_kind)i  # bulge kind: 0=none, 1=cf. Bahcall 86, 2=cf. Binney et al. 97
+%(bulge_rho_central).1f # bulge_rho_central: central bulge volume density, unrelated to solar position
+%(bulge_am).1f %(bulge_a0).1f #  bulge_am, bulge_a0: scale length and truncation scale length
+%(bulge_eta).1f %(bulge_csi).1f %(bulge_phi).1f #  bulge_eta, bulge_csi, bulge_phi0: y/x and z/x axial ratios, angle major-axis sun-centre-line (deg)
+%(bulge_cutoffmass).1f # bulge_cutoffmass: (Msun) masses lower than this will be ignored
+%(bulge_sfr_file)s %(bulge_sfr_mult_factorA).1f %(bulge_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B
+
+%(object_kind)i # object kind: 0=none, 1=at fixed distance
+%(object_mass)g %(object_dist).1f # object_mass, object_dist: total mass inside field, distance
+%(object_avkind)i %(object_av).1f # object_avkind, object_av: Av added to foregroud if =0, not added if =1
+%(object_cutoffmass).1f # object_cutoffmass: (Msun) masses lower than this will be ignored
+%(object_sfr_file)s %(object_sfr_mult_factorA).1f %(object_sfr_mult_factorB).1f # File with (t, SFR, Z), factors A, B # la vera eta' e' t_OK=A*(t+B)
+
+%(output_file_type)i # output file: 1=data points"""
+    return fmt
+
+
+def cmd_input_fmt():
+    fmt = \
+        """%(kind_tracks)i %(file_isotrack)s %(file_lowzams)s # kind_tracks, file_isotrack, file_lowzams
+%(kind_tpagb)i %(file_tpagb)s # kind_tpagb, file_tpagb
+%(kind_postagb)i %(file_postagb)s # kind_postagb, file_postagb DA VERIFICARE file_postagb
+%(ifmr_kind)i %(file_ifmr)s # ifmr_kind, file with ifmr
+%(kind_rgbmloss)i %(rgbmloss_law)s %(rgbmloss_efficiency).2f # RGB mass loss: kind_rgbmloss, law, and its efficiency
+################################explanation######################
+kind_tracks: 1= normal file
+file_isotrack: tracks for low+int mass
+file_lowzams: tracks for low-ZAMS
+kind_tpagb: 0= none
+        1= Girardi et al., synthetic on the flight, no dredge up
+        2= Marigo & Girardi 2001, from file, includes mcore and C/O
+        3= Marigo & Girardi 2007, from file, includes period, mode and mloss
+        4= Marigo et al. 2011, from file, includes slope
+file_tpagb: tracks for TP-AGB
+
+kind_postagb: 0= none
+        1= from file
+file_postagb: PN+WD tracks
+
+kind_ifmr: 0= default
+           1= from file
+
+kind_rgbmloss: 0=off
+               1=on (with law=Reimers for the moment)"""
+    return fmt
