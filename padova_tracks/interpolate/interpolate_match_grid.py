@@ -90,6 +90,9 @@ def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef):
     tname1s = get_names(t1files)
     tname2s = get_names(t2files)
 
+    t1hbs = [t for t in t1files if 'HB' in t]
+    t2hbs = [t for t in t2files if 'HB' in t]
+
     i2s = [i for i, t in enumerate(tname2s) if t in tname1s]
     t2files = np.array(t2files)[i2s]
     i1s = [i for i, t in enumerate(tname1s) if t in tname2s]
@@ -119,6 +122,13 @@ def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef):
                 # longer track
                 print 'longer', mass, len(t1s[i]), len(t2s[i])
                 # need to actually interpolate and do a better job!!!
+                import pdb; pdb.set_trace()
+                t1hb, = [t for t in t1hbs if str(mass) in t]
+                t1hb = np.loadtxt(t1hb)
+                # need to attach the track
+                ntrans_pts = len(t2s[i]) - (len(t1s[i]) + len(t1hb))
+                # interpolate between HB and TRGB...
+                import pdb; pdb.set_trace()
                 track = t2s[i]
         outfile = os.path.join(outdir, tname1s[i])
         fileio.savetxt(outfile, track, header=header, fmt='%.8f',

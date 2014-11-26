@@ -215,14 +215,16 @@ if __name__ == "__main__":
     I want to have the * usage in the command line, so the last two values
     are the filter names.
     usage eg:
-    python graphics.py *cmd 'F555W' 'F814W\ (HRC)'
+    python graphics.py 'F555W' 'F814W\ (HRC)' *v?.?.out.cmd
     '''
     import sys
     from ResolvedStellarPops.fileio.fileIO import get_files
     args = sys.argv
-    filenames = get_files(os.getcwd(), '*cmd')
-    filter1 = args[-2]
-    filter2 = args[-1]
+    filenames = [arg for arg in args if arg.endswith('cmd')]
+    if len(filenames) == 0:
+        filenames = get_files(os.getcwd(), '*cmd')
+    filter1 = args[1]
+    filter2 = args[2]
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
     nfiles = len(filenames)
@@ -241,6 +243,10 @@ if __name__ == "__main__":
         max_diff = np.mean([m.max_diff for m in mcmds])
         max_counts = np.mean([m.max_counts for m in mcmds])
         max_sig = np.mean([m.max_sig for m in mcmds])
+        # HACK  -- over wrote to not have all vmins and vmax the same
+        max_diff = 15
+        max_counts = None
+        max_sig = 7
         [pgcmd(cmd=mcmd, max_diff=max_diff, max_counts=max_counts, max_sig=max_sig,
                filter1=filter1, filter2=filter2) for mcmd in mcmds]
 

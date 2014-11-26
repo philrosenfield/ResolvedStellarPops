@@ -11,7 +11,7 @@ from .. import fileio
 
 
 __all__ = ['calcsfh_dict', 'call_match', 'check_exclude_gates',
-           'check_for_bg_file', 'make_calcsfh_param_file',
+           'check_for_bg_file', 'make_calcsfh_param_file', 'strip_header',
            'match_param_default_dict', 'match_param_fmt', 'match_stats',
            'process_match_sfh', 'read_binned_sfh', 'read_match_cmd',
             'write_match_bg', 'cheat_fake']
