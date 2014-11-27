@@ -79,7 +79,10 @@ class Track(object):
             self.flag = 'unfinished track'
             self.mass = self.data.MASS[-1]
             return self.mass
-        self.mass, = self.data.MASS[good_age[0]]
+        try:
+            self.mass, = self.data.MASS[good_age[0]]
+        except TypeError:
+            self.mass = self.data.MASS[good_age[0]]
 
         ind = -1
         if self.hb:
@@ -123,6 +126,12 @@ class Track(object):
                                  for i in range(len(xi))))
         return self.muc
 
+    def calc_lifetimes(self):
+        self.tau_he = np.sum(self.data.Dtime[self.data.LY>0])
+        coreh, = np.nonzero((self.data.LX > 0) & (self.data.XCEN > 0))
+        self.tau_h = np.sum(self.data.Dtime[coreh])
+        return
+
     def filename_info(self):
         '''
         # get Z, Y into attrs: 'Z0.0002Y0.4OUTA1.74M2.30'
@@ -139,6 +148,12 @@ class Track(object):
         if hasattr(self, 'header'):
             self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
                                      for l in self.header if ' ALFOV ' in l])
+
+        if hasattr(self.data, 'QHEL'):
+            if self.hb:
+                self.zahb_mcore = self.data.QHEL[0]
+            else:
+                self.final_mcore = self.data.QHEL[-1]
         return
 
     def load_match_track(self, filename, track_data=None):
@@ -246,6 +261,21 @@ class Track(object):
         self.data = data.view(np.recarray)
         self.col_keys = col_keys
         return
+
+    def summary(self, line=''):
+        if self.flag is None:
+            self.calc_lifetimes()
+        fmt = '%i %.3f %5.3f %.2f %.3f %.4g %.4g\n'
+        efmt = '# %.3f %s: %s \n'
+        if self.flag is not None:
+            line += efmt % (self.Z, self.name, self.flag)
+        elif self.hb:
+            line += fmt % (0, self.Z, self.mass, self.ALFOV,
+                           self.zahb_mcore, self.tau_he, 0.)
+        else:
+            line += fmt % (1, self.Z, self.mass, self.ALFOV,
+                           self.final_mcore, self.tau_he, self.tau_h)
+        return line
 
     def load_agb_track(self, filename, cut=True):
         '''

@@ -378,8 +378,9 @@ def main(func):
     zs = np.array([0.002, 0.003, 0.004, 0.006])
 
     if 'setz' in func:
-        template_match_param, = glob.glob1('.', '*matchparam')
-        call_grid(template_match_param, zs=zs, func=func, flags=flags)
+        #template_match_param, = glob.glob1('.', '*matchparam')
+        template_match_param = '10396_NGC419-HRC_F555W_F814W.gst.matchparam'
+        call_grid(template_match_param, zs=zs, func='setz', flags=flags)
     elif 'res' in func:
         # check the solution for boundary issues
         check_boundaries()
@@ -400,18 +401,19 @@ def main(func):
         # mparams or a given mparam
         cmd = ''
         nproc = 0
-        template_match_param, = glob.glob1('.', '*matchparam')
+        #template_match_param, = glob.glob1('.', '*matchparam')
+        template_match_param = '10396_NGC419-HRC_F555W_F814W.gst.matchparam'
         flag0 = '-setz'
         if 'setz' in func:
             # make a grid of setz values that all vary in IMF
-            mparams = glob.glob1('.', '*z0*matchparam')
+            mparams = glob.glob1('.', '*z0.???.???.?.matchparam')
         elif 'ssp' in func:
             flag0 = '-ssp'
             mparams = [template_match_param]
         else:
             mparams = find_best()
         for i in range(len(mparams)):
-            nproc, cmd = call_grid(mparams[i], gmin=0.5, gmax=1.9, dg=0.1,
+            nproc, cmd = call_grid(mparams[i], gmin=0.1, gmax=1.3, dg=0.1,
                                    func='imf', flags=flags, nproc=nproc,
                                    cmd=cmd, flag0=flag0)
     else:

@@ -17,6 +17,9 @@ from eep.critical_point import critical_point, Eep
 from match import TracksForMatch
 from match import CheckMatchTracks
 
+__all__ = ['initialize_inputs']
+
+
 def add_version_info(input_file):
     """Copy the input file and add the git hash and time the run started."""
     from time import localtime, strftime
