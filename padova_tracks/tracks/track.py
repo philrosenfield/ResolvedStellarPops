@@ -263,6 +263,28 @@ class Track(object):
         return
 
     def summary(self, line=''):
+        """
+        make a summary line of the track
+
+        track_type Z mass ALFOV QHEL tau_He tau_H
+        if self.HB, track_type = 0, QHEL is at the ZAHB
+        otherwise,  track_type = 1, QHEL is the final track point.
+        tau_* is the core fusion lifetimes of *.
+
+        if there is a self.flag, will add a comment line with the flag
+
+        Parameters
+        ----------
+        line : string default: ''
+            string to add the summary to
+
+        Returns
+        -------
+        line : string
+            a line with format: track_type Z mass ALFOV QHEL tau_He tau_H
+            or a comment: self.Z self.name self.flag
+        """
+
         if self.flag is None:
             self.calc_lifetimes()
         fmt = '%i %.3f %5.3f %.2f %.3f %.4g %.4g\n'

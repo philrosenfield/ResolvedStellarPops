@@ -82,6 +82,8 @@ def diagnostic_table(dirname):
         # header
         outf.write('# track Z mass ALFOV QHEL tau_He tau_H\n')
         for root, dirs, files in os.walk(dirname):
+            if len(files) == 0:
+                continue
             # Mix
             line = '# %s\n' % os.path.split(root)[1]
             print(line.strip())
