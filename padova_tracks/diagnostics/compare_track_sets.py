@@ -76,15 +76,18 @@ def diagnostic_table(dirname):
     """
     Walk through a directory that houses directories that have tracks and
     print their summaries to a file. See Track.summary for info.
+    Assumes track names have "Z0." and their directories also have "Z0."
+    Skips over any other directory.
     """
     with open('%s_track_summary.dat' % dirname, 'w') as outf:
         # header
         outf.write('# track Z mass ALFOV QHEL tau_He tau_H\n')
         for root, dirs, files in os.walk(dirname):
-            if len(files) == 0 or not 'Z0.' in ' '.join(files):
+            if len(files) == 0:
                 continue
-            if not 'Z' in root:
+            if not 'Z0.' in root:
                 continue
+            files = [f for f in files if f.endswith('PMS') or f.endswith('HB')]
             # Mix
             line = '# %s\n' % os.path.split(root)[1]
             print(line.strip())

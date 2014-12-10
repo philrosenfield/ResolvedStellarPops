@@ -4,7 +4,7 @@ import os
 from ... import trilegal
 from ... import fileio
 
-__all__ = ['interp_match_grid']
+__all__ = ['interp_match_grid', 'interp_mhefs']
 
 def plot_MheF(isotracks=None, labels=None, colors=None):
     """ plot the minimum initial mass for He Fusion """
@@ -37,7 +37,7 @@ def plot_MheF(isotracks=None, labels=None, colors=None):
     ax.set_ylim(1.55, 2.05)
     return ax
 
-def interp_mhefs(isotracks, outfile):
+def interp_mhefs(isotracks=None, outfile=None):
     """
     Write the minimum initial mass for He fusion to a file, interpolating
     between isotracks.
@@ -50,7 +50,8 @@ def interp_mhefs(isotracks, outfile):
         isotracks = ['isotrack/parsec/CAF09_MC_S13v2_OV0.3.dat',
                      'isotrack/parsec/CAF09_MC_S13v2_OV0.4.dat',
                      'isotrack/parsec/CAF09_MC_S13v2_OV0.5.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat']
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat',
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.7.dat']
     outfile : string
         filename of output file
     """
@@ -58,6 +59,18 @@ def interp_mhefs(isotracks, outfile):
         """ make a %.2f string combining a float and an array """
         return ' '.join(['%.2f' % i for i in np.concatenate(([ov], marr))]) + '\n'
 
+    if isotracks is None:
+        isotracks = ['isotrack/parsec/CAF09_MC_S13v2_OV0.3.dat',
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.4.dat',
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.5.dat',
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat',
+                     'isotrack/parsec/CAF09_MC_S13v2_OV0.7.dat']
+        isotracks = [os.path.join(os.environ['TRILEGAL_ROOT'], i)
+                     for i in isotracks]
+
+    if outfile is None:
+        outfile = os.path.join(os.environ['TRILEGAL_ROOT'],
+                               'CAF09_MC_S13v2_MHeF_interp.dat')
     line = '\n'.join(['# %s' % i for i in isotracks]) + '\n'
     isots = [trilegal.IsoTrack(i) for i in isotracks]
     line += '# OV '
@@ -74,12 +87,16 @@ def interp_mhefs(isotracks, outfile):
 
     with open(outfile, 'w') as outf:
         outf.write(line)
+    print 'wrote %s' % outfile
 
-def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef):
+def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef,
+                             overwrite=False):
     def strip_m(s):
         return float(s.split('7_M')[-1].replace('.dat', '').replace('.HB',''))
+
     def get_names(s):
         return [os.path.split(i)[1] for i in s]
+
     header = '# logAge Mass logTe Mbol logg C/O \n'
     fileio.ensure_dir(outdir)
     t1files = sorted(fileio.get_files(match_dir1, '*.dat'),
@@ -91,7 +108,6 @@ def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef):
     tname2s = get_names(t2files)
 
     t1hbs = [t for t in t1files if 'HB' in t]
-    t2hbs = [t for t in t2files if 'HB' in t]
 
     i2s = [i for i, t in enumerate(tname2s) if t in tname1s]
     t2files = np.array(t2files)[i2s]
@@ -120,32 +136,78 @@ def interpolate_between_sets(match_dir1, match_dir2, outdir, mhef):
                 print 'shorter', mass, len(t1s[i]), len(t2s[i]), i
             if mass >= mhef:
                 # longer track
+                t1hb, = [t for t in t1hbs if 'M%.2f' % mass in t]
+                t1hb = np.genfromtxt(t1hb)
                 print 'longer', mass, len(t1s[i]), len(t2s[i])
-                # need to actually interpolate and do a better job!!!
-                import pdb; pdb.set_trace()
-                t1hb, = [t for t in t1hbs if str(mass) in t]
-                t1hb = np.loadtxt(t1hb)
-                # need to attach the track
-                ntrans_pts = len(t2s[i]) - (len(t1s[i]) + len(t1hb))
-                # interpolate between HB and TRGB...
-                import pdb; pdb.set_trace()
-                track = t2s[i]
+                t1withhb = rg_tip_heb_transition(t1hb, t1s[i])
+                track = (t1withhb + t2s[i]) / 2.
+                #ax = diag_plot(track, mass, ax=ax, color='k')
+                #ax = diag_plot(t1withhb, '', ax=ax, color='r')
+                #ax = diag_plot(t1s[i], '', ax=ax, color='r')
+                #ax = diag_plot(t2s[i], '', ax=ax, color='b')
         outfile = os.path.join(outdir, tname1s[i])
         fileio.savetxt(outfile, track, header=header, fmt='%.8f',
-                       overwrite=False)
+                       overwrite=overwrite)
 
-def interp_match_grid():
+def rg_tip_heb_transition(hb_track, track):
+    """
+    Attach a HB model to a PMS model.
+    Done in a consistent way as in TRILEGAL. Basically, zero time goes by,
+    linear connection. The idea is that no stars should fall in this region
+    because there are simply no tracks calculated. If you want a track following
+    a hiashi line, well, calculate one. If you're interpolating, you're gonna
+    have a slight error on a time scale of 1e5 years, counting a star that could
+    have been in a transition phase from RG_TIP to HE_BEG as a RGB star.
+    At this point in time, a negligable error.
+    """
+    # hard coded! whatever, you can get it from eep.critical_points.critical_point
+
+    ntrans = 40
+    rg_tip = 1468
+
+    agei = 100.
+    agef = 10 ** hb_track.T[0][0]
+
+    te0, tef = track.T[2][rg_tip], hb_track.T[2][0]
+    mbol0, mbolf = track.T[3][rg_tip], hb_track.T[3][0]
+    m, b = np.polyfit([te0, tef], [mbol0, mbolf], 1)
+
+    age = np.linspace(agei, agef, ntrans, endpoint=False)
+    logte = np.linspace(te0, tef, ntrans, endpoint=False)
+    Mbol = m * logte + b
+    mass = np.zeros(ntrans) + track.T[1][0]
+    logg = -10.616 + np.log10(mass) + 4.0 * logte - (4.77 - Mbol) / 2.5
+    CO = np.zeros(ntrans)
+    logage = np.log10(10 ** track.T[0][rg_tip] + age)
+    trans_track =  np.column_stack([logage, mass, logte, Mbol, logg, CO])
+
+    hb_track.T[0] = np.log10(10 ** hb_track.T[0] + 10 ** logage[-1])
+    new_track = np.concatenate((track, trans_track, hb_track))
+    return new_track
+
+def diag_plot(track, mass, ax=None, color='k'):
+    if ax is None:
+        fig, ax = plt.subplots(ncols=2, sharey=True, figsize=(8,8))
+        ax[0].set_xlabel(r'$\log\ Te$')
+        ax[1].set_xlabel(r'$\rm{Age}$')
+        ax[0].set_ylabel(r'$\rm{Mbol}$')
+
+    ax[0].plot(track.T[2], track.T[3], color=color)
+    if mass != '':
+        ax[1].plot(10 ** track.T[0], track.T[3], label='$%.2f$' % mass,
+                   color=color)
+    else:
+        ax[1].plot(10 ** track.T[0], track.T[3], color=color)
+
+    return ax
+
+
+
+def interp_match_grid(overwrite=False):
     match_dirs1 = np.array(['MC_S13_OV0.3_Z0.002_Y0.2521',
                             'MC_S13_OV0.3_Z0.004_Y0.2557',
                             'MC_S13_OV0.3_Z0.008_Y0.2629',
                             'MC_S13_OV0.4_Z0.002_Y0.2521',
-                            'MC_S13_OV0.4_Z0.004_Y0.2557',
-                            'MC_S13_OV0.4_Z0.008_Y0.2629',
-                            'MC_S13_OV0.5_Z0.002_Y0.2521',
-                            'MC_S13_OV0.5_Z0.004_Y0.2557',
-                            'MC_S13_OV0.5_Z0.008_Y0.2629'])
-
-    match_dirs2 = np.array(['MC_S13_OV0.4_Z0.002_Y0.2521',
                             'MC_S13_OV0.4_Z0.004_Y0.2557',
                             'MC_S13_OV0.4_Z0.008_Y0.2629',
                             'MC_S13_OV0.5_Z0.002_Y0.2521',
@@ -155,6 +217,19 @@ def interp_match_grid():
                             'MC_S13_OV0.6_Z0.004_Y0.2557',
                             'MC_S13_OV0.6_Z0.008_Y0.2629'])
 
+    match_dirs2 = np.array(['MC_S13_OV0.4_Z0.002_Y0.2521',
+                            'MC_S13_OV0.4_Z0.004_Y0.2557',
+                            'MC_S13_OV0.4_Z0.008_Y0.2629',
+                            'MC_S13_OV0.5_Z0.002_Y0.2521',
+                            'MC_S13_OV0.5_Z0.004_Y0.2557',
+                            'MC_S13_OV0.5_Z0.008_Y0.2629',
+                            'MC_S13_OV0.6_Z0.002_Y0.2521',
+                            'MC_S13_OV0.6_Z0.004_Y0.2557',
+                            'MC_S13_OV0.6_Z0.008_Y0.2629',
+                            'MC_S13_OV0.7_Z0.002_Y0.2521',
+                            'MC_S13_OV0.7_Z0.004_Y0.2557',
+                            'MC_S13_OV0.7_Z0.008_Y0.2629'])
+
     new_dirs = np.array(['MC_S13_OV0.35_Z0.002_Y0.2521',
                          'MC_S13_OV0.35_Z0.004_Y0.2557',
                          'MC_S13_OV0.35_Z0.008_Y0.2629',
@@ -163,12 +238,18 @@ def interp_match_grid():
                          'MC_S13_OV0.45_Z0.008_Y0.2629',
                          'MC_S13_OV0.55_Z0.002_Y0.2521',
                          'MC_S13_OV0.55_Z0.004_Y0.2557',
-                         'MC_S13_OV0.55_Z0.008_Y0.2629'])
+                         'MC_S13_OV0.55_Z0.008_Y0.2629',
+                         'MC_S13_OV0.65_Z0.002_Y0.2521',
+                         'MC_S13_OV0.65_Z0.004_Y0.2557',
+                         'MC_S13_OV0.65_Z0.008_Y0.2629'])
 
-    mhefs = np.array([1.82, 1.90, 1.95, 1.70, 1.80, 1.85, 1.62, 1.70, 1.75])
+    mhefs = np.array([1.82, 1.90, 1.95, 1.70, 1.80, 1.85, 1.62, 1.70, 1.75,
+                      1.55, 1.60, 1.67])
 
     for i in range(len(mhefs)):
-        interpolate_between_sets(match_dirs1[i], match_dirs2[i], new_dirs[i], mhefs[i])
+        interpolate_between_sets(match_dirs1[i], match_dirs2[i], new_dirs[i],
+                                 mhefs[i], overwrite=overwrite)
 
 if __name__ == '__main__':
+    import pdb; pdb.set_trace()
     interp_match_grid()

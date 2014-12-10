@@ -194,15 +194,6 @@ class Track(object):
         if no 'BEGIN TRACK' in file will add message to self.flags
 
         if no footers are found will add message to self.info
-
-        footer strings to search for are hard coded in a list.
-        add to this list by perhaps
-        import os
-        for root, dirs, filenames in os.walk(tracks_dir):
-            for filename in filenames:
-                if filename.endswith('PMS'):
-                    lines = open(os.path.join(root, filename)).readlines()
-                    print lines[-2:]
         '''
 
         with open(filename, 'r') as infile:
@@ -221,6 +212,7 @@ class Track(object):
             self.data = np.array([])
             self.col_keys = None
             self.flag = 'load_track error: no begin track'
+            self.mass = float(self.name.split('_M')[1].replace('.PMS', '').replace('.HB', ''))
             return
 
         # find the footer assuming it's no longer than 5 lines (for speed)

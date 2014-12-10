@@ -10,11 +10,25 @@ from .. import fileio
 #from .. import graphics
 
 
-__all__ = ['calcsfh_dict', 'call_match', 'check_exclude_gates',
+__all__ = ['calcsfh_dict', 'call_match', 'check_exclude_gates', 'grab_val',
            'check_for_bg_file', 'make_calcsfh_param_file', 'strip_header',
-           'match_param_default_dict', 'match_param_fmt', 'match_stats',
-           'process_match_sfh', 'read_binned_sfh', 'read_match_cmd',
-            'write_match_bg', 'cheat_fake']
+           'match_param_default_dict', 'match_param_fmt', 'process_match_sfh',
+           'read_binned_sfh', 'read_match_cmd', 'write_match_bg', 'cheat_fake']
+
+def grab_val(s, val, v2=None, v3=None):
+    def split_str(s, val):
+        return float('.'.join(s.split('.%s' % val)[1].split('.')[:2]))
+    d = np.nan
+    try:
+        d = split_str(s, val)
+    except:
+        if v2 is not None:
+            try:
+                d = split_str(s, v2)
+            except:
+                if v3 is not None:
+                    d = split_str(s, v3)
+    return d
 
 def float2sci(num):
     return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
@@ -49,40 +63,6 @@ def cheat_fake(infakefile, outfakefile):
         tmp.T[1] += offset
         outfake = np.concatenate([outfake, tmp])
     np.savetxt(outfakefile, outfake, '%.3f')
-    return
-
-
-def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
-                outfile='cmd_stats.dat'):
-    '''
-    NFP = # of non-zero time bins
-          + dmod + av + 1 for metallicity (zinc) + 2 for background.
-
-    run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins
-    in sfh_file.
-    '''
-    stats_exe = '$HOME/research/match2.5/bin/stats'
-    sfr_data = read_binned_sfh(sfh_file)
-    inds, = np.nonzero(sfr_data.sfr)
-
-    perr_frac = sfr_data.sfr_errp[inds] / sfr_data.sfr[inds]
-    merr_frac = sfr_data.sfr_errm[inds] / sfr_data.sfr[inds]
-
-    nonzero_bins = len(inds)
-    nfp = nonzero_bins + nfp_nonsfr
-    cmd = '%s %s %i %i >> %s \n' % (stats_exe, match_cmd_file, nmc_runs, nfp,
-                                    outfile)
-
-    print('writing to', outfile)
-    with open(outfile, 'a') as out:
-        out.write('min + sfr err: %.3f\n' % np.min(perr_frac))
-        out.write('min - sfr err: %.3f\n' % np.min(merr_frac))
-        out.write('median + sfr err: %.3f\n' % np.median(perr_frac))
-        out.write('median - sfr err: %.3f\n' % np.median(merr_frac))
-        out.write('max + sfr err: %.3f\n' % np.max(perr_frac))
-        out.write('max - sfr err: %.3f\n' % np.max(merr_frac))
-        out.write('# %s' % cmd)
-    os.system(cmd)
     return
 
 
@@ -277,15 +257,26 @@ class MatchSFH(object):
 
 def match_param_default_dict():
     ''' default params for match param file'''
-    dd = {'ddmod': 0.05, 'dav': 0.05,
-          'logzmin': -2.3, 'logzmax': 0.1, 'dlogz': 0.1,
-          'logzmin0': -2.3, 'logzmax0': -1.0, 'logzmin1': -1.3,
+    dd = {'ddmod': 0.05,
+          'dav': 0.05,
+          'logzmin': -2.3,
+          'logzmax': 0.1,
+          'dlogz': 0.1,
+          'logzmin0': -2.3,
+          'logzmax0': -1.0,
+          'logzmin1': -1.3,
           'logzmax1': -0.1,
-          'BF': 0.35, 'bad0': 1e-6, 'bad1': 1e-6,
+          'BF': 0.35,
+          'bad0': 1e-6,
+          'bad1': 1e-6,
           'ncmds': 1,
-          'Vstep': 0.1, 'V-Istep': 0.05, 'fake_sm': 5,
-          'nexclude_gates': 0, 'excludegates': '',
-          'ninclude_gates': 0, 'include_gates': ''}
+          'Vstep': 0.1,
+          'V-Istep': 0.05,
+          'fake_sm': 5,
+          'nexclude_gates': 0,
+          'exclude_gates': '',
+          'ninclude_gates': 0,
+          'include_gates': ''}
     return dd
 
 
@@ -296,7 +287,7 @@ def match_param_fmt(set_z=False, zinc=True):
     their beginning.
     '''
 
-    fmt = '''-1 %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
+    return '''%(imf)s %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
 %(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
 %(BF).2f %(bad0).6f %(bad1).6f
 %(ncmds)i
@@ -304,7 +295,14 @@ def match_param_fmt(set_z=False, zinc=True):
 %(Vmin).2f %(Vmax).2f %(V)s
 %(Imin).2f %(Imax).2f %(I)s
 %(nexclude_gates)i%(exclude_gates)s %(ninclude_gates)i%(include_gates)s
-43
+50
+6.60 6.70
+6.70 6.80
+6.80 6.90
+6.90 7.00
+7.00 7.10
+7.10 7.20
+7.20 7.30
 7.30 7.40
 7.40 7.50
 7.50 7.60

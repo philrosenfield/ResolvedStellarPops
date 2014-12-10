@@ -4,6 +4,7 @@ import numpy as np
 import os
 
 from interpolate import Interpolator
+from .. import fileio
 from eep import critical_point, DefineEeps
 from tracks import TrackSet, Track, TrackDiag
 from scipy.interpolate import splev
@@ -309,9 +310,9 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag, Interpolator):
                 pdb.set_trace()
 
         to_write = np.column_stack((logAge, mass_arr, logTe, Mbol, logg, CO))
-        savetxt(outfile, to_write, header=header, fmt='%.8f',
-                overwrite=True)
-        return Track(outfile, track_data=to_write, match=True, hb=hb)
+        fileio.savetxt(outfile, to_write, header=header, fmt='%.8f',
+                       overwrite=True)
+        return Track(outfile, track_data=to_write, match=True)
 
     def interpolate_along_track(self, track, inds, nticks, mess=None):
         """
@@ -429,5 +430,3 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag, Interpolator):
                                                      mess=mess)
 
         return lagenew, lnew, tenew
-
-

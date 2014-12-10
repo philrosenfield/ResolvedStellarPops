@@ -192,6 +192,9 @@ def define_eeps(tfm, inputs):
     info_file = os.path.join(inputs.log_dir, filename % inputs.prefix.lower())
     with open(info_file, 'w') as out:
         for t in tracks:
+            if t.flag is not None:
+                out.write('# %s: %s\n' % (t.name, t.flag))
+                continue
             out.write('# %.3f\n' % t.mass)
             if t.flag is not None:
                 out.write(t.flag)
@@ -269,7 +272,8 @@ def initialize_inputs():
                   'prepare_makemod': False,
                   'track_diag_plot': False,
                   'hb_age_offset_fraction': 0.,
-                  'log_dir': os.getcwd()}
+                  'log_dir': os.getcwd(),
+                  'both': False}
     return input_dict
 
 

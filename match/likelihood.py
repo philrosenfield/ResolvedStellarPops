@@ -1,6 +1,6 @@
 """ Likelihood used in MATCH """
 import numpy as np
-
+from .utils import read_binned_sfh
 
 def stellar_prob(obs, model, normalize=False):
     '''
@@ -38,3 +38,50 @@ def stellar_prob(obs, model, normalize=False):
     pct_dif = (m - n) / n
     prob = np.sum(d) / float(len(n) - 1)
     return prob, pct_dif, sig
+
+def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
+                outfile='cmd_stats.dat', dry_run=True, extra=''):
+    '''
+    NFP = # of non-zero time bins
+          + dmod + av + 1 for metallicity (zinc) + 2 for background.
+
+    run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins
+    in sfh_file.
+    '''
+    stats_exe = '$HOME/research/match2.5/bin/stats'
+    sfr_data = read_binned_sfh(sfh_file)
+    inds, = np.nonzero(sfr_data.sfr)
+
+    nonzero_bins = len(inds)
+    nfp = nonzero_bins + nfp_nonsfr
+    cmd = '%s %s %s %i %i >> %s \n' % (extra, stats_exe, match_cmd_file,
+                                       nmc_runs, nfp, outfile)
+
+    if nmc_runs > 0:
+        perr_frac = sfr_data.sfr_errp[inds] / sfr_data.sfr[inds]
+        merr_frac = sfr_data.sfr_errm[inds] / sfr_data.sfr[inds]
+        line = '# min_sfr_merr max_sfr_perr med_sfr_merr med_sfr_perr max_sfr_merr max_sfr_perr \n'
+        line += '%.3f %.3f %.3f %.3f %.3f %.3f\n' % \
+            (np.min(perr_frac), np.min(merr_frac), np.median(perr_frac),
+             np.median(merr_frac), np.max(perr_frac), np.max(merr_frac))
+        line += '# %s' % cmd
+        with open(outfile, 'a') as out:
+            out.write(line)
+
+        print('wrote %s' % outfile)
+
+    if not dry_run:
+        import os
+        os.system(cmd)
+    return cmd
+
+def read_match_stats(statsfile):
+    with open(statsfile, 'r') as inp:
+        lines = inp.readlines()
+    stats = {}
+    for line in lines:
+        if not ':' in line:
+            continue
+        key, val = line.split(':')
+        stats[''.join(key.replace('^', '').split())] = float(val)
+    return stats

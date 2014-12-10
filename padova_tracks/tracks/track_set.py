@@ -23,6 +23,7 @@ class TrackSet(object):
         if inputs is None:
             self.prefix = ''
         else:
+            self.hb = inputs.hb
             self.initialize_tracks(inputs)
 
     def initialize_tracks(self, inputs):
@@ -43,10 +44,11 @@ class TrackSet(object):
             self.agbtracks = []
             self.agbmasses = []
 
-        if inputs.hb:
+        if self.hb:
             self.find_tracks(track_search_term=inputs.hbtrack_search_term,
                              masses=inputs.masses, match=inputs.match)
         else:
+
             self.hbtrack_names = []
             self.hbtracks = []
             self.hbmasses = []
@@ -58,24 +60,13 @@ class TrackSet(object):
 
     def find_masses(self, track_search_term, agb=False):
         track_names = fileIO.get_files(self.tracks_base, track_search_term)
-        fname, ext = fileIO.split_file_extention(track_names[0])
         mstr = '_M'
-        if 'HB' in ext:
-            track_names = np.array([t for t in track_names if 'HB' in t])
-            # ...PMS.HB
-            fname, ext2 = fileIO.split_file_extention(fname)
-            ext = '.%s.%s' % (ext2, ext)
-        else:
-            # ...PMS
-            track_names = np.array([t for t in track_names if not 'HB' in t])
-            ext = '.' + ext
         if agb:
             # Paola's tracks agb_0.66_Z0.00010000_ ... .dat
-            ext = '_Z'
             mstr = 'agb_'
 
         # mass array
-        mass = np.array([os.path.split(t)[1].split(mstr)[1].split(ext)[0]
+        mass = np.array(['.'.join(os.path.split(t)[1].split(mstr)[1].split('.')[:2])
                          for t in track_names], dtype=float)
         # inds of the masses to use and the correct order
         cut_mass, = np.nonzero(mass <= max_mass)
@@ -84,6 +75,10 @@ class TrackSet(object):
         # reorder by mass
         track_names = np.array(track_names)[cut_mass][morder]
         mass = mass[cut_mass][morder]
+
+        assert len(track_names) != 0, \
+            'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
+
         return track_names, mass
 
     def find_tracks(self, track_search_term='*F7_*PMS', masses=None,
@@ -96,9 +91,6 @@ class TrackSet(object):
         '''
 
         track_names, mass = self.find_masses(track_search_term, agb=agb)
-
-        assert len(track_names) != 0, \
-            'No tracks found: %s/%s' % (self.tracks_base, track_search_term)
 
         # only do a subset of masses
         if masses is not None:

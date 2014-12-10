@@ -871,6 +871,9 @@ class DefineEeps(Interpolator):
         track.iptcri : the critical point index rel to track.data
         track.mptcri : the model number of the critical point
         '''
+        if track.flag is not None:
+            return track
+
         self.debug = debug
         assert ptcri is not None, \
             'Must supply either a ptcri file or object'
@@ -998,7 +1001,6 @@ class DefineEeps(Interpolator):
         he_beg = inds[he_min]
         self.add_eep(track, eep_name, he_beg, message='Min LY after RG_TIP')
         return he_beg
-
 
 class InDevelopment(object):
     """

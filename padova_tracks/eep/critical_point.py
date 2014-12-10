@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import numpy as np
+import sys
 
 high_mass = 19.
 inte_mass = 12.
@@ -37,7 +38,7 @@ class Eep(object):
         self.nhb = np.sum(eep_lengths_hb)
         self.nms = np.sum(eep_lengths[:trans])
         self.ntot = self.nms + self.nhb + eep_lengths[trans]
-
+        self.trans = trans
 
 class critical_point(object):
     '''
@@ -230,66 +231,130 @@ class critical_point(object):
                 print(np.array(self.fnames)[inds])
                 for ind in inds:
                     self.fix_ptcri(np.array(self.fnames)[ind])
-        #low_mass = [1.25, ]
 
 
     def fix_ptcri(self, fname):
+        """
+        print better values of sandro's EEPs (the basis for Phil's EEPs)
+        (It is expected you will hand code the proper values in the ptcri file
+        or a copy of the ptcri file.)
+
+        This was made for inte_mass tracks, 12>M>20 that had errors.
+        The errors were typically:
+        1) MS_BEG is at the point in the track that should be POINT_C
+        2) POINT_C is at the point in the track that should be LOOP_B
+        3) RG_TIP is at the point in the track that should probably be the final
+            EEP.
+        4) LOOP_A, B, C, TPAGB/CBUR EEPS are all 0.
+            This final issue could be accounted for in the ptcri reader, but
+            it is taken as a sign that the other EEPs are probably wrong.)
+
+        Paramaters
+        ----------
+        fnane : string
+            filename of the F7 file from the bad line of the ptcri file
+
+        Returns
+        -------
+            sys.exit()
+            prints EEPs to stout and exits upon completion.
+        """
         import matplotlib.pylab as plt
         plt.ion()
-
         from ..tracks import TrackDiag, Track
-        from ..eep.define_eep import DefineEeps
-
-        de = DefineEeps()
         td = TrackDiag()
+
+        def guessandcheck(ptname, pt=None):
+            """
+            interactively plot an input point on a track's HRD.
+            Enter the index of the array to plot, and 0 to return that index.
+
+            A big assumption is that the ptcri file is in a folder called data
+            and that the corresponding track is in ../tracks/
+            Parameters
+            ----------
+            ptname : string
+                name of the track point, for stout messages only
+
+            pt : int optional
+                a starting guess. If not None, will plot it first.
+
+            Returns
+            -------
+            pt : int
+                the final value decided
+            """
+            go_on = 1
+            outmsg = '%s MODE: %i' % (ptname, track.data.MODE[pt])
+            if pt is not None:
+                # plot guess first
+                print(outmsg)
+                go_on, pt = plot_point(ptname, pt)
+
+            while go_on != 0:
+                go_on, pt = plot_point(ptname, pt)
+
+            print(outmsg)
+            return track.data.MODE[pt]
+
+        def plot_point(ptname, pt):
+            inmsg = 'Enter new value for %s or 0 to move on: ' % ptname
+            ax.plot(track.data.LOG_TE[pt], track.data.LOG_L[pt], 'o')
+            plt.draw()
+            go_on = int(raw_input(inmsg))
+            if go_on != 0:
+                # don't overwrite with "move on" value
+                pt = go_on
+            return go_on, pt
 
         track_dir = self.base.replace('data', 'tracks')
         track_file = os.path.join(track_dir, '/'.join(fname.split('/')[1:]))
         track = self.load_eeps(Track(track_file))
 
-        nsptcri = len(self.sandro_eeps)
-        ntrack_sptcri = len(track.sptcri)
-
-        import pdb; pdb.set_trace()
-
         ax = td.plot_sandro_ptcri(track, ptcri=self)
+        print('open ptcri file and get ready to edit. Current values:')
+        print(track.sptcri)
+        ms_beg = guessandcheck('ms_beg')
 
-        if ntrack_sptcri != nsptcri and track.mass >= inte_mass:
-            # fill any missing values with zero
-            track = self.load_eeps(track, sandro=False)
-            track.sptcri = np.append(track.sptcri, np.zeros(nsptcri - ntrack_sptcri, dtype=int))
-            track.iptcri = np.append(track.iptcri, np.zeros(len(self.eep.eep_list) -  len(track.iptcri), dtype=int))
+        # experience has shown that Sandro's code sets MS_BEG as what should
+        # be point C
+        point_c = track.sptcri[4]
+        point_c = guessandcheck('point_c', pt=point_c)
 
-            # not sure what has failed in Sandro's code.
-            # but this is a quick way of estimating the rg eeps and then
-            # getting the right (after rg_minl is found)
-            fmt = 'guess %s: %i'
-            print(fmt % ('TPAGB', len(track.data)-1))
-            irgb = np.argmin(np.abs(track.data.YCEN - 0.1))
-            de.ptcri = self
-            de.add_eep(track, 'RG_TIP', irgb)
-            de.add_eep(track, 'RG_BMP1', irgb - 12)
-            de.add_eep(track, 'RG_BMP2', irgb - 8)
-            de.add_sg_rg_eeps(track)
-            inds = np.arange(track.iptcri[7], irgb)
-            ind = np.argmax(track.data.LOG_L[inds])
-            irgb = inds[ind]
-            msg = 'Reset to peak L after RG_MINL'
-            de.add_eep(track, 'RG_TIP', irgb, message=msg)
-            msg = 'Reset to 12 before RG_TIP'
-            de.add_eep(track, 'RG_BMP1', irgb - 12, message=msg)
-            msg = 'Reset to 8 before RG_TIP'
-            de.add_eep(track, 'RG_BMP2', irgb - 8, message=msg)
+        # MS_TMIN is the min LOG_TE between MS_BEG and POINT_C
+        inds = np.arange(ms_beg, point_c)
+        point_b = ms_beg + np.argmin(track.data.LOG_TE[inds])
+        point_b = guessandcheck('point_b', pt=point_b)
 
-            # for some reason Sandro doesn't always have complete data for
-            # inte_mass tracks what happens is NEAR_ZAM is missing.
-            # The hack is two-fold. One, go into the ptcri file and delete
-            # masses. Two, call MS_BEG sandro's NEAR_ZAM and don't use point_c
-            # instead use sandros MS_BEG, which is actually MS_TO
-            if len(track.sptcri) <= 11 and track.mass >= inte_mass:
-                self.add_eep(track, 'MS_BEG', track.sptcri[3],
-                             message='Using Sandro\'s NEAR_ZAM as MS_BEG')
-                inds = np.arange(track.sptcri[3], track.sptcri[4])
+        # RG_BASE is probably the lowest LOG_L after POINT_C
+        inds = np.arange(point_c, len(track.data))
+        rg_base = point_c + np.argmin(track.data.LOG_L[inds])
+        rg_base = guessandcheck('rg_base', pt=rg_base)
 
-        if len(track.sptcri) <= 11 and track.mass > inte_mass:
-                more_than_one = 'first'
+        # RG_TIP is the peak LOG_L after RG_BASE, probably happens soon
+        # in high mass tracks.
+        inds = np.arange(rg_base, rg_base + 200)
+        rg_tip = rg_base + np.argmax(track.data.LOG_L[inds])
+        rg_tip = guessandcheck('rg_tip', pt=rg_tip)
+
+        # There is no RG_BMP when there is core fusion. Pick equally spaced
+        # points
+        rgbmp1, rgbmp2 = np.linspace(rg_base, rg_tip, 4, endpoint=False)[1:-1]
+
+        # Take the final point of the track, either the final, or where
+        # Sandro cut it
+        fin = track.data.MODE[-1]
+        fin_sandro = track.stpcri[np.nonzero(track.sptcri>0)][-1]
+        if fin > fin_sandro:
+            print('last point in track %i, Sandro cut at %i.' %  (fin, fin_sandro))
+            fin = guessandcheck('final point', pt=fin_sandro)
+
+        # I don't use Sandro's loops, so I don't care, here are non zero points that
+        # ensure age increase.
+        loopa, loopb, loopc = np.linspace(rg_tip, fin, 5, endpoint=False)[1:-1]
+
+        print('suggested line ptcri line (starting with MS_BEG):')
+        print(''.join(['%10i' % i for i in (ms_beg, point_b, point_c, rg_base,
+                                            int(rgbmp1), int(rgbmp2), rg_tip,
+                                            loopa, loopb, loopc, fin)]))
+        sys.exit()
