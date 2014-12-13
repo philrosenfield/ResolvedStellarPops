@@ -166,7 +166,7 @@ def setz_results(fname='setz_results.dat'):
         ycols = ['COV', 'COV', 'dmod']
         xcols = ['Z', 'IMF', 'Av']
         pops = []
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         # don't plot if nothing varies
         for i in range(len(ycols)):
             y = mg.data[ycols[i]]
@@ -222,7 +222,7 @@ def find_best(infile='sorted_best_fits.dat', outfile='setz_results.dat', ssp=Fal
         lines = inp.readlines()
     fnames, data = zip(*[l.strip().split(':Best fit:') for l in lines])
     # values from filename
-    z = np.array([grab_val(f, 'z') for f in fnames])
+    z = np.array([grab_val(f, 'lz') for f in fnames]) - 4.
 
     try:
         ov = np.array([grab_val(f, 'ov', v2='s', v3='v') for f in fnames])
@@ -300,10 +300,11 @@ def main(func):
     setzsearch.py mcmc
     """
     #flags = ['-sub=s12_hb2']
-    flags = ['-sub=ov%.2f' % o for o in np.arange(.3, .75, 0.05)]
+    flags = ['-sub=ov%.2f' % o for o in np.arange(.4, .55, 0.05)]
     imf_min = 0.
-    imf_max = 0.2
-    dimf = 0.05
+    imf_max = 0.14
+    dimf = 0.02
+    gs = [-0.70]
     phot, = glob.glob1('.', '*match')
     fake, = glob.glob1('.', '*matchfake')
     template_match_param, = [f for f in func if f.endswith('matchparam')]
@@ -315,7 +316,7 @@ def main(func):
 
     if 'setz' in func:
         flag0 += ' -setz'
-        match_params = run_grid(phot, fake, [template_match_param],
+        match_params = run_grid(phot, fake, [template_match_param], gs=gs,
                                 vary='setz', flags=flags, flag0=flag0)
     elif 'res' in func:
         # write the best values
@@ -327,7 +328,8 @@ def main(func):
         setz_results(fname=res_file)
     elif 'mcmc' in func:
         # run mcmc on the best mparams
-        match_params = find_best()
+        #match_params = find_best()
+        match_params = [template_match_param]
         match_scripts.mcmc_run(phot, fake, match_params)
 
     if 'imf' in func:
@@ -348,8 +350,7 @@ def main(func):
 
         mparams = run_grid(phot, fake, mparams, gmin=imf_min, gmax=imf_max,
                            dg=dimf, vary='imf', flag0=flag0, flags=flags)
-    else:
-        print('choose from setz, res, zres, mcmc, imf, imfsetz, imfssp')
+
 
 
 if __name__ == '__main__':

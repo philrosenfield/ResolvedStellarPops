@@ -244,9 +244,9 @@ if __name__ == "__main__":
         max_counts = np.mean([m.max_counts for m in mcmds])
         max_sig = np.mean([m.max_sig for m in mcmds])
         # HACK  -- over wrote to not have all vmins and vmax the same
-        max_diff = 15
+        max_diff = None #15
         max_counts = None
-        max_sig = 7
+        max_sig = None #7
         [pgcmd(cmd=mcmd, max_diff=max_diff, max_counts=max_counts, max_sig=max_sig,
                filter1=filter1, filter2=filter2) for mcmd in mcmds]
 

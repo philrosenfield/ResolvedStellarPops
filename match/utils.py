@@ -351,36 +351,43 @@ def match_param_fmt(set_z=False, zinc=True):
 '''
 
 
-def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False):
+def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
+                      zdisp=0.):
     '''
     turn a match sfh output file into a sfr-z table for trilegal.
 
-    check: after new isochrones, do we need to go from lage 10.15 to 10.13?
     todo: add possibility for z-dispersion.
     '''
 
-    fmt = '%.6g %.6g %.4g \n'
+    fmt = '%.6g %.6g %.4g %s \n'
 
     data = read_binned_sfh(sfhfile)
-    to = data['lagei']
-    tf = data['lagef']
     sfr = data['sfr']
-    #from ResolvedStellarPops.convertz import convertz
-    #dlogz = convertz(mh=data['mh'])[1]  # values of zero could be bad, but sfr == 0 skips below.
-    dlogz = data['mh']
+    # Trilegal only needs populated time bins, not fixed age array
+    inds, = np.nonzero(sfr > 0)
+    sfr = sfr[inds]
+    to = data['lagei'][inds]
+    tf = data['lagef'][inds]
+    dlogz = data['mh'][inds]
     half_bin = np.diff(dlogz[0: 2])[0] / 2.
+    if zdisp > 0:
+        zdisp = '%.4g' % (0.02 * 10 ** zdisp)
+    else:
+        zdisp = ''
+
     # correct age for trilegal isochrones.
-    tf[tf == 10.15] = 10.13
+    # with PARSEC V1.1 and V1.2 no need!
+    #tf[tf == 10.15] = 10.13
+
     with open(outfile, 'w') as out:
         for i in range(len(to)):
-            if sfr[i] == 0.:
-                continue
             if sarah_sim is True:
                 z1 = dlogz[i] - half_bin
                 z2 = dlogz[i] + half_bin
                 sfr[i] /= 2.
             else:
                 sfr[i] *= 1e3  # sfr is normalized in trilegal
+                # MATCH conversion:
                 z1 = 0.02 * 10 ** (dlogz[i] - half_bin)
                 z2 = 0.02 * 10 ** (dlogz[i] + half_bin)
             age1a = 1.0 * 10 ** to[i]
@@ -388,14 +395,14 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False):
             age2a = 1.0 * 10 ** tf[i]
             age2p = 1.0 * 10 ** (tf[i] + 0.0001)
 
-            out.write(fmt % (age1a, 0.0, z1))
-            out.write(fmt % (age1p, sfr[i], z1))
-            out.write(fmt % (age2a, sfr[i], z2))
-            out.write(fmt % (age2p, 0.0, z2))
-            out.write(fmt % (age1a, 0.0, z2))
-            out.write(fmt % (age1p, sfr[i], z2))
-            out.write(fmt % (age2a, sfr[i], z1))
-            out.write(fmt % (age2p, 0.0, z1))
+            out.write(fmt % (age1a, 0.0, z1, zdisp))
+            out.write(fmt % (age1p, sfr[i], z1, zdisp))
+            out.write(fmt % (age2a, sfr[i], z2, zdisp))
+            out.write(fmt % (age2p, 0.0, z2, zdisp))
+            out.write(fmt % (age1a, 0.0, z2, zdisp))
+            out.write(fmt % (age1p, sfr[i], z2, zdisp))
+            out.write(fmt % (age2a, sfr[i], z1, zdisp))
+            out.write(fmt % (age2p, 0.0, z1, zdisp))
 
     print('wrote', outfile)
     return outfile

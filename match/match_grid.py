@@ -33,7 +33,7 @@ class MatchGrid(object):
     def fname_info(self, filenames):
         self.base = os.path.split(filenames[0])[0]
         self.names = [os.path.split(f)[1] for f in filenames]
-        self.zs = [grab_val(f, 'z') for f in self.names]
+        self.zs = [grab_val(f, 'lz') - 4. for f in self.names]
         self.covs = [grab_val(f, 'ov') for f in self.names]
 
     def check_complete(self, liness):
@@ -116,7 +116,7 @@ class MatchGrid(object):
 
                 inds = list(set(izs) & set(icovs))
                 ax = plt.subplot(gs[k])
-                ax.set_adjustable('box-forced')
+                #ax.set_adjustable('box-forced')
                 #ax.autoscale(False)
                 ax.set_title('%g %g' % (uncovs[j], unzs[i]))
                 ax = self.pdf_plot(xcol, ycol, zcol, stat=stat,
@@ -135,7 +135,6 @@ class MatchGrid(object):
         if bins == 'uniq':
             bins=[np.unique(self.data[xcol][inds]),
                   np.unique(self.data[ycol][inds])]
-        import pdb; pdb.set_trace()
 
         N, xe, ye = binned_statistic_2d(self.data[xcol][inds],
                                         self.data[ycol][inds],
