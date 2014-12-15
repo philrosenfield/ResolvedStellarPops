@@ -250,8 +250,12 @@ if __name__ == "__main__":
         [pgcmd(cmd=mcmd, max_diff=max_diff, max_counts=max_counts, max_sig=max_sig,
                filter1=filter1, filter2=filter2) for mcmd in mcmds]
 
-    sfh_files = get_files(os.getcwd(), '*sfh')
-    sfh_files.extend(get_files(os.getcwd(), '*zc'))
+    args = sys.argv
+    sfh_files = [arg for arg in args if arg.endswith('sfh')]
+    sfh_files.extend([arg for arg in args if arg.endswith('zc')])
+    if len(sfh_files) == 0:
+        sfh_files = get_files(os.getcwd(), '*sfh')
+        sfh_files.extend(get_files(os.getcwd(), '*zc'))
 
     if len(sfh_files) > 0:
         from ResolvedStellarPops.match.utils import MatchSFH
