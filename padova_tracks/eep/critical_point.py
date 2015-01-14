@@ -46,11 +46,20 @@ class critical_point(object):
     which tells which critical points of Sandro's to ignore and which new
     ones to define. Definitions of new eeps are in the Track class.
     '''
-    def __init__(self, filename, sandro=True, debug=False):
+    def __init__(self, filename=None, sandro=True, debug=False):
         self.debug = debug
-        self.base, self.name = os.path.split(filename)
-        self.load_ptcri(filename, sandro=sandro)
-        self.get_args_from_name(filename)
+        if filename is not None:
+            self.base, self.name = os.path.split(filename)
+            self.load_ptcri(filename, sandro=sandro)
+            self.get_args_from_name(filename)
+        else:
+            eep_obj = Eep()
+            eep_list = eep_obj.eep_list
+            eep_list_hb = eep_obj.eep_list_hb
+            self.key_dict = dict(zip(eep_list, range(len(eep_list))))
+            self.key_dict_hb = dict(zip(eep_list_hb, range(len(eep_list_hb))))
+            self.please_define_hb = eep_obj.eep_list_hb
+            self.eep = eep_obj
 
     def get_args_from_name(self, filename):
         '''

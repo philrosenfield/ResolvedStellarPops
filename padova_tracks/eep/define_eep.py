@@ -875,20 +875,21 @@ class DefineEeps(Interpolator):
             return track
 
         self.debug = debug
-        assert ptcri is not None, \
-            'Must supply either a ptcri file or object'
+        #assert ptcri is not None, \
+        #    'Must supply either a ptcri file or object'
 
         if type(ptcri) is str:
             ptcri = critical_point(ptcri)
         self.ptcri = ptcri
         eep_obj = self.ptcri.eep
 
-        assert ptcri.Z == track.Z, \
-            'Zs do not match between track and ptcri file %f != %f' % (ptcri.Z,
-                                                                       track.Z)
-
-        assert np.round(ptcri.Y, 2) == np.round(track.Y, 2),  \
-            'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
+        if hasattr(ptcri, 'Z'):
+            assert ptcri.Z == track.Z, \
+                'Zs do not match between track and ptcri file %f != %f' % (ptcri.Z,
+                                                                           track.Z)
+        if hasattr(ptcri, 'Y'):
+            assert np.round(ptcri.Y, 2) == np.round(track.Y, 2),  \
+                'Ys do not match between track and ptcri file %f != %f' % (ptcri.Y,
                                                                        track.Y)
 
         if hb and len(ptcri.please_define_hb) > 0:

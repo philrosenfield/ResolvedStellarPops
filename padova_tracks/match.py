@@ -19,6 +19,7 @@ class CheckMatchTracks(critical_point.Eep, TrackSet, TrackDiag):
         inputs.match = True
         if inputs.hb:
             inputs.hbtrack_search_term += '.dat'
+            inputs.hbtrack_search_term = inputs.hbtrack_search_term.replace('PMS', '')
         TrackSet.__init__(self, inputs=inputs)
         self.flag_dict = inputs.flag_dict
         if not inputs.hb:

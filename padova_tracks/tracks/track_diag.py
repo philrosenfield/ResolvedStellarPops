@@ -31,7 +31,7 @@ def offset_axlims(track, xcol, ycol, ax, inds=None):
     ax.set_ylim(ymin - offy, ymax + offy)
     return ax
 
-def quick_hrd(track, ax=None, inds=None, reverse='x'):
+def quick_hrd(track, ax=None, inds=None, reverse='x', plt_kw={}):
     '''
     make an hrd.
     written for interactive use (usually in pdb)
@@ -42,7 +42,8 @@ def quick_hrd(track, ax=None, inds=None, reverse='x'):
         ax = plt.axes()
         reverse = 'x'
 
-    ax.plot(track.data.LOG_TE, track.data.LOG_L, color='k')
+    ax.plot(track.data.LOG_TE, track.data.LOG_L, **plt_kw)
+    
     if inds is not None:
         ax.plot(track.data.LOG_TE[inds], track.data.LOG_L[inds], 'o')
 
@@ -320,8 +321,7 @@ class TrackDiag(object):
                         ptcri=None, hb=False, line_pltkw={}, point_pltkw={},
                         clean=True):
         '''plot all tracks and annotate eeps'''
-        line_pltkw = dict({'color': 'black', 'alpha': 0.5}.items() + \
-                          line_pltkw.items())
+        line_pltkw = dict({'alpha': 0.5}.items() + line_pltkw.items())
 
         point_pltkw = dict({'marker': 'o', 'ls': '', 'alpha': 0.3}.items() + \
                             point_pltkw.items())
@@ -345,6 +345,8 @@ class TrackDiag(object):
                 # skip undefined eeps or you get annotations at the start of
                 # each track
                 inds = inds[inds > 0]
+            else:
+                inds = np.arange(len(t.data[xcol]))
 
             xdata = t.data[xcol]
             ydata = t.data[ycol]
@@ -365,12 +367,17 @@ class TrackDiag(object):
                 ax.plot(xdata[finds], ydata[finds], **line_pltkw)
             else:
                 ax.plot(xdata, ydata, **line_pltkw)
-            for i in range(len(inds)):
-                x = xdata[inds[i]]
-                y = ydata[inds[i]]
-                ax.plot(x, y, color=cols[i], **point_pltkw)
-                if i == 5:
-                    ax.annotate('%g' % t.mass, (x, y), fontsize=8)
+            if len(inds) > len(xdata):
+                for i in range(len(inds)):
+                    x = xdata[inds[i]]
+                    y = ydata[inds[i]]
+                    try:
+                        ax.plot(x, y, color=cols[i], **point_pltkw)
+                    except:
+                        ax.plot(x, y, **point_pltkw)
+
+                    if i == 5:
+                        ax.annotate('%g' % t.mass, (x, y), fontsize=8)
 
             xlims = np.append(xlims, (np.min(xdata), np.max(xdata)))
             ylims = np.append(ylims, (np.min(ydata), np.max(ydata)))

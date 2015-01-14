@@ -54,6 +54,7 @@ def parsec2match(input_obj, loud=False):
 
         if loud:
             print('loading ptcri')
+
         inps = load_ptcri(inps)
 
         if loud:
@@ -62,7 +63,9 @@ def parsec2match(input_obj, loud=False):
 
         if not inps.from_p2m:
             # find the parsec2match eeps for these tracks.
-            ptcri_file = load_ptcri(inps, find=True, from_p2m=True)
+            if not inps.hb:
+                ptcri_file = load_ptcri(inps, find=True, from_p2m=True)
+
             if not inps.overwrite_ptcri and os.path.isfile(ptcri_file):
                 print('not overwriting %s' % ptcri_file)
             else:
@@ -158,13 +161,17 @@ def load_ptcri(inputs, find=False, from_p2m=False):
     if inputs.ptcri_file is not None:
         ptcri_file = inputs.ptcri_file
     else:
-        ptcri_file, = fileio.get_files(inputs.ptcrifile_loc, search_term)
-
+        try:
+            ptcri_file, = fileio.get_files(inputs.ptcrifile_loc, search_term)
+        except:
+            ptcri_file = None
     if find:
         return ptcri_file
     else:
         inputs.ptcri_file = ptcri_file
         inputs.ptcri = critical_point(inputs.ptcri_file, sandro=sandro)
+        inputs.ptcri.base = inputs.ptcrifile_loc
+        inputs.ptcri.name = 'ptcri_%s.dat' % inputs.prefix
         return inputs
 
 
@@ -177,13 +184,15 @@ def define_eeps(tfm, inputs):
                'debug': inputs.debug,
                'hb': inputs.hb}
 
-    track_str = 'tracks'
-    defined = inputs.ptcri.please_define
-    filename = 'define_eeps_%s.log'
+
     if inputs.hb:
         track_str = 'hbtracks'
-        defined = inputs.ptcri.please_define_hb
+        defined = Eep().eep_list_hb
         filename = 'define_eeps_hb_%s.log'
+    else:
+        track_str = 'tracks'
+        defined = inputs.ptcri.please_define
+        filename = 'define_eeps_%s.log'
     # load critical points calls de.define_eep
     tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
               for track in tfm.__getattribute__(track_str)]
@@ -251,7 +260,7 @@ def initialize_inputs():
     input options.
     '''
     input_dict = {'track_search_term': '*F7_*PMS',
-                  'hbtrack_search_term':'*F7_*HB',
+                  'hbtrack_search_term':'*F7_*PMS.HB',
                   'from_p2m': False,
                   'masses': None,
                   'do_interpolation': True,
