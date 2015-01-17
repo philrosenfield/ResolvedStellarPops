@@ -211,7 +211,11 @@ def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
 
     dtype = [(c, '<f8') for c in col_keys]
     if string_column is not None:
-        dtype[string_column] = (col_keys[string_column], '|S%i' % string_length)
+        if type(string_column) is list:
+            for s in string_column:
+                dtype[s] = (col_keys[s], '|S%i' % string_length)
+        else:
+            dtype[string_column] = (col_keys[string_column], '|S%i' % string_length)
     data = np.genfromtxt(filename, dtype=dtype, invalid_raise=False,
                          usecols=usecols, skip_header=col_key_line + 1)
     return data
