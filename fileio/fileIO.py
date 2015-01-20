@@ -182,7 +182,8 @@ def load_input(filename, comment_char='#', list_sep=','):
             # check bool
             true = val.upper().startswith('TRUE')
             false = val.upper().startswith('FALSE')
-            if true or false:
+            none =  val.title().startswith('None')
+            if true or false or none:
                 val = literal_eval(val)
             d[key] = val
     return d
