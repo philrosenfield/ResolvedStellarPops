@@ -45,13 +45,13 @@ class InputParameters(object):
     def update_params(self, new_dict, loud=False):
         '''only overwrite attributes that already exist from dictionary'''
         if loud:
-            check_keys('not updated', new_dict)
+            self.check_keys('not updated', new_dict)
         [self.__setattr__(k, v) for k, v in new_dict.items() if hasattr(self, k)]
 
     def add_params(self, new_dict, loud=False):
         '''add or overwrite attributes from dictionary'''
         if loud:
-            check_keys('added', new_dict)
+            self.check_keys('added', new_dict)
         [self.__setattr__(k, v) for k, v in new_dict.items()]
 
     def write_params(self, new_file, formatter=None):
