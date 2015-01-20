@@ -42,12 +42,16 @@ class InputParameters(object):
         default_dict = default_dict or {}
         [self.__setattr__(k, v) for k, v in default_dict.items()]
 
-    def update_params(self, new_dict):
+    def update_params(self, new_dict, loud=False):
         '''only overwrite attributes that already exist from dictionary'''
+        if loud:
+            check_keys('not updated', new_dict)
         [self.__setattr__(k, v) for k, v in new_dict.items() if hasattr(self, k)]
 
-    def add_params(self, new_dict):
+    def add_params(self, new_dict, loud=False):
         '''add or overwrite attributes from dictionary'''
+        if loud:
+            check_keys('added', new_dict)
         [self.__setattr__(k, v) for k, v in new_dict.items()]
 
     def write_params(self, new_file, formatter=None):
@@ -58,6 +62,11 @@ class InputParameters(object):
             else:
                 for k in sorted(self.__dict__):
                     f.write('{0: <16} {1}\n'.format(k, str(self.__dict__[k])))
+
+    def check_keys(self, msg, new_dict):
+        """ check if new_dict.keys() are already attributes """
+        new_keys = [k for k, v in new_dict.items() if not hasattr(self, k)]
+        print('{}: {}'.format(msg, new_keys))
 
     def __str__(self):
         '''pprint self.__dict__'''
