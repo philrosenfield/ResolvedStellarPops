@@ -194,14 +194,16 @@ class MatchSFH(object):
         lagef = self.data.lagef
 
         # double up value
+        # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
+        lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
+        vals = np.ravel([(val[i], val[i]) for i in range(len(val))])
         if err:
-            lages = (lagei + lagef) / 2
-            return lages, val, valm, valp
+            valm = np.ravel([(valm[i], valm[i]) for i in range(len(val))])
+            valp = np.ravel([(valp[i], valp[i]) for i in range(len(val))])
+            data = (vals, valm, valp)
         else:
-            # lagei_i, lagef_i, lagei_i+1, lagef_i+1 ...
-            lages = np.ravel([(lagei[i], lagef[i]) for i in range(len(lagei))])
-            vals = np.ravel([(val[i], val[i]) for i in range(len(val))])
-            return lages, vals
+            data = vals
+        return lages, data
 
     def age_plot(self, val='sfr', ax=None, plt_kw={}, errors=True,
                  convertz=False, xlabel=None, ylabel=None,
@@ -253,6 +255,51 @@ class MatchSFH(object):
         if ylabel is not None:
             ax.set_ylabel(ylabel, fontsize=20)
         return ax
+        
+    def plot_csfr(self, ax=None, errors=True, plt_kw={}, fill_between_kw={},
+                  xlim=(13.4, -0.01), ylim=(-0.01, 1.01)):
+        '''cumulative sfr plot from match'''
+        one_off = False
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            plt.subplots_adjust(right=0.95, left=0.1, bottom=0.11, top=0.95)
+            one_off = True
+        
+        fill_between_kw = dict({'alpha': 0.2, 'color': 'gray'}.items() \
+                               + fill_between_kw.items())
+        
+        plt_kw = dict({'lw': 3}.items() + plt_kw.items())
+        
+        lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
+                                                             err=True)
+        age = 10 ** (lages - 9.)
+        
+        age = np.append(age, age[-1])
+        csfh = np.append(csfh, 0)
+        csfh_errm = np.append(csfh_errm, 0)
+        csfh_errp = np.append(csfh_errp, 0)
+
+        if errors:
+            ax.fill_between(age, csfh - csfh_errm, csfh + csfh_errp,
+                            **fill_between_kw)
+        
+        ax.plot(age, csfh, **plt_kw)
+    
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+    
+        if one_off:
+            ax.set_xlabel('$\\rm{Time\ (Gyr)}$', fontsize=20)
+            ax.set_ylabel('$\\rm{Culmulative\ SF}$', fontsize=20)
+            plt.legend(loc=0, frameon=False)
+            if 'label' in plt_kw.keys():
+                outfile = '{}_csfr.png'.format(plt_kw['label'].replace('$', '').lower())
+            else:
+                outfile = 'csfr.png'
+            plt.savefig(outfile)
+            print('wrote {}'.format(outfile))
+        return ax
+
 
 
 def match_param_default_dict():

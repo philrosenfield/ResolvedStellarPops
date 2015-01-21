@@ -8,6 +8,7 @@ import difflib
 from ..utils import is_numeric
 from ast import literal_eval
 
+import logging
 
 __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
            'ensure_file', 'get_files', 'get_row', 'item_from_row',
@@ -54,7 +55,7 @@ class InputParameters(object):
             self.check_keys('added', new_dict)
         [self.__setattr__(k, v) for k, v in new_dict.items()]
 
-    def write_params(self, new_file, formatter=None):
+    def write_params(self, new_file, formatter=None, loud=False):
         '''write self.__dict__ to new_file with format from formatter'''
         with open(new_file, 'w') as f:
             if formatter is not None:
@@ -62,11 +63,13 @@ class InputParameters(object):
             else:
                 for k in sorted(self.__dict__):
                     f.write('{0: <16} {1}\n'.format(k, str(self.__dict__[k])))
+        if loud:
+            logging.info('wrote {}'.format(new_file))
 
     def check_keys(self, msg, new_dict):
         """ check if new_dict.keys() are already attributes """
         new_keys = [k for k, v in new_dict.items() if not hasattr(self, k)]
-        print('{}: {}'.format(msg, new_keys))
+        logging.info('{}: {}'.format(msg, new_keys))
 
     def __str__(self):
         '''pprint self.__dict__'''
@@ -90,7 +93,7 @@ def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False,
         if loud:
             print('wrote', filename)
     else:
-        print('error: %s exists, not overwriting' % filename)
+        logging.error('%s exists, not overwriting' % filename)
     return
 
 class InputFile(object):
@@ -249,7 +252,7 @@ def get_row(arr, index_key, index):
     fixed_index = fixed_index[0]
     if index.lower() != fixed_index:
         if index.upper() != fixed_index:
-            print('using %s instead of %s' % (fixed_index, index))
+            logging.warning('using %s instead of %s' % (fixed_index, index))
     item_key, = np.nonzero(arr[index_key] == fixed_index)
     return arr[item_key]
 
@@ -306,7 +309,7 @@ def ensure_file(f, mad=True):
     '''
     test = os.path.isfile(f)
     if test is False:
-        print('there is no file', f)
+        logging.warning('there is no file', f)
         if mad:
             sys.exit()
     return test
@@ -323,7 +326,7 @@ def ensure_dir(f):
     d = os.path.dirname(f)
     if not os.path.isdir(d):
         os.makedirs(d)
-        print('made dirs:', d)
+        logging.info('made dirs:', d)
 
 
 def read_table(filename, comment_char='#', col_key_line=0):
@@ -408,7 +411,7 @@ def get_files(src, search_string):
     try:
         files = glob.glob1(src, search_string)
     except IndexError:
-        print('Can''t find %s in %s' % (search_string, src))
+        logging.error('Can''t find %s in %s' % (search_string, src))
         sys.exit(2)
     files = [os.path.join(src, f)
              for f in files if ensure_file(os.path.join(src, f), mad=False)]
