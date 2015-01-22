@@ -1,10 +1,20 @@
-import os
+import matplotlib as mpl
+mpl.use('Agg')
+
+import argparse
 import numpy as np
+import os
+import sys
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+
 from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
+
+from ResolvedStellarPops.match.utils import MatchSFH
+from ResolvedStellarPops.fileio.fileIO import get_files
 
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd',
            'read_match_cmd' ]
@@ -207,26 +217,8 @@ def read_match_cmd(filename):
     cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
     return cmd
 
-if __name__ == "__main__":
-    '''
-    calls pgcmd
-    the labes for the plots are taken from the filename... this is hard coded
-    labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
-    I want to have the * usage in the command line, so the last two values
-    are the filter names.
-    usage eg:
-    python graphics.py 'F555W' 'F814W\ (HRC)' *v?.?.out.cmd
-    '''
-    import sys
-    from ResolvedStellarPops.fileio.fileIO import get_files
-    args = sys.argv
-    filenames = [arg for arg in args if arg.endswith('cmd')]
-    if len(filenames) == 0:
-        filenames = get_files(os.getcwd(), '*cmd')
-    filter1 = args[1]
-    filter2 = args[2]
-    labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
+def call_pgcmd(filenames, filter1, filter2, labels=[]):
     nfiles = len(filenames)
     if nfiles == 1:
         figname = os.path.split(filenames[0])[1] + '.png'
@@ -250,17 +242,55 @@ if __name__ == "__main__":
         [pgcmd(cmd=mcmd, max_diff=max_diff, max_counts=max_counts, max_sig=max_sig,
                filter1=filter1, filter2=filter2) for mcmd in mcmds]
 
-    args = sys.argv
-    sfh_files = [arg for arg in args if arg.endswith('sfh')]
-    sfh_files.extend([arg for arg in args if arg.endswith('zc')])
-    if len(sfh_files) == 0:
-        sfh_files = get_files(os.getcwd(), '*sfh')
-        sfh_files.extend(get_files(os.getcwd(), '*zc'))
+def main(argv):
+    parser = argparse.ArgumentParser(description="Plot match diagnostics")
 
-    if len(sfh_files) > 0:
-        from ResolvedStellarPops.match.utils import MatchSFH
+    parser.add_argument('-f', '--filters', type=str, default=None,
+                        help='comma separated filter names')
+
+    parser.add_argument('-a', '--all_files', action='store_true',
+                        help='opportate on all files in current directory')
+
+    parser.add_argument('-d', '--directory', type=str, default=os.getcwd(),
+                        help='specify directory')
+
+    parser.add_argument('name', nargs='*', type=str, help='match cmd, sfh, zc\
+                        file(s)')
+
+    args = parser.parse_args(argv)
+
+    if args.all_files:
+        cmd_names = get_files(args.directory, '*cmd')
+        sfh_files = get_files(args.directory, '*sfh')
+        sfh_files.extend(get_files(args.directory, '*zc'))
+    else:
+        cmd_names = [n for n in args.name if arg.endswith('cmd')]
+        sfh_files = [n for n in args.name if arg.endswith('sfh')]
+        sfh_files.extend([n for n in args.name if arg.endswith('zc')])
+
+    filter1, filter1 = args.filters.split(',')
+    
+    labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
+    
+    call_pgcmd(cmd_names, filter1, filter2, labels=labels)
+
+    if len(sfh_files) > 0:        
         for sfh_file in sfh_files:
             msfh = MatchSFH(sfh_file)
-            if len(msfh.data) == 0:
-                continue
-            sfh_plot(msfh)
+            if len(msfh.data) != 0:
+                sfh_plot(msfh)
+
+
+if __name__ == "__main__":
+    '''
+    calls pgcmd
+    the labes for the plots are taken from the filename... this is hard coded
+    labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
+    I want to have the * usage in the command line, so the last two values
+    are the filter names.
+    usage eg:
+    python graphics.py 'F555W' 'F814W\ (HRC)' *v?.?.out.cmd
+    '''
+    main(sys.argv[1:])
+
+

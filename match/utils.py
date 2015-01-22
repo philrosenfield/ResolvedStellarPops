@@ -301,7 +301,6 @@ class MatchSFH(object):
         return ax
 
 
-
 def match_param_default_dict():
     ''' default params for match param file'''
     dd = {'ddmod': 0.05,
