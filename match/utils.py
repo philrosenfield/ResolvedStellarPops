@@ -213,8 +213,8 @@ class MatchSFH(object):
         eplt_kw.update({'linestyle': 'None'})
 
         lages, sfrs = self.plot_bins(offset=sfr_offset)
-        rlages, rsfrs, sfr_merrs, sfr_perrs = self.plot_bins(err=True,
-                                                             offset=sfr_offset)
+        rlages, (rsfrs, sfr_merrs, sfr_perrs) = self.plot_bins(err=True,
+                                                               offset=sfr_offset)
 
         if val != 'sfr':
             lages, vals = self.plot_bins(val=val, convertz=convertz)
