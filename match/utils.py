@@ -222,8 +222,8 @@ class MatchSFH(object):
             isfr, = np.nonzero(sfrs==0)
             vals[isfr] = 0.
             if self.flag != 'setz':
-                rlages, rvals, val_merrs, val_perrs = self.plot_bins(val=val,
-                                                                     err=True)
+                rlages, (rvals, val_merrs, val_perrs) = self.plot_bins(val=val,
+                                                                       err=True)
                 # mask values with no SF
                 irsfr, = np.nonzero(rsfrs==0)
                 val_merrs[irsfr] = 0.
