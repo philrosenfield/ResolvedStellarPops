@@ -268,7 +268,7 @@ def main(argv):
         sfh_files = [n for n in args.name if arg.endswith('sfh')]
         sfh_files.extend([n for n in args.name if arg.endswith('zc')])
 
-    filter1, filter1 = args.filters.split(',')
+    filter1, filter2 = args.filters.split(',')
     
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
     
