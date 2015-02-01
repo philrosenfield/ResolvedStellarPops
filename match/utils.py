@@ -295,7 +295,7 @@ class MatchSFH(object):
             if 'label' in plt_kw.keys():
                 outfile = '{}_csfr.png'.format(plt_kw['label'].replace('$', '').lower())
             else:
-                outfile = 'csfr.png'
+                outfile = '{}_csfr.png'.format(os.path.join(self.base, self.name))
             plt.savefig(outfile)
             print('wrote {}'.format(outfile))
         return ax

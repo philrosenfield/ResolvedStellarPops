@@ -283,6 +283,7 @@ def main(argv):
             msfh = MatchSFH(sfh_file)
             if len(msfh.data) != 0:
                 sfh_plot(msfh)
+                msfh.plot_csfr()
 
 
 if __name__ == "__main__":
