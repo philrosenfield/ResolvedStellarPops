@@ -268,7 +268,11 @@ def main(argv):
         sfh_files = [n for n in args.name if n.endswith('sfh')]
         sfh_files.extend([n for n in args.name if n.endswith('zc')])
 
-    filter1, filter2 = args.filters.split(',')
+    try:
+        filter1, filter2 = args.filters.split(',')
+    except AttributeError:
+        filter1 = 'V'
+        filter2 = 'I'
     
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
     
