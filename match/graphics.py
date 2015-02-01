@@ -264,9 +264,9 @@ def main(argv):
         sfh_files = get_files(args.directory, '*sfh')
         sfh_files.extend(get_files(args.directory, '*zc'))
     else:
-        cmd_names = [n for n in args.name if arg.endswith('cmd')]
-        sfh_files = [n for n in args.name if arg.endswith('sfh')]
-        sfh_files.extend([n for n in args.name if arg.endswith('zc')])
+        cmd_names = [n for n in args.name if n.endswith('cmd')]
+        sfh_files = [n for n in args.name if n.endswith('sfh')]
+        sfh_files.extend([n for n in args.name if n.endswith('zc')])
 
     filter1, filter2 = args.filters.split(',')
     

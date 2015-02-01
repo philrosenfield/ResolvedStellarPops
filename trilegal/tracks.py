@@ -3,12 +3,13 @@
 import os
 import numpy as np
 
+import matplotlib.pyplot as plt
 
 class PadovaTrack(object):
     """leo's trilegal track"""
     def __init__(self, filename):
         self.base, self.name = os.path.split(filename)
-        self.data = self.load_ptcri(filename)
+        self.load_ptcri(filename)
         self.info_from_fname()
 
     def info_from_fname(self):
@@ -29,12 +30,14 @@ class PadovaTrack(object):
         footer = 22
         all_data = np.genfromtxt(fname, usecols=(0,1,2), skip_header=header,
                                  skip_footer=footer,
-                                 names=['age', 'logl', 'logte'])
+                                 names=['age', 'LOG_L', 'LOG_TE'])
         lines = open(fname, 'r').readlines()
 
         inds, = np.nonzero(all_data['age'] == 0)
-        self.masses = np.array([lines[i+header].split('M=')[1].split()[0]
-                                for i in inds], dtype=float)
+        
+        mass_inx = int(lines[0]) + 3
+        self.masses = np.array(lines[mass_inx].split(), dtype=float)
+
         inds = np.append(inds, -1)
         indss = [np.arange(inds[i], inds[i+1]) for i in range(len(inds)-1)]
 
@@ -42,6 +45,35 @@ class PadovaTrack(object):
         for i, ind in enumerate(indss):
             track_dict['M%.4f' % self.masses[i]] = all_data[ind]
 
-        self.all_data = all_data
+        self.all_data = all_data.view(np.recarray)
         self.track_dict = track_dict
         self.masses.sort()
+
+    def plot_tracks(self, col1, col2, ax=None, plt_kw={},
+                    masses=None, labels=False, title=False):
+        if masses is None:
+            masses = np.sort(self.track_dict.keys())
+
+        if ax is None:
+            fig, ax = plt.subplots()
+        
+        for key in masses:
+            #key = 'M%.4f' % mass
+            if labels:
+                plt_kw['label'] = '$%sM_\odot$' % key.replace('M', 'M=')
+            try:
+                data = self.track_dict[key]
+            except KeyError:
+                pass
+            ax.plot(data[col1], data[col2], **plt_kw)
+        
+        if title:
+            mass_min = np.min(self.masses)
+            mass_max = np.max(self.masses)
+            ax.set_title('$Z={} M: {}-{}M_\odot$'.format(self.Z, mass_min,
+                                                         mass_max))
+        if labels:
+            ax.legend(loc='best')
+        ax.set_xlabel(r'$%s$' % col1.replace('_','\ '))
+        ax.set_ylabel(r'$%s$' % col2.replace('_','\ '))
+        return ax
