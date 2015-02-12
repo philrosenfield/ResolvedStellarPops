@@ -428,13 +428,16 @@ if __name__ == '__main__':
         import pdb
         pdb.set_trace()
 
-    if inp_obj.prepare_makemod:
-        prepare_makemod(inp_obj)
+    prefixs = inp_obj.prefixs
 
     if inp_obj.hb:
-        prefixs = inp_obj.prefixs
         parsec2match(inp_obj, loud=loud)
         inp_obj.hb = False
         inp_obj.prefixs = prefixs
 
     parsec2match(inp_obj, loud=loud)
+
+    if inp_obj.prepare_makemod:
+        inp_obj.prefixs = prefixs
+        prepare_makemod(inp_obj)
+
