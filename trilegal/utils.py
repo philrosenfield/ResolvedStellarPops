@@ -21,6 +21,7 @@ __all__ = ['Trilegal_SFH', 'IsoTrack',
 def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
 
     new_out = fileio.replace_ext(trilegal_output, 'hdf5')
+    tbl = ascii.read(trilegal_output)
     tbl.write(new_out, format='hdf5', path='data', compression=True,
               overwrite=overwrite)
     if remove:
