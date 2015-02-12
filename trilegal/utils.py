@@ -3,6 +3,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+from astropy.io import ascii
+
 from .. import utils
 from .. import fileio
 from .. import graphics
@@ -16,6 +18,15 @@ __all__ = ['Trilegal_SFH', 'IsoTrack',
            'read_loop_from_ptrci', 'run_trilegal',
            'string_in_lines', 'write_spread', 'trilegal_sfh']
 
+def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
+
+    new_out = fileio.replace_ext(trilegal_output, 'hdf5')
+    tbl.write(new_out, format='hdf5', path='data', compression=True,
+              overwrite=overwrite)
+    if remove:
+        os.remove(trilegal_output)
+    return new_out
+    
 
 def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
     if overwrite or not os.path.isfile(outfile):
