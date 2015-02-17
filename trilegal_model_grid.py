@@ -14,7 +14,7 @@ logger.setLevel(logging.DEBUG)
 def example_inputfile():
     return """
 # input file for ResolvedStellarPops.trilegal_model_grid
-# python ~/research/python/ResolvedStellarPops/trilegal_model_grid.py model_grid.inp
+# python trilegal_model_grid.py model_grid.inp
 # notes: cmd_input should be abs path
 #        object_mass should be large enough to well sample the IMF.
 #        agb tracks used for Nell are MAR13 (important info if remaking cmd_input)
@@ -276,6 +276,8 @@ class model_grid(object):
             fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %i'
 
         for filename in self.grid:
+            logger.debug(filename)
+
             file_cols = open(filename).readline().replace('#', '').strip().split()
             if len(file_cols) == len(cols):
                 continue
@@ -289,7 +291,7 @@ class model_grid(object):
             rsp.fileio.savetxt(filename, new_tab, fmt=fmt,
                                overwrite=True,
                                header='# %s\n' % (' '.join(np.array(file_cols)[cols_save])))
-
+            logger.debug('cleaned up {}'.format(filename))
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Make a large number of sfh bursts with TRILEGAL")
@@ -314,30 +316,20 @@ def main(argv):
     
     indict = rsp.fileio.load_input(args.name)
     
-    if not 'cmd_input' in indict.keys():
-        cmd_input_src = indict['cmd_input_src']
-        cmd_input_fmt = indict['cmd_input_fmt']
-        cmd_inputs = rsp.fileio.get_files(cmd_input_src, cmd_input_fmt)
-    else:
-        cmd_inputs = [indict['cmd_input']]
+    rsp.fileio.ensure_file(indict['cmd_input'])
 
-    base = indict['location']
-    for cmd_input in cmd_inputs:
-        indict['cmd_input'] = cmd_input
-        rsp.fileio.ensure_file(indict['cmd_input'])
-        # adding a directory in location for the sims.
-        location = os.path.split(cmd_input.replace('.dat', '').replace('cmd_input_', ''))[1]
-        indict['location'] = os.path.join(base, location)
+    location = os.path.split(cmd_input.replace('.dat', '').replace('cmd_input_', ''))[1]
+    indict['location'] = os.path.join(indict['location'] , location)
 
-        mg = model_grid(**indict)
-        mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
-                     galaxy_inkw={'filter1': indict.get('filter')})
-        mg.run_parallel(nproc=indict.get('nproc', 8))
-        
-        clean_up = indict.get('clean_up', False)
-        if clean_up:
-            logger.info('now cleaning up files')
-            mg.delete_columns_from_files()
+    mg = model_grid(**indict)
+    mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
+                 galaxy_inkw={'filter1': indict.get('filter')})
+    mg.run_parallel(nproc=indict.get('nproc', 8))
+
+    clean_up = indict.get('clean_up', False)
+    if clean_up:
+        logger.info('now cleaning up files')
+        mg.delete_columns_from_files()
 
 
 if __name__ == '__main__':
