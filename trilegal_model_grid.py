@@ -277,8 +277,7 @@ class model_grid(object):
             cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0',
                     'Av', 'm2/m1', 'mbol', 'F555W', 'F606W', 'F814W', 'stage']
 
-            fmt = ('%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f ',
-                   '%.3f %.3f %.3f %i')
+            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %.3f %i'
 
         for filename in self.grid:
             file_cols = open(filename).readline().replace('#', '').strip().split()
