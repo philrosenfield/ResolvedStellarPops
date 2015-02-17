@@ -280,7 +280,7 @@ class model_grid(object):
 
             file_cols = open(filename).readline().replace('#', '').strip().split()
             if len(file_cols) == len(cols):
-                logger.debug('{} already done.'.format(filename)))
+                logger.debug('{} already done.'.format(filename))
                 continue
 
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
