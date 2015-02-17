@@ -249,7 +249,7 @@ def main(argv):
                         help='comma separated filter names')
 
     parser.add_argument('-a', '--all_files', action='store_true',
-                        help='opportate on all files in current directory')
+                        help='opportate on all files in current/set directory')
 
     parser.add_argument('-d', '--directory', type=str, default=os.getcwd(),
                         help='specify directory')

@@ -1,3 +1,4 @@
+import argparse
 import ResolvedStellarPops as rsp
 import numpy as np
 import itertools
@@ -5,6 +6,29 @@ import sys
 import os
 import logging
 logger = logging.getLogger()
+
+def example_inputfile():
+    return """
+# input file for ResolvedStellarPops.trilegal_model_grid
+# python ~/research/python/ResolvedStellarPops/trilegal_model_grid.py model_grid.inp
+# notes: cmd_input should be abs path
+#        object_mass should be large enough to well sample the IMF.
+#        agb tracks used for Nell are MAR13 (important info if remaking cmd_input)
+cmd_input       /home/rosenfield/research/padova_apps/trilegal_1.5/cmd_input_CAF09_M4.dat
+photsys         phat
+filter          F814W
+object_mass     1e7
+dlogt           0.01
+dlogz           0.002
+# if it's > 10.1, it will be called 10.1...
+logtrange       9.96, 10.05
+logzrange       0.01, 0.032
+location        /home/rosenfield/research/stel_evo/NellGrid/tri_grid_etaM6/
+sfr_pref        sfr
+out_pref        burst_mloss
+inp_pref        input
+over_write      False
+"""
 
 class model_grid(object):
     def __init__(self,
@@ -111,14 +135,64 @@ class model_grid(object):
         gal_inppars.write_params(galaxy_input, rsp.trilegal.galaxy_input_fmt())
         return
 
+
+    def run_parallel(self, dry_run=False, nproc=8, start=30,
+                     timeout=45):
+        """parallelize make_grid"""
+        def setup_parallel():
+            """I would love a better way to do this."""
+            clients = parallel.Client()
+            clients.block = False
+            clients[:].use_dill()
+            clients[:].execute('import ResolvedStellarPops as rsp')
+            clients[:].execute('import numpy as np')
+            clients[:].execute('import os')
+            clients[:].execute('import logging')
+            clients[:]['logger'] = logger
+            return clients
+
+        # check for clusters.
+        try:
+            clients = parallel.Client()
+        except IOError:
+            logger.debug('Starting ipcluster... waiting {} s for spin up'.format(start))
+            os.system('ipcluster start --n={} &'.format(nproc))
+            time.sleep(start)
+
+        # find looping parameters. How many sets of calls to the max number of
+        # processors
+        ncalls = len(self.galaxy_inputs)
+        niters = np.ceil(ncalls / float(nproc))
+        sets = np.arange(niters * nproc, dtype=int).reshape(niters, nproc)
+        logger.info('{} calls {} sets'.format(ncalls, niters))
+
+        # in case it takes more than 45 s to spin up clusters, set up as
+        # late as possible
+        clients = setup_parallel()
+        logger.debug('ready to go!')
+        for j, iset in enumerate(sets):
+            # don't use not needed procs
+            iset = iset[iset < ncalls]
+
+            # parallel call to run
+            res = [clients[i].apply(rsp.trilegal.run_trilegal,
+                                    self.cmd_input, self.galaxy_inputs[i],
+                                    self.outputs[i],)
+                   for i in range(len(iset))]
+
+            logger.debug('waiting on set {} of {}'.format(j, niters))
+            while False in [r.ready() for r in res]:
+                time.sleep(1)
+            logger.info('set {} complete'.format(j))
+
+        return
+
     def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
                   over_write=False, clean_up=False):
         '''
         go through each age, metallicity step and make a single age
         cmd
         '''
-        here = os.getcwd()
-        os.chdir(self.location)
         if ages is None:
             ages = np.arange(*self.logtrange, step=self.dlogt)
         if zs is None:
@@ -130,7 +204,7 @@ class model_grid(object):
             to = age
             tf = age + self.dlogt
             obj_mass = galaxy_inkw.get('object_mass', self.object_mass)
-            print 'now doing %.2f-%.2f, %.4f %g' % (to, tf, z, obj_mass)
+            logger.info('now doing %.2f-%.2f, %.4f %g' % (to, tf, z, obj_mass))
             # set up filenames TODO: make prefixes kwargs
 
             sfh_file = self.filename_fmt(self.sfr_pref, to, tf, z)
@@ -139,22 +213,20 @@ class model_grid(object):
 
             # write files
             if self.over_write is False and os.path.isfile(output):
-                print 'not overwriting %s' % output
+                logger.warning('not overwriting %s' % output)
             else:
                 self.write_sfh_file(sfh_file, to, tf, z)
                 self.make_galaxy_input(sfh_file, galaxy_input,
                                        galaxy_inkw=galaxy_inkw)
-                if run_trilegal is True:
-                    if os.path.isfile(output) and over_write is False:
-                        print 'not over writting %s' % output
-                    else:
-                        rsp.trilegal.run_trilegal(self.cmd_input,
-                                                   galaxy_input, output)
-
-        if clean_up is True:
-            print 'now cleaning up files'
-            self.delete_columns_from_files()
-        os.chdir(here)
+                self.sfh_files.append(os.path.join(self.location, sfh_file))
+                self.galaxy_inputs.append(os.path.join(self.location, galaxy_input))
+                self.outputs.append(os.path.join(self.location, output))
+                #if run_trilegal is True:
+                #    if os.path.isfile(output) and over_write is False:
+                #        print 'not over writting %s' % output
+                #    else:
+                #        rsp.trilegal.run_trilegal(self.cmd_input,
+                #                                  galaxy_input, output)
 
     def get_grid(self, search_string):
         sub_grid = rsp.fileio.get_files(self.location, search_string)
@@ -580,17 +652,37 @@ class sf_stitcher(rsp.trilegal.trilegal_sfh, model_grid):
         self.sgals.rsp.galaxies = np.array(self.sgals.rsp.galaxies)[sinds]
         self.sort_inds = sinds
 
-if __name__ == '__main__':
-    input_file = sys.argv[1]
-    indict = rsp.fileio.load_input(input_file)
+
+def main(argv):
+    parser = argparse.ArgumentParser(description="Make a large number of sfh bursts with TRILEGAL")
+
+    parser.add_argument('-v', '--pdb', action='store_true',
+                        help='verbose mode')
+
+    parser.add_argument('name', type=str,
+                        help='input file e.g., {}'.format(example_inputfile()))
+
+    args = parser.parse_args(argv)
+
+    # set up logging
+    handler = logging.FileHandler('{}.log'.format(args.name))
+    if args.pdb:
+        handler.setLevel(logging.DEBUG)
+    else:
+        handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    
+    indict = rsp.fileio.load_input(args.name)
+    
     if not 'cmd_input' in indict.keys():
         cmd_input_src = indict['cmd_input_src']
         cmd_input_fmt = indict['cmd_input_fmt']
         cmd_inputs = rsp.fileio.get_files(cmd_input_src, cmd_input_fmt)
     else:
         cmd_inputs = [indict['cmd_input']]
-    #import pdb
-    #pdb.set_trace()
+
     base = indict['location']
     for cmd_input in cmd_inputs:
         indict['cmd_input'] = cmd_input
@@ -601,5 +693,15 @@ if __name__ == '__main__':
 
         mg = model_grid(**indict)
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
-                     clean_up=indict.get('clean_up', True),
                      galaxy_inkw={'filter1': indict.get('filter')})
+        mg.run_parallel(clean_up=indict.get('clean_up', True),
+                        nproc=indict.get('nproc', 8))
+        
+        clean_up = indict.get('clean_up', True)
+        if clean_up:
+            logger.info('now cleaning up files')
+            mg.delete_columns_from_files()
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
