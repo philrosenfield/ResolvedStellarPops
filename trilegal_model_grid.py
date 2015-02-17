@@ -79,9 +79,7 @@ class model_grid(object):
         self.location = location
 
     def write_sfh_file(self, filename, to, tf, z):
-        '''
-        single burst from to to tf with constant z.
-        '''
+        '''single burst from to to tf with constant z.'''
         offset = 0.0001
 
         age = 10 ** np.array([to, to + offset, tf, tf + offset])
@@ -109,9 +107,7 @@ class model_grid(object):
         return
 
     def filename_fmt(self, pref, to, tf, z):
-        '''
-        form and content almost separated!
-        '''
+        '''form and content almost separated!'''
         filename_fmt = '%s_%s_%s_%.2f_%.2f_%.4f_%s.dat'
         filename = filename_fmt % (pref, self.mix, self.model, to, tf, z,
                                    self.photsys)
@@ -228,10 +224,11 @@ class model_grid(object):
                 #    rsp.trilegal.run_trilegal(self.cmd_input, galaxy_input,
                 #                              output)
 
-    def get_grid(self, search_string):
-        sub_grid = rsp.fileio.get_files(self.location, search_string)
-
     def load_grid(self, check_empty=False):
+        """
+        load the filenames of the grid, check_empty adds much time but will
+        check filesizes and print rm filename if its empty
+        """
         grid = rsp.fileio.get_files(self.location, '%s*dat' % self.out_pref)
 
         if check_empty is True:
@@ -252,19 +249,19 @@ class model_grid(object):
         '''
         the idea here is to save space on the disk, and save space in memory
         when loading many files, so I'm taking away lots of extra filters and
-        other mostly useless info. Some useless info is saved because simgalaxy
-        uses it, e.g., dmod. In case I want more filters, I'm keeping log l,
-        te, g, and mbol.
+        other mostly useless info.
 
         another option is to make the files all binary too.
 
         this will keep only columns on the keep_cols list,
         right now it only works if it's default.
 
-        del_cols not implemented yet, I don't know how general this should be
-        living here.
+        TODO:
+        cols and format should be a dict, there is no check to make sure that
+        the correct number of formats is being sent to savetxt, this is
+        epecially important if 1) F814W isn't in the file 2) want to use an
+        arb photsys.
         '''
-
         if not hasattr(self, 'grid'):
             self.load_grid()
         
@@ -282,12 +279,13 @@ class model_grid(object):
             file_cols = open(filename).readline().replace('#', '').strip().split()
             if len(file_cols) == len(cols):
                 continue
-            #tab = rsp.fileio.read_table(filename)
-            #col_vals = [tab.key_dict[c]
-            #            for c in cols if c in tab.key_dict.keys()]
+
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
-            new_tab = np.genfromtxt(filename, usecols=cols_save)
-            #new_tab = np.delete(tab.data, vals, axis=1)
+            try:
+                new_tab = np.genfromtxt(filename, usecols=cols_save)
+            except ValueError:
+                logger.error('problem with %s' % filename)
+                pass
             rsp.fileio.savetxt(filename, new_tab, fmt=fmt,
                                overwrite=True,
                                header='# %s\n' % (' '.join(np.array(file_cols)[cols_save])))
