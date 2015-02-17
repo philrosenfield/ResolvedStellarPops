@@ -281,14 +281,16 @@ class model_grid(object):
                    '%.3f %.3f %.3f %i')
 
         for filename in self.grid:
-            tab = rsp.fileio.read_table(filename)
-            if len(tab.key_dict.keys()) == len(cols):
+            file_cols = open(filename).readline().replace('#', '').strip().split()
+            if len(file_cols) == len(cols):
                 continue
-            col_vals = [tab.key_dict[c]
-                        for c in cols if c in tab.key_dict.keys()]
-            vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
-            new_tab = np.delete(tab.data, vals, axis=1)
-            rsp.fileio.savetxt(filename, new_tab, fmt=fmt,
+            #tab = rsp.fileio.read_table(filename)
+            #col_vals = [tab.key_dict[c]
+            #            for c in cols if c in tab.key_dict.keys()]
+            cols_save = [i for i, c in enumerate(file_cols) if c in cols]
+            new_tab = np.genfromtxt(filename, usecols=cols_save)
+            #new_tab = np.delete(tab.data, vals, axis=1)
+            rsp.fileio.savetxt(filename+'test', new_tab, fmt=fmt,
                                header= '# %s\n' % (' '.join(cols)))
 
 
