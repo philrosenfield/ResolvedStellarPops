@@ -275,7 +275,7 @@ class model_grid(object):
 
         if keep_cols == 'default':
             cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0',
-                    'Av', 'm2/m1', 'mbol', 'F555W', 'F606W', 'F814W', 'stage']
+                    'Av', 'm2/m1', 'mbol', 'F475W', 'F606W', 'F814W', 'stage']
 
             fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %.3f %i'
 
@@ -287,9 +287,10 @@ class model_grid(object):
             #col_vals = [tab.key_dict[c]
             #            for c in cols if c in tab.key_dict.keys()]
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
-            new_tab = np.genfromtxt(filename, usecols=cols_save)
+            new_tab = np.genfromtxt(filename, usecols=cols_save, unpack=True)
             #new_tab = np.delete(tab.data, vals, axis=1)
             rsp.fileio.savetxt(filename+'test', new_tab, fmt=fmt,
+                               overwrite=True,
                                header= '# %s\n' % (' '.join(cols)))
 
 
