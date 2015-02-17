@@ -176,13 +176,11 @@ class model_grid(object):
         for j, iset in enumerate(sets):
             # don't use not needed procs
             iset = iset[iset < ncalls]
-
             # parallel call to run
             res = [clients[i].apply(rsp.trilegal.run_trilegal,
                                     self.cmd_input, self.galaxy_inputs[i],
                                     self.outputs[i],)
                    for i in range(len(iset))]
-
             logger.debug('waiting on set {} of {}'.format(j, niters))
             while False in [r.ready() for r in res]:
                 time.sleep(1)
@@ -287,7 +285,7 @@ class model_grid(object):
                 continue
             col_vals = [tab.key_dict[c] for c in cols if c in tab.key_dict.keys()]
             vals = [c for c in range(len(tab.key_dict)) if not c in col_vals]
-            new_tab = np.delete(tab.data_array, vals, axis=1)
+            new_tab = np.delete(tab.data, vals, axis=1)
             rsp.fileio.savetxt(file, new_tab, fmt=fmt, header= '# %s\n' % (' '.join(cols)))
 
     def split_on_val(self, string, val):
