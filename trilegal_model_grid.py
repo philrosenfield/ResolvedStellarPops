@@ -264,7 +264,7 @@ class model_grid(object):
         del_cols not implemented yet, I don't know how general this should be
         living here.
         '''
-        import pdb; pdb.set_trace()
+
         if not hasattr(self, 'grid'):
             self.load_grid()
         
