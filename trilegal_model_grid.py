@@ -6,6 +6,7 @@ import sys
 import os
 import logging
 from IPython import parallel
+import time
 
 logger = logging.getLogger()
 
