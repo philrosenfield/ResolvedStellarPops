@@ -276,10 +276,11 @@ class model_grid(object):
             fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %i'
 
         for filename in self.grid:
-            logger.debug(filename)
+            logger.debug('cleaning up: {}'.format(filename))
 
             file_cols = open(filename).readline().replace('#', '').strip().split()
             if len(file_cols) == len(cols):
+                logger.debug('{} already done.'.format(filename)))
                 continue
 
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
