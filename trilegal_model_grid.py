@@ -269,15 +269,14 @@ class model_grid(object):
             self.load_grid()
         
         if 'acs' in self.photsys:
-            logger.error('delete_columns_from_files: ',
-                         'must add F475W to cols list as default')
-            return
+            logger.error('delete_columns_from_files: only F814W is saved')
+            sys.exit(2)
 
         if keep_cols == 'default':
             cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0',
                     'Av', 'm2/m1', 'mbol', 'F814W', 'stage']
 
-            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %i'
+            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %i'
 
         for filename in self.grid:
             file_cols = open(filename).readline().replace('#', '').strip().split()
@@ -289,9 +288,9 @@ class model_grid(object):
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
             new_tab = np.genfromtxt(filename, usecols=cols_save)
             #new_tab = np.delete(tab.data, vals, axis=1)
-            rsp.fileio.savetxt(filename+'test', new_tab.T, fmt=fmt,
+            rsp.fileio.savetxt(filename, new_tab, fmt=fmt,
                                overwrite=True,
-                               header= '# %s\n' % (' '.join(np.array(file_cols)[cols_save])))
+                               header='# %s\n' % (' '.join(np.array(file_cols)[cols_save])))
 
 
 def main(argv):
