@@ -188,7 +188,7 @@ class model_grid(object):
         return
 
     def make_grid(self, ages=None, zs=None, run_trilegal=True, galaxy_inkw={},
-                  over_write=False, clean_up=False):
+                  over_write=False):
         '''
         go through each age, metallicity step and make a single age
         cmd
@@ -697,8 +697,7 @@ def main(argv):
         mg = model_grid(**indict)
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
                      galaxy_inkw={'filter1': indict.get('filter')})
-        mg.run_parallel(clean_up=indict.get('clean_up', True),
-                        nproc=indict.get('nproc', 8))
+        mg.run_parallel(nproc=indict.get('nproc', 8))
         
         clean_up = indict.get('clean_up', True)
         if clean_up:
