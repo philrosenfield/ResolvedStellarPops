@@ -9,7 +9,7 @@ from IPython import parallel
 import time
 
 logger = logging.getLogger()
-
+logger.setLevel(logging.DEBUG)
 def example_inputfile():
     return """
 # input file for ResolvedStellarPops.trilegal_model_grid
