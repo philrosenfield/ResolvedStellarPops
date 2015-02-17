@@ -287,9 +287,9 @@ class model_grid(object):
             #col_vals = [tab.key_dict[c]
             #            for c in cols if c in tab.key_dict.keys()]
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
-            new_tab = np.genfromtxt(filename, usecols=cols_save, unpack=True)
+            new_tab = np.genfromtxt(filename, usecols=cols_save)
             #new_tab = np.delete(tab.data, vals, axis=1)
-            rsp.fileio.savetxt(filename+'test', new_tab, fmt=fmt,
+            rsp.fileio.savetxt(filename+'test', new_tab.T, fmt=fmt,
                                overwrite=True,
                                header= '# %s\n' % (' '.join(cols)))
 
