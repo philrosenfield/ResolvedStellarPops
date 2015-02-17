@@ -318,7 +318,7 @@ def main(argv):
     
     rsp.fileio.ensure_file(indict['cmd_input'])
 
-    location = os.path.split(cmd_input.replace('.dat', '').replace('cmd_input_', ''))[1]
+    location = os.path.split(indict['cmd_input'].replace('.dat', '').replace('cmd_input_', ''))[1]
     indict['location'] = os.path.join(indict['location'] , location)
 
     mg = model_grid(**indict)
