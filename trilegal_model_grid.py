@@ -5,6 +5,8 @@ import itertools
 import sys
 import os
 import logging
+from IPython import parallel
+
 logger = logging.getLogger()
 
 def example_inputfile():
