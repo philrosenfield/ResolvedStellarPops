@@ -200,6 +200,9 @@ class model_grid(object):
         if type(zs) == float:
             zs = [zs]
 
+        self.sfh_files = []
+        self.galaxy_inputs = []
+        self.outputs = []
         for age, z in itertools.product(ages, zs):
             to = age
             tf = age + self.dlogt
