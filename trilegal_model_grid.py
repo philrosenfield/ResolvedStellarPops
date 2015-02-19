@@ -351,7 +351,7 @@ def main(argv):
 
     mg = model_grid(**indict)
     if args.check:
-        mg.check_grid_sizes(self)
+        mg.check_grid_sizes()
     else:
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
                      galaxy_inkw={'filter1': indict.get('filter')})
