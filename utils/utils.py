@@ -32,7 +32,7 @@ def add_data(old_data, names, new_data):
     array with old_data and new_data
     '''
     import numpy.lib.recfunctions as nlr
-    data = nlr.append_fields(old_data, names, new_data).data
+    data = nlr.append_fields(np.asarray(old_data), names, new_data).data
     data = data.view(np.recarray)
     return data
 

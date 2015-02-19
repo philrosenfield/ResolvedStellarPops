@@ -244,6 +244,29 @@ class model_grid(object):
         self.grid = grid
         return
 
+    def check_grid_sizes(self):
+        """
+        Check that each file has the same number of columns within as well
+        as the same number of columns from file to file.
+        
+        This is not a perfect test if trilgal finished execution.
+        """
+        if not hasattr(self, 'grid'):
+            self.load_grid()
+        
+        tests = np.array([])
+        for fname in self.grid:
+            lines = open(fname).readlines()
+            test = np.unique([len(l.strip().split()) for l in lines[1:]])
+            if len(test) != 1:
+                logger.error('unequal number of columns within: {}'.format(fname))
+            tests = np.append(tests, test)
+        
+        if np.unique(tests) != 1:
+            bad, = np.nonzero(np.diff(tests))
+            logger.error('check {} for bad number of columns {}'.format(self.grid[bad]))
+
+
     def delete_columns_from_files(self, keep_cols='default', del_cols=None,
                                   fmt='%.4f'):
         '''
@@ -299,9 +322,13 @@ def main(argv):
 
     parser.add_argument('-v', '--pdb', action='store_true',
                         help='verbose mode')
-
+    
+    parser.add_argument('-c', '--check', action='store_true',
+                        help='check grid')
+    
     parser.add_argument('name', type=str,
                         help='input file e.g., {}'.format(example_inputfile()))
+
 
     args = parser.parse_args(argv)
 
@@ -323,14 +350,17 @@ def main(argv):
     indict['location'] = os.path.join(indict['location'] , location)
 
     mg = model_grid(**indict)
-    mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
-                 galaxy_inkw={'filter1': indict.get('filter')})
-    mg.run_parallel(nproc=indict.get('nproc', 8))
-
-    clean_up = indict.get('clean_up', False)
-    if clean_up:
-        logger.info('now cleaning up files')
-        mg.delete_columns_from_files()
+    if check:
+        mg.check_grid_sizes(self)
+    else:
+        mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
+                     galaxy_inkw={'filter1': indict.get('filter')})
+        mg.run_parallel(nproc=indict.get('nproc', 8))
+    
+        clean_up = indict.get('clean_up', False)
+        if clean_up:
+            logger.info('now cleaning up files')
+            mg.delete_columns_from_files()
 
 
 if __name__ == '__main__':

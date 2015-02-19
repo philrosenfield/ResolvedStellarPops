@@ -36,7 +36,7 @@ def parse_pipeline(filename, filter1=None, filter2=None):
 
 def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
                         asts_obj=None, correct_kw={}, diag_plot=False,
-                        plt_kw={}):
+                        plt_kw={}, hdf5=True):
     '''
     correct mags with artificial star tests.
 
@@ -97,7 +97,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
     sgal.add_data(names, data)
 
     if outfile is not None:
-        sgal.write_data(outfile, overwrite=overwrite)
+        sgal.write_data(outfile, overwrite=overwrite, hdf5=hdf5)
 
     if diag_plot:
         from ..fileio.fileIO import replace_ext

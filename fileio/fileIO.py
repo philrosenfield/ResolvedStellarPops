@@ -326,7 +326,7 @@ def ensure_dir(f):
     d = os.path.dirname(f)
     if not os.path.isdir(d):
         os.makedirs(d)
-        logging.info('made dirs:', d)
+        logging.info('made dirs: {}'.format(d))
 
 
 def read_table(filename, comment_char='#', col_key_line=0):

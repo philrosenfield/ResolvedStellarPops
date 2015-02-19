@@ -162,7 +162,10 @@ class StarPop(object):
         utility for writing data files, sets header attribute and returns
         header string.
         '''
-        names = [k for k, v in sorted(self.key_dict.items(), key=lambda (k,v): v)]
+        try:
+            names = [k for k, v in sorted(self.key_dict.items(), key=lambda (k,v): v)]
+        except AttributeError:
+            names = self.data.dtype.names
         self.header = '# %s' % ' '.join(names)
         return self.header
 
@@ -420,10 +423,20 @@ class StarPop(object):
         '''
         return stars_in_region(*args, **kwargs)
 
-    def write_data(self, outfile, overwrite=False):
+    def write_data(self, outfile, overwrite=False, hdf5=False):
         '''call fileio.savetxt to write self.data'''
-        fileio.savetxt(outfile, self.data, fmt='%5g', header=self.get_header(),
-                       overwrite=overwrite)
+        if not hdf5:
+            fileio.savetxt(outfile, self.data, fmt='%5g', header=self.get_header(),
+                           overwrite=overwrite)
+        else:
+            from astropy.table import Table
+            if not outfile.endswith('.hdf5'):
+                outfile = fileio.replace_ext(outfile, '.hdf5')
+            tbl = Table(self.data)
+            tbl.write(outfile, format='hdf5', path='data', compression=True,
+                      overwrite=overwrite)
+            print('wrote {0:s}'.format(outfile))
+
         return
 
 def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
