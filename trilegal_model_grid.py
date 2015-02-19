@@ -262,7 +262,7 @@ class model_grid(object):
                 logger.error('unequal number of columns within: {}'.format(fname))
             tests = np.append(tests, test)
         
-        if np.unique(tests) != 1:
+        if len(np.unique(tests)) != 1:
             bad, = np.nonzero(np.diff(tests))
             logger.error('check {} for bad number of columns {}'.format(self.grid[bad]))
 
