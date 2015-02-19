@@ -350,7 +350,7 @@ def main(argv):
     indict['location'] = os.path.join(indict['location'] , location)
 
     mg = model_grid(**indict)
-    if check:
+    if args.check:
         mg.check_grid_sizes(self)
     else:
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
