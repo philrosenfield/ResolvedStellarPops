@@ -370,11 +370,11 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, dry_run=False):
         try:
             retcode = subprocess.call(cmd, shell=True)
             if retcode < 0:
-                print >> sys.stderr, 'TRILEGAL was terminated by signal', -retcode
+                logger.warning('TRILEGAL was terminated by signal', -retcode)
             else:
-                print >> sys.stderr, 'TRILEGAL was terminated successfully'
+                logger.info('TRILEGAL was terminated successfully')
         except OSError, err:
-            print >> sys.stderr, 'TRILEGAL failed:', err
+            logger.error('TRILEGAL failed:', err)
 
     if loud:
         logger.info('done.')
