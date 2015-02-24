@@ -368,6 +368,7 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, dry_run=False):
         logger.info(cmd)
     else:
         try:
+            logger.debug(cmd)
             retcode = subprocess.call(cmd, shell=True)
             if retcode < 0:
                 logger.warning('TRILEGAL was terminated by signal', -retcode)
