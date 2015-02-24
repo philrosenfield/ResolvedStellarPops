@@ -1,5 +1,7 @@
+import logging
 import sys
 import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -10,6 +12,8 @@ from .. import fileio
 from .. import graphics
 from .tracks import PadovaTrack
 
+logger = logging.getLogger(__name__)
+
 __all__ = ['Trilegal_SFH', 'IsoTrack',
            'change_galaxy_input', 'cmd_input_dict', 'cmd_input_fmt',
            'find_mag_num', 'find_photsys_number', 'galaxy_input_dict',
@@ -19,7 +23,9 @@ __all__ = ['Trilegal_SFH', 'IsoTrack',
            'string_in_lines', 'write_spread', 'trilegal_sfh']
 
 def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
-
+    """
+    Convert a file to hdf5 using compression and path set to 'data'
+    """
     new_out = fileio.replace_ext(trilegal_output, '.hdf5')
     tbl = ascii.read(trilegal_output)
     tbl.write(new_out, format='hdf5', path='data', compression=True,
@@ -323,8 +329,7 @@ def find_photsys_number(photsys, filter1):
     return magline.index(filter1), mag_file
 
 
-def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
-                 dry_run=False):
+def run_trilegal(cmd_input, galaxy_input, output, loud=False, dry_run=False):
     '''
     runs trilegal with os.system. might be better with subprocess? Also
     changes directory to trilegal root, if that's not in a .cshrc need to
@@ -348,7 +353,7 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
     cmd_input = os.path.split(cmd_input)[1]
 
     if loud:
-        print('running trilegal...')
+        logging.info('running trilegal...')
 
     # trilegal 2.3 not working on my mac...
     if 'Linux' in os.uname():
@@ -360,7 +365,7 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
                                                           output)
 
     if dry_run is True:
-        print(cmd)
+        logger.info(cmd)
     else:
         try:
             retcode = subprocess.call(cmd, shell=True)
@@ -372,10 +377,8 @@ def run_trilegal(cmd_input, galaxy_input, output, loud=False, rmfiles=False,
             print >> sys.stderr, 'TRILEGAL failed:', err
 
     if loud:
-        print('done.')
+        logger.info('done.')
 
-    if rmfiles is True:
-        os.remove(cmd_input)
     os.chdir(here)
     return
 

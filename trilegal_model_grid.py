@@ -249,7 +249,7 @@ class model_grid(object):
         Check that each file has the same number of columns within as well
         as the same number of columns from file to file.
         
-        This is not a perfect test if trilgal finished execution.
+        This is not a perfect test if trilgal finished execution
         """
         if not hasattr(self, 'grid'):
             self.load_grid()
