@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 __all__ = ['Trilegal_SFH', 'IsoTrack',
            'change_galaxy_input', 'cmd_input_dict', 'cmd_input_fmt',
            'find_mag_num', 'find_photsys_number', 'galaxy_input_dict',
-           'galaxy_input_fmt', 'get_args', 'get_label_stage', 'get_loop_data',
+           'galaxy_input_fmt', 'get_args', 'get_loop_data',
            'get_stage_label', 'read_cmd_input_file', 'read_isotrack_file',
            'read_loop_from_ptrci', 'run_trilegal',
            'string_in_lines', 'write_spread', 'trilegal_sfh']
@@ -412,19 +412,14 @@ def get_stage_label(region=None):
                'TPAGB', 'POSTAGB', 'WD']
     if region is None:
         return regions
-    if type(region) == int:
-        stage_lab = regions[region]
-    elif type(region) == str:
+    if type(region) == str:
         stage_lab = regions.index(region.upper())
+    elif type(region) == int or type(region) == float:
+        stage_lab = regions[int(region)] 
     else:
-        print 'must supply int or str'
+        stage_lab = [regions[int(r)] for r in region]
     return stage_lab
 
-
-def get_label_stage(stage_lab):
-    '''phasing out'''
-    print('use get_stage_label(stage_lab)')
-    return
 
 def get_loop_data(cmd_input_file, metallicity):
     filename = read_cmd_input_file(cmd_input_file)['file_isotrack']

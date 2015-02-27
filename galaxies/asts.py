@@ -1,44 +1,46 @@
 """ All about Artificial star tests """
 from __future__ import print_function
+import logging
 import os
-import numpy as np
-import matplotlib.pylab as plt
-from scipy.interpolate import interp1d
 import pyfits
+import re
+
+import matplotlib.pylab as plt
+import numpy as np
+
+from scipy.interpolate import interp1d
 
 from .. import astronomy_utils
+
+logger = logging.getLogger(__name__)
+
 __all__ = ['ast_correct_starpop', 'ASTs', 'parse_pipeline']
 
-def parse_pipeline(filename, filter1=None, filter2=None):
-    '''
-    target, filter1, and filter2 are assigned:
-    PID_TARGET_FILTER1_FILTER2_... or TARGET_FILTER1_FILTER2_
-    '''
+def parse_pipeline(filename):
+    '''find target and filters from the filename'''    
     name = os.path.split(filename)[1]
-    if None in [filter1, filter2]:
+    
+    # filters are assumed to be F???W
+    starts = [m.start() for m in re.finditer('F', name)]
+    filters = [name[s:s+5] for s in starts]
+    
+    # the target name is assumed to be before the filters in the filename
+    pref = name[:starts[0]-1]
+    for t in pref.split('_'):
         try:
-            __, target, filter1, filter2, __ = name.split('_')
+            # this could be the proposal ID
+            int(t)
         except:
-            try:
-                target, filter1, filter2e = name.split('_')
-                filter2 = filter2e.split('.')[0]
-            except:
-                try:
-                    __, target, __, filter1, filter2, _ = name.split('_')
-                except:
-                    try:
-                        __, target, filter1, filter2e = name.split('_')
-                        filter2 = filter2e.split('.')[0]
-                    except:
-                        return None, None, None
-    return target, filter1, filter2
+            # a mix of str and int should be the target
+            target = t
+    return target, filters
 
 
 def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
                         asts_obj=None, correct_kw={}, diag_plot=False,
                         plt_kw={}, hdf5=True):
     '''
-    correct mags with artificial star tests.
+    correct mags with artificial star tests, finds filters by fake_file name
 
     Parameters
     ----------
@@ -73,16 +75,14 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
     If sgal, adds columns to sgal.data
     '''
-    fmt = '%s_cor'
-    sgal.fake_file = fake_file
-    _, filter1, filter2 = parse_pipeline(fake_file)
-    if hasattr(sgal.data, fmt % filter1) and hasattr(sgal.data,
-                                                     fmt % filter2):
-        errfmt = '%s, %s ast corrections already in file.'
-        print(errfmt % (filter1, filter2))
-        return sgal.data[fmt % filter1], sgal.data[fmt % filter2]
-
+    fmt = '{}_cor'
     if asts_obj is None:
+        sgal.fake_file = fake_file
+        _, filter1, filter2 = parse_pipeline(fake_file)
+        if fmt.format(filter1) in sgal.data.keys() and fmt.format(filter2) in sgal.data.keys():
+            errfmt = '{}, {} ast corrections already in file.'
+            logger.warning(errfmt.format(filter1, filter2))
+            return sgal.data[fmt.format(filter1)], sgal.data[fmt.format(filter2)]
         ast = ASTs(fake_file)
     else:
         ast = asts_obj
@@ -92,7 +92,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
     correct_kw = dict({'dxy': (0.2, 0.15)}.items() + correct_kw.items())
     cor_mag1, cor_mag2 = ast.correct(mag1, mag2, **correct_kw)
-    names = ['%s_cor' % ast.filter1, '%s_cor' % ast.filter2]
+    names = [fmt.format(ast.filter1), fmt.format(ast.filter2)]
     data = [cor_mag1, cor_mag2]
     sgal.add_data(names, data)
 
@@ -115,10 +115,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
     return cor_mag1, cor_mag2
 
 class ASTs(object):
-    '''
-    class for reading and using artificial stars.
-
-    '''
+    '''class for reading and using artificial stars'''
     def __init__(self, filename, filter1=None, filter2=None, filt_extra=''):
         '''
         if filename has 'match' in it will assume this is a matchfake file.
@@ -129,31 +126,39 @@ class ASTs(object):
         self.filter2 = filter2
         self.filt_extra = filt_extra
 
-        self.target, self.filter1, self.filter2 = parse_pipeline(filename)
+        self.target, filters = parse_pipeline(filename)
+        
+        try:
+            self.filter1, self.filter2 = filters
+        except:
+            self.filter1, self.filter2, self.filter3 = filters
         self.read_file(filename)
 
     def recovered(self, threshold=9.99):
         '''
         find indicies of stars with magdiff < threshold
 
-        ARGS:
-        threshold: [9.99] magin - magout threshold for recovery
+        Parameters
+        ----------
+        threshold: float
+            [9.99] magin - magout threshold for recovery
 
-        RETURNS:
-        self.rec: recovered stars in both filters
-        rec1, rec2: recovered stars in filter1, filter2
+        Returns
+        -------
+        self.rec: list
+            recovered stars in both filters
+        rec1, rec2: list, list
+            recovered stars in filter1, filter2
         '''
         rec1, = np.nonzero(np.abs(self.mag1diff) < threshold)
         rec2, = np.nonzero(np.abs(self.mag2diff) < threshold)
         self.rec = list(set(rec1) & set(rec2))
         if len(self.rec) == len(self.mag1diff):
-            print('warning: all stars recovered')
+            logger.warning('all stars recovered')
         return rec1, rec2
 
     def make_hess(self, binsize=0.1, yattr='mag2diff', hess_kw={}):
-        '''
-        make hess grid
-        '''
+        '''make hess grid'''
         self.colordiff = self.mag1diff - self.mag2diff
         mag = self.__getattribute__(yattr)
         self.hess = astronomy_utils.hess(self.colordiff, mag, binsize,
@@ -162,6 +167,7 @@ class ASTs(object):
     def read_file(self, filename):
         '''
         read MATCH fake file into attributes
+        format is mag1in mag1diff mag2in mag2diff
         mag1 is assumed to be mag1in
         mag2 is assumed to be mag2in
         mag1diff is assumed to be mag1in-mag1out
@@ -177,14 +183,14 @@ class ASTs(object):
             assert not None in [self.filter1, self.filter2], \
                 'Must specify filter strings'
             self.data = pyfits.getdata(filename)
-            self.mag1 = self.data['%s_IN' % self.filter1]
-            self.mag2 = self.data['%s_IN' % self.filter2]
-            mag1out = self.data['%s%s' % (self.filter1, self.filt_extra)]
-            mag2out = self.data['%s%s' % (self.filter2, self.filt_extra)]
+            self.mag1 = self.data['{}_IN'.format(self.filter1)]
+            self.mag2 = self.data['{}_IN'.format(self.filter2)]
+            mag1out = self.data['{}{}'.format(self.filter1, self.filt_extra)]
+            mag2out = self.data['{}{}'.format(self.filter2, self.filt_extra)]
             self.mag1diff = self.mag1 - mag1out
             self.mag2diff = self.mag2 - mag2out
         else:
-            print(filename, 'not supported')
+            logger.error('{} not supported'.format(filename))
 
     def write_matchfake(self, newfile):
         '''write matchfake file'''
@@ -195,11 +201,13 @@ class ASTs(object):
         '''
         bin the artificial star tests
 
-        ARGS:
+        Parameters
+        ----------
         bins: bins for the asts
         binsize: width of bins for the asts
 
-        RETURNS:
+        Returns
+        -------
         self.am1_inds, self.am2_inds: the indices of the bins to
             which each value in mag1 and mag2 belong (see np.digitize).
         self.ast_bins: bins used for the asts.
@@ -236,22 +244,8 @@ class ASTs(object):
     def ast_correction(self, obs_mag1, obs_mag2, binsize=0.2, bins=None,
                        not_rec_val=np.nan, missing_data1=0., missing_data2=0.):
         '''
-        apply ast correction to input mags.
-
-        ARGS:
-        obs_mag1, obs_mag2: N, 1 arrays
-
-        KWARGS:
-        binsize, bins: for bin_asts if not already run.
-        not_rec_val: value for not recovered ast
-        missing_data1: value for data outside ast limits (include=0)
-        missing_data2: value for data outside ast limits (include=0)
-        RETURNS:
-        cor_mag1, cor_mag2: ast corrected magnitudes
-
-        RAISES:
-        returns -1 if obs_mag1 and obs_mag2 are different sizes
-
+        Apply ast correction to input mags.
+        
         Corrections are made by going through obs_mag1 in bins of
         bin_asts and randomly selecting magdiff values in that ast_bin.
         obs_mag2 simply follows along since it is tied to obs_mag1.
@@ -264,8 +258,27 @@ class ASTs(object):
         If there are obs stars in a mag bin where there are no asts,
         will throw the star out unless the completeness in that mag bin
         is more than 50%.
+        Parameters
+        ----------
+        obs_mag1, obs_mag2 : N, 1 arrays
+            input observerd mags
 
-        TODO:
+        binsize, bins : sent to bin_asts
+
+        not_rec_val : float
+            value for not recovered ast
+        missing_data1, missing_data2 : float, float
+            value for data outside ast limits per filter (include=0)
+        
+        Returns
+        -------
+        cor_mag1, cor_mag2: array, array
+            ast corrected magnitudes
+
+        Raises:
+            returns -1 if obs_mag1 and obs_mag2 are different sizes
+
+        To do:
         possibly return magXdiff rather than magX + magXdiff?
         reason not to: using AST results from one filter to another isn't
         kosher. At least not glatt kosher.
@@ -274,7 +287,7 @@ class ASTs(object):
 
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
-            print('error: mag arrays of different lengths')
+            logger.error('mag arrays of different lengths')
             return -1
 
         # corrected mags are filled with nan.
@@ -358,7 +371,7 @@ class ASTs(object):
 
         nstars = obs_mag1.size
         if obs_mag1.size != obs_mag2.size:
-            print('error: mag arrays of different lengths')
+            logger.error('mag arrays of different lengths')
             return -1, -1
 
         # corrected mags are filled with nan.
@@ -395,12 +408,19 @@ class ASTs(object):
     def completeness(self, combined_filters=False, interpolate=False):
         '''
         calculate the completeness of the data in each filter
-        ARGS:
-        combined_filters: Use individual or combined ast recovery
-        interpolate: add a 1d spline the completeness function to self
-        RETURNS:
-        self.comp1 the completeness in filter1 binned with self.ast_bins
-        self.comp2 same as above but filter2
+        
+        Parameters
+        ----------
+        combined_filters : bool
+            Use individual or combined ast recovery
+        
+        interpolate : bool
+            add a 1d spline the completeness function to self
+        
+        Returns
+        -------
+        self.comp1, self.comp2 : array, array
+            the completeness per filter binned with self.ast_bins
         '''
         # calculate stars recovered, could pass theshold here.
         rec1, rec2 = self.recovered()
@@ -440,6 +460,7 @@ class ASTs(object):
         return
 
     def get_completeness_fraction(self, frac, dmag=0.01, guess=24):
+        """Find the completeness magnitude at a given fraction"""
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
 
@@ -469,13 +490,13 @@ class ASTs(object):
         # the completeness limit is past the half way point ... a bit of a
         # hack.
         if icomp1 < len(search_arr) / 2.:
-            print('filter1 AST completeness is too bright, sanity checking.')
+            logger.debug('filter1 AST completeness is too bright, sanity checking.')
             cut_ind1 = np.argmax(cfrac1[ifin1])
             icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1][cut_ind1:]))
             comp1 = search_arr[ifin1][cut_ind1:][icomp1]
 
         if icomp2 < len(search_arr) / 2.:
-            print('filter2 AST completeness is too bright, sanity checking.')
+            logger.debug('filter2 AST completeness is too bright, sanity checking.')
             cut_ind2 = np.argmax(cfrac2[ifin2])
             icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2][cut_ind2:]))
             comp2 = search_arr[ifin2][cut_ind2:][icomp2]
@@ -489,9 +510,9 @@ class ASTs(object):
         fig, axs = plt.subplots(ncols=2, figsize=(12,8))
         axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.', color='k')
         axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.', color='k')
-        xlab = r'${\rm Input}\ %s$'
-        axs[0].set_xlabel(xlab % self.filter1, fontsize=20)
-        axs[1].set_xlabel(xlab % self.filter2, fontsize=20)
+        xlab = r'${\rm Input}\ {}$'
+        axs[0].set_xlabel(xlab.format(self.filter1), fontsize=20)
+        axs[1].set_xlabel(xlab.format(self.filter2), fontsize=20)
         axs[0].set_ylabel(r'${\rm Input} - {\rm Ouput}$', fontsize=20)
         return axs
 
