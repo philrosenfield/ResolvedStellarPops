@@ -257,7 +257,7 @@ class StarPop(object):
 
         Parameters
         ----------
-        names : string, sequence
+        names : str, sequence
             String or sequence of strings corresponding to the names
             of the new fields.
         data : array or sequence of arrays
@@ -270,7 +270,7 @@ class StarPop(object):
         header = self.get_header()
         test = [n for n in names if n in self.data.keys()]
         if len(test) > 0:
-            logger.warning('{} already in self.data'.format(test))
+            print('{} already in self.data'.format(test))
         else:
             self.data = utils.add_data(self.data, names, data)
             # update key_dict
