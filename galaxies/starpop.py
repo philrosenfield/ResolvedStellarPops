@@ -257,7 +257,7 @@ class StarPop(object):
 
         Parameters
         ----------
-        names : str, sequence
+        names : string, sequence
             String or sequence of strings corresponding to the names
             of the new fields.
         data : array or sequence of arrays
@@ -267,16 +267,13 @@ class StarPop(object):
         -------
         header
         '''
+        self.data = utils.add_data(self.data, names, data)
+
+        # update key_dict
         header = self.get_header()
-        test = [n for n in names if n in self.data.keys()]
-        if len(test) > 0:
-            print('{} already in self.data'.format(test))
-        else:
-            self.data = utils.add_data(self.data, names, data)
-            # update key_dict
-            header += ' ' + ' '.join(names)
-            col_keys = header.replace('#', '').split()
-            self.key_dict = dict(zip(col_keys, range(len(col_keys))))
+        header += ' ' + ' '.join(names)
+        col_keys = header.replace('#', '').split()
+        self.key_dict = dict(zip(col_keys, range(len(col_keys))))
         return header
 
     def slice_data(self, keys, inds):
