@@ -8,9 +8,11 @@ from ResolvedStellarPops import fileio
 
 
 def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
+    ext = '.PMS'
     if sub is not None:
         prefixs = os.listdir(sub)
         tracks_dir = sub
+        ext = '.dat'
 
     zsun = 0.02
     zs = np.unique(np.array([p.split('Z')[1].split('_')[0] for p in prefixs],
@@ -37,8 +39,8 @@ def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
     mod_t1 = 4.0
     for p in prefixs:
         this_dir = os.path.join(tracks_dir, p)
-        track_names = fileio.get_files(this_dir, '*.PMS')
-        masses = np.array([os.path.split(t)[1].split('M')[1].replace('.P', '')
+        track_names = fileio.get_files(this_dir, '*{}'.format(ext))
+        masses = np.array([os.path.split(t)[1].split('M')[1].replace('.{}'.format(ext[0]), '')
                            for t in track_names], dtype=float)
         all_masses = np.append(all_masses, masses)
         this_dir = os.path.join(tracks_dir, 'match', p)
