@@ -40,7 +40,7 @@ def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
     for p in prefixs:
         this_dir = os.path.join(tracks_dir, p)
         track_names = fileio.get_files(this_dir, '*{}'.format(ext))
-        masses = np.array([os.path.split(t)[1].split('M')[1].replace('.{}'.format(ext[1), '')
+        masses = np.array([os.path.split(t)[1].split('M')[1].replace('.{}'.format(ext[1]), '')
                            for t in track_names if not 'hb' in t.lower()], dtype=float)
         all_masses = np.append(all_masses, masses)
         for t in track_names:
