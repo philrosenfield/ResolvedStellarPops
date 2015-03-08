@@ -16,8 +16,9 @@ def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
         ext = '.dat'
 
     zsun = 0.02
-    zs = np.unique(np.array([p.split('Z')[1].split('_')[0] for p in prefixs],
-                            dtype=float))
+    allzs = [p.split('Z')[1].split('_')[0] for p in prefixs]
+    zs = np.unique(np.array(allzs, dtype=float))
+    prefixs = np.array(prefixs)[np.argsort(allzs)]
 
     # limits of metallicity grid
     modelIZmin = np.int(np.ceil(np.log10(np.min(zs) / zsun) * 10))
