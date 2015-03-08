@@ -396,7 +396,7 @@ def main(argv):
             flags = ['']
         elif args.ssp:
             flag0 += ' -ssp'
-        imf_min, imf_max, dimf = map(float, args.range.split(','))
+        imf_min, imf_max, dimf = map(float, args.imfrange.split(','))
 
         mparams = run_grid(phot, fake, mparams, gmin=imf_min, gmax=imf_max,
                            dg=dimf, vary='imf', flag0=flag0, flags=flags,
