@@ -101,9 +101,10 @@ def run_grid(phot, fake, mparams, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
                                 zdisp=zdisp, flag=flag, vary=vary, gs=gs,
                                 imf_flag=imf_flag)
             for fname in fnames:
-                cmd, nproc, outfile = match_scripts.call_calcsfh(phot, fake, fname,
-                                                   flag0=flag0, flag=flag,
-                                                   nproc=nproc, cmd=cmd)
+                cmd, nproc, outfile = \
+                    match_scripts.call_calcsfh(phot, fake, fname, flag0=flag0,
+                                               flag=flag, nproc=nproc, cmd=cmd,
+                                               max_proc=max_proc)
                 outfiles.append(outfile)
                 match_params.append(fname)
                 nproc += 1
@@ -123,14 +124,19 @@ def run_grid(phot, fake, mparams, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
 
     for i, outfile in enumerate(outfiles):
         if '-ssp' in flag0:
-            cmd, nproc, stats_file = match_scripts.call_sspcombine(scrns[i], nproc=nproc,
-                                                     cmd=cmd)
+            cmd, nproc, stats_file = \
+                match_scripts.call_sspcombine(scrns[i], nproc=nproc, cmd=cmd,
+                                              max_proc=max_proc)
         else:
-            cmd, nproc, sfh_file = match_scripts.call_zcombine(outfile, nproc=nproc, cmd=cmd)
+            cmd, nproc, sfh_file = \
+                match_scripts.call_zcombine(outfile, nproc=nproc, cmd=cmd,
+                                            max_proc=max_proc)
         nproc += 1
         nfp_nonsfr = 2  # dmod, Av
-        cmd, nproc, stats_file = match_scripts.call_stats(outfile, cmd=cmd, nproc=nproc,
-                                            nfp_nonsfr=nfp_nonsfr)
+        cmd, nproc, stats_file = \
+            match_scripts.call_stats(outfile, cmd=cmd, nproc=nproc,
+                                     nfp_nonsfr=nfp_nonsfr, max_proc=max_proc)
+    
     proc, cmd = match_scripts.reset_proc(nproc, cmd)
     if vary not in flag0:
         flag0 = '%s %s' % (vary, flag0)
@@ -367,7 +373,8 @@ def main(argv):
         flag0 += ' -setz'
         gs = [map(flaot(args.setzat))]
         match_params = run_grid(phot, fake, [template_match_param], gs=gs,
-                                vary='setz', flags=flags, flag0=flag0)
+                                vary='setz', flags=flags, flag0=flag0,
+                                max_proc=args.nproc)
     elif args.res:
         # write the best values
         best_mpars, res_file = find_best(infile=args.bestfits)

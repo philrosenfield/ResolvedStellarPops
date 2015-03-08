@@ -64,16 +64,16 @@ def reset_proc(nproc, cmd, min_proc=MIN_PROC):
     return nproc, cmd
 
 
-def call_stats(outfile, cmd='', nproc=MIN_PROC, nfp_nonsfr=0):
+def call_stats(outfile, cmd='', nproc=MIN_PROC, nfp_nonsfr=0, max_proc=MAX_PROC):
     """ add a line to call my call to match stats program """
     sfh_file = outfile.replace('out', 'sfh')
     cmd_file = outfile + '.cmd'
     stats_file = cmd_file + '.stats'
 
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
     extra = 'taskset -c %i' % nproc
     nproc += 1
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
 
     cmd += 'taskset -c %i python -c \"from ResolvedStellarPops.match.likelihood import match_stats; ' % nproc
     cmd += 'match_stats(\'%s\', \'%s\', nfp_nonsfr=%i, nmc_runs=0, outfile=\'%s\', dry_run=False, extra=\'%s\')\" & \n' % \
@@ -82,9 +82,9 @@ def call_stats(outfile, cmd='', nproc=MIN_PROC, nfp_nonsfr=0):
     return cmd, nproc, stats_file
 
 
-def call_sspcombine(outfile, nproc=0, cmd=''):
+def call_sspcombine(outfile, nproc=0, cmd='', max_proc=MAX_PROC):
     """add a line calling sspcombine"""
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
     sspcombine = 'taskset -c %i $HOME/research/match2.5/bin/sspcombine' % nproc
     stats_file = outfile.replace('scrn', 'stats')
 
@@ -92,9 +92,10 @@ def call_sspcombine(outfile, nproc=0, cmd=''):
     return cmd, nproc, stats_file
 
 
-def call_calcsfh(phot, fake, mparam, flag0='-setz', flag='', nproc=0, cmd=''):
+def call_calcsfh(phot, fake, mparam, flag0='-setz', flag='', nproc=0, cmd='',
+                 max_proc=MAX_PROC):
     """add a line to a script to run calcsfh"""
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
 
     if flag == '':
         if 'ov' in mparam:
@@ -113,9 +114,10 @@ def call_calcsfh(phot, fake, mparam, flag0='-setz', flag='', nproc=0, cmd=''):
     return cmd, nproc, outfile
 
 
-def call_zcombine(outfile, nproc=MIN_PROC, cmd='', flag='-bestonly'):
+def call_zcombine(outfile, nproc=MIN_PROC, cmd='', flag='-bestonly',
+                  max_proc=MAX_PROC):
     """add a line to a script to run zcombine"""
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
 
     zcombine = 'taskset -c %i $HOME/research/match2.5/bin/zcombine' % nproc
     if 'bestonly' in flag:
@@ -133,9 +135,10 @@ def diag_calls(cmd):
     return cmd
 
 
-def call_hmc(hmcinp, nproc=MIN_PROC, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.015'):
+def call_hmc(hmcinp, nproc=MIN_PROC, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.015',
+             max_proc=MAX_PROC):
     """add a line to a script to run hybricMC"""
-    nproc, cmd = check_proc(nproc, cmd)
+    nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
     hmcout = hmcinp + '.mcmc'
     hmcscrn = hmcinp + '.scrn'
     hmc = 'taskset -c %i $HOME/research/match2.5/bin/hybridMC' % nproc
@@ -144,7 +147,7 @@ def call_hmc(hmcinp, nproc=MIN_PROC, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.01
 
 
 def mcmc_run(phot, fake, match_params, cmd='', nproc=MIN_PROC, flags=None,
-             flag0='-setz -mcdata'):
+             flag0='-setz -mcdata', max_proc=MAX_PROC):
     outfiles = []
     hmc_files = []
     sfh_files = []
@@ -152,21 +155,23 @@ def mcmc_run(phot, fake, match_params, cmd='', nproc=MIN_PROC, flags=None,
     # calcsfh
     for mparam in match_params:
         cmd, nproc, outfile = call_calcsfh(phot, fake, mparam, flag0=flag0,
-                                           nproc=nproc, cmd=cmd)
+                                           nproc=nproc, cmd=cmd, max_proc=max_proc)
         outfiles.append(outfile)
         nproc += 1
     nproc, cmd = reset_proc(nproc, cmd)
 
     # zcombine from calcsfh
     for outfile in outfiles:
-        cmd, nproc, sfh_file = call_zcombine(outfile, nproc=nproc, cmd=cmd)
+        cmd, nproc, sfh_file = call_zcombine(outfile, nproc=nproc, cmd=cmd,
+                                             max_proc=max_proc)
         sfh_files.append(sfh_file)
         nproc += 1
     nproc, cmd = reset_proc(nproc, cmd)
 
     # Hybrid MonteCarlo
     for outfile in outfiles:
-        cmd, nproc, hmc_file = call_hmc(outfile, nproc=nproc, cmd=cmd)
+        cmd, nproc, hmc_file = call_hmc(outfile, nproc=nproc, cmd=cmd,
+                                        max_proc=max_proc)
         hmc_files.append(hmc_file)
         nproc += 1
     nproc, cmd = reset_proc(nproc, cmd)
@@ -175,7 +180,7 @@ def mcmc_run(phot, fake, match_params, cmd='', nproc=MIN_PROC, flags=None,
     flag = ' -unweighted -medbest -jeffreys -best=%s '
     for i in range(len(hmc_files)):
         cmd, nproc, zc_file = call_zcombine(hmc_files[i], flag=flag % sfh_files[i],
-                                           cmd=cmd, nproc=nproc)
+                                           cmd=cmd, nproc=nproc, max_proc=max_proc)
         nproc += 1
     nproc, cmd = reset_proc(nproc, cmd)
 
