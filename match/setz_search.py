@@ -355,7 +355,7 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
-    ovmin, ovmax, dov = map(float, args.ovrange.split())
+    ovmin, ovmax, dov = map(float, args.ovrange.split(','))
     flags = ['-sub=ov%.2f' % o for o in np.arange(ovmin, ovmax, dov)]
     flag0 = '-full'
 
@@ -396,13 +396,11 @@ def main(argv):
             flags = ['']
         elif args.ssp:
             flag0 += ' -ssp'
-        imf_min, imf_max, dimf = map(float, args.range.split())
+        imf_min, imf_max, dimf = map(float, args.range.split(','))
 
         mparams = run_grid(phot, fake, mparams, gmin=imf_min, gmax=imf_max,
                            dg=dimf, vary='imf', flag0=flag0, flags=flags,
                            max_proc=args.nproc)
-
-
 
 if __name__ == '__main__':
     main(sys.argv[1:])
