@@ -41,10 +41,8 @@ def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
         this_dir = os.path.join(tracks_dir, p)
         track_names = fileio.get_files(this_dir, '*{}'.format(ext))
         masses = np.array([os.path.split(t)[1].split('M')[1].replace('.{}'.format(ext[0]), '')
-                           for t in track_names], dtype=float)
+                           for t in track_names if not 'hb' in t.lower()], dtype=float)
         all_masses = np.append(all_masses, masses)
-        this_dir = os.path.join(tracks_dir, 'match', p)
-        track_names = fileio.get_files(this_dir, '*.dat')
         for t in track_names:
             data = np.genfromtxt(t, names=['logte', 'mbol'], usecols=(2,3))
             mod_t0 = np.min([mod_t0, np.min(data['logte'])])
