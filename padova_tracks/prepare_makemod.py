@@ -5,6 +5,7 @@ import os
 import sys
 
 from ResolvedStellarPops import fileio
+from eep.critical_point import Eep
 
 
 def prepare_makemod(prefixs=None, tracks_dir=None, sub=None):
