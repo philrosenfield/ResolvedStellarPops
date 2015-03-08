@@ -57,7 +57,8 @@ def check_proc(nproc, cmd):
 
 def reset_proc(nproc, cmd):
     """add a wait signal to cmd and set nproc to 0"""
-    cmd += 'wait\n'
+    #cmd += 'wait\n'
+    cmd += "\nfor job in `jobs -p`\ndo\n    echo $job\n    wait $job\ndone\n\n"
     nproc = min_proc
     return nproc, cmd
 
