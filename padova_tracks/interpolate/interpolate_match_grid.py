@@ -60,17 +60,17 @@ def interp_mhefs(isotracks=None, outfile=None):
         return ' '.join(['%.2f' % i for i in np.concatenate(([ov], marr))]) + '\n'
 
     if isotracks is None:
-        isotracks = ['isotrack/parsec/CAF09_MC_S13v2_OV0.3.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.4.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.5.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.7.dat']
+        isotracks = ['isotrack/parsec/CAF09_MC_S13v3_OV0.3.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.4.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.5.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.6.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.7.dat']
         isotracks = [os.path.join(os.environ['TRILEGAL_ROOT'], i)
                      for i in isotracks]
 
     if outfile is None:
         outfile = os.path.join(os.environ['TRILEGAL_ROOT'],
-                               'CAF09_MC_S13v2_MHeF_interp.dat')
+                               'CAF09_MC_S13v3_MHeF_interp.dat')
     line = '\n'.join(['# %s' % i for i in isotracks]) + '\n'
     isots = [trilegal.IsoTrack(i) for i in isotracks]
     line += '# OV '
@@ -252,4 +252,5 @@ def interp_match_grid(overwrite=False):
 
 if __name__ == '__main__':
     import pdb; pdb.set_trace()
-    interp_match_grid()
+    #interp_match_grid()
+    interp_mhefs()
