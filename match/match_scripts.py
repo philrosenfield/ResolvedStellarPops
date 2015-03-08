@@ -1,7 +1,8 @@
+"""Utilities for running match"""
 from ..fileio import readfile
 import numpy as np
-max_proc = 12
-min_proc = 0
+MAX_PROC = 8
+MIN_PROC = 0
 
 __all__ = ['write_script', 'insert_ext', 'check_boundaries', 'check_proc',
            'reset_proc', 'call_stats', 'call_sspcombine', 'call_calcsfh',
@@ -48,14 +49,14 @@ def check_boundaries(mparam, res_file='setz_results.dat'):
             print 'error need to decrease av0 past %.2f' % av0
 
 
-def check_proc(nproc, cmd):
+def check_proc(nproc, cmd, max_proc=MAX_PROC):
     """if nproc >= max_proc will call reset_proc"""
     if nproc >= max_proc:
         nproc, cmd = reset_proc(nproc, cmd)
     return nproc, cmd
 
 
-def reset_proc(nproc, cmd):
+def reset_proc(nproc, cmd, min_proc=MIN_PROC):
     """add a wait signal to cmd and set nproc to 0"""
     #cmd += 'wait\n'
     cmd += "\nfor job in `jobs -p`\ndo\n    echo $job\n    wait $job\ndone\n\n"
@@ -63,7 +64,7 @@ def reset_proc(nproc, cmd):
     return nproc, cmd
 
 
-def call_stats(outfile, cmd='', nproc=min_proc, nfp_nonsfr=0):
+def call_stats(outfile, cmd='', nproc=MIN_PROC, nfp_nonsfr=0):
     """ add a line to call my call to match stats program """
     sfh_file = outfile.replace('out', 'sfh')
     cmd_file = outfile + '.cmd'
@@ -112,7 +113,7 @@ def call_calcsfh(phot, fake, mparam, flag0='-setz', flag='', nproc=0, cmd=''):
     return cmd, nproc, outfile
 
 
-def call_zcombine(outfile, nproc=min_proc, cmd='', flag='-bestonly'):
+def call_zcombine(outfile, nproc=MIN_PROC, cmd='', flag='-bestonly'):
     """add a line to a script to run zcombine"""
     nproc, cmd = check_proc(nproc, cmd)
 
@@ -132,7 +133,7 @@ def diag_calls(cmd):
     return cmd
 
 
-def call_hmc(hmcinp, nproc=min_proc, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.015'):
+def call_hmc(hmcinp, nproc=MIN_PROC, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.015'):
     """add a line to a script to run hybricMC"""
     nproc, cmd = check_proc(nproc, cmd)
     hmcout = hmcinp + '.mcmc'
@@ -142,7 +143,7 @@ def call_hmc(hmcinp, nproc=min_proc, cmd='', flag='-tint=2.0 -nmc=10000 -dt=0.01
     return cmd, nproc, hmcout
 
 
-def mcmc_run(phot, fake, match_params, cmd='', nproc=min_proc, flags=None,
+def mcmc_run(phot, fake, match_params, cmd='', nproc=MIN_PROC, flags=None,
              flag0='-setz -mcdata'):
     outfiles = []
     hmc_files = []

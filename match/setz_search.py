@@ -10,11 +10,19 @@ These functions don't run anything. They make bash script files to be run on
 their own. I think it's better to separate creating files to do the runs and
 doing the runs themselves.
 """
-import numpy as np
-import sys
+from __future__ import absolute_import
+import argparse
 import glob
+import sys
 
-min_proc = 0
+import numpy as np
+
+from ..fileio.fileIO import readfile, savetxt
+from .likelihood import read_match_stats
+from .utils import grab_val
+from . import match_scripts
+
+min_proc = 1
 
 def vary_mpars(template_match_param, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
                flag='', vary='setz', gs=None, imf_flag=''):
@@ -73,7 +81,8 @@ def vary_mpars(template_match_param, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
 
 
 def run_grid(phot, fake, mparams, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
-             flags=[''], flag0='-setz', cmd='', nproc=min_proc, vary='setz', gs=None):
+             flags=[''], flag0='-setz', cmd='', nproc=0, vary='setz',
+             gs=None, max_proc=8):
     """
     create a bash script to run calsfh, zcombine, and make plots in parallel
     """
@@ -106,7 +115,7 @@ def run_grid(phot, fake, mparams, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
         # creates a outfile.dat with no header
         for mparam in match_params:
             scrn = mparam.replace('matchparam', 'scrn')
-            nproc, cmd = match_scripts.check_proc(nproc, cmd)
+            nproc, cmd = match_scripts.check_proc(nproc, cmd, max_proc=max_proc)
             cmd += 'taskset -c %i python -c \"from ResolvedStellarPops.match.utils import strip_header; strip_header(\'%s\')\" & \n' % (nproc, scrn)
             nproc += 1
             scrns.append(scrn)
@@ -288,7 +297,7 @@ def load_match_stats(best_fit_file='sorted_best_fits.dat'):
     return best_fit, expect, sigma, variance, fitz, effchi2
 
 
-def main(func):
+def main(argv):
     """
     usage e.g,:
     setzsearch.py template_match_param setz imf kroupa
@@ -300,67 +309,101 @@ def main(func):
     setzsearch.py mcmc
     """
     #flags = ['-sub=s12_hb2']
-    flags = ['-sub=ov%.2f' % o for o in np.arange(.4, .55, 0.05)]
-    imf_min = 0.
-    imf_max = 0.14
-    dimf = 0.02
-    gs = [-0.70]
+    parser = argparse.ArgumentParser(description="Create bash script to run MATCH many times")
+
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='verbose mode')
+
+    parser.add_argument('-n', '--nproc', type=int, default=8,
+                        help='number of processors')
+
+    parser.add_argument('-z', '--setz', action='store_true',
+                        help='use setz flag in MATCH calls')
+
+    parser.add_argument('-s', '--ssp', action='store_true',
+                        help='use ssp flag in MATCH calls')
+
+    parser.add_argument('-i', '--imf', action='store_true',
+                        help='set or vary the imf')
+    
+    parser.add_argument('-k', '--kroupa', action='store_true',
+                        help='set imf to kroupa')
+
+    parser.add_argument('-c', '--chabrier', action='store_true',
+                        help='set imf to chabrier')
+
+    parser.add_argument('-m', '--mcmc', action='store_true',
+                        help='MCMC run')
+    
+    parser.add_argument('-b', '--bestfits', type=str, default=None,
+                        help='Best_fit file to use with -r flag')
+
+    parser.add_argument('-r', '--res', type=str, default=None,
+                        help='Cull results')
+
+    parser.add_argument('-x', '--imfrange', type=str, default='0.0,0.14,0.02',
+                        help='comma separated imfmin, imfmax, dimf')
+
+    parser.add_argument('-g', '--setz_at', type=str, default='-0.70',
+                        help='set metallicity')
+
+    parser.add_argument('-o', '--ovrange', type=str, default='0.3,0.75,0.05',
+                        help='core overshoot range -- needs to correspond with MATCH sub directories')
+    
+    parser.add_argument('matchparam', type=str,
+                        help='input file. To create, see initialize_inputs.__doc__')
+
+    args = parser.parse_args(argv)
+
+    ovmin, ovmax, dov = map(float, args.ovrange.split())
+    flags = ['-sub=ov%.2f' % o for o in np.arange(ovmin, ovmax, dov)]
+    flag0 = '-full'
+
     phot, = glob.glob1('.', '*match')
     fake, = glob.glob1('.', '*matchfake')
-    template_match_param, = [f for f in func if f.endswith('matchparam')]
-    flag0 = '-full'
-    try:
-        best_fits, = [f for f in func if 'best_fits' in f]
-    except:
-        best_fits = None
+    template_match_param = args.matchparam
 
-    if 'setz' in func:
+    if args.setz:
         flag0 += ' -setz'
+        gs = [map(flaot(args.setzat))]
         match_params = run_grid(phot, fake, [template_match_param], gs=gs,
                                 vary='setz', flags=flags, flag0=flag0)
-    elif 'res' in func:
+    elif args.res:
         # write the best values
-        best_mpars, res_file = find_best(infile=best_fits)
+        best_mpars, res_file = find_best(infile=args.bestfits)
         # check the solution for boundary issues
         match_scripts.check_boundaries(template_match_param, res_file=res_file)
         #if 'z' in func:
         # make a plot
         setz_results(fname=res_file)
-    elif 'mcmc' in func:
+    elif args.mcmc:
         # run mcmc on the best mparams
-        #match_params = find_best()
         match_params = [template_match_param]
         match_scripts.mcmc_run(phot, fake, match_params)
 
-    if 'imf' in func:
+    if args.imf:
         # make a grid of varying IMF values based on either the best
         # mparams or a given mparam
         mparams = [template_match_param]
-        if 'kroupa' in func:
+        if args.kroupa:
             flag0 += ' -kroupa'
-        elif 'chabrier' in func:
+        elif args.chabrier:
             flag0 += ' -chabrier'
-        if 'setz' in func:
+        if args.setz:
             # use the grid already made, don't need to loop over the flags
             # again.
             mparams = match_params
             flags = ['']
-        elif 'ssp' in func:
+        elif args.ssp:
             flag0 += ' -ssp'
+        imf_min, imf_max, dimf = map(float, args.range.split())
 
         mparams = run_grid(phot, fake, mparams, gmin=imf_min, gmax=imf_max,
-                           dg=dimf, vary='imf', flag0=flag0, flags=flags)
+                           dg=dimf, vary='imf', flag0=flag0, flags=flags,
+                           max_proc=args.nproc)
 
 
 
 if __name__ == '__main__':
-    from ResolvedStellarPops.fileio.fileIO import readfile, savetxt
-    from ResolvedStellarPops.match.likelihood import read_match_stats
-    from ResolvedStellarPops.match.utils import grab_val
-    from ResolvedStellarPops.match import match_scripts
-    main(sys.argv)
-else:
-    from ..fileio.fileIO import readfile, savetxt
-    from .likelihood import read_match_stats
-    from .utils import grab_val
-    from . import match_scripts
+    main(sys.argv[1:])
+
