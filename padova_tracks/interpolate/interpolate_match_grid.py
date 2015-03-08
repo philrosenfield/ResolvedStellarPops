@@ -9,10 +9,10 @@ __all__ = ['interp_match_grid', 'interp_mhefs']
 def plot_MheF(isotracks=None, labels=None, colors=None):
     """ plot the minimum initial mass for He Fusion """
     if isotracks is None:
-        isotracks = ['isotrack/parsec/CAF09_MC_S13v2_OV0.3.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.4.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.5.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat',
+        isotracks = ['isotrack/parsec/CAF09_MC_S13v3_OV0.3.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.4.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.5.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.6.dat',
                     'isotrack/parsec/CAF09_S12D_NS_1TP.dat']
         isotracks = [os.path.join(os.environ['TRILEGAL_ROOT'], i)
                      for i in isotracks]
@@ -47,11 +47,11 @@ def interp_mhefs(isotracks=None, outfile=None):
     isotracks : list of strings
         path to parsec isotrack files. Must be in order!
         eg:
-        isotracks = ['isotrack/parsec/CAF09_MC_S13v2_OV0.3.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.4.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.5.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.6.dat',
-                     'isotrack/parsec/CAF09_MC_S13v2_OV0.7.dat']
+        isotracks = ['isotrack/parsec/CAF09_MC_S13v3_OV0.3.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.4.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.5.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.6.dat',
+                     'isotrack/parsec/CAF09_MC_S13v3_OV0.7.dat']
     outfile : string
         filename of output file
     """
@@ -242,9 +242,12 @@ def interp_match_grid(overwrite=False):
                          'MC_S13_OV0.65_Z0.002_Y0.2521',
                          'MC_S13_OV0.65_Z0.004_Y0.2557',
                          'MC_S13_OV0.65_Z0.008_Y0.2629'])
-
-    mhefs = np.array([1.82, 1.90, 1.95, 1.70, 1.80, 1.85, 1.62, 1.70, 1.75,
-                      1.55, 1.60, 1.67])
+    #v2
+    #mhefs = np.array([1.82, 1.90, 1.95, 1.70, 1.80, 1.85, 1.62, 1.70, 1.75,
+    #                  1.55, 1.60, 1.67])
+    #v3
+    mhefs = np.array([1.81, 1.86, 1.94, 1.70, 1.76, 1.84, 1.60, 1.66, 1.75,
+                      1.51, 1.56, 1.66])
 
     for i in range(len(mhefs)):
         interpolate_between_sets(match_dirs1[i], match_dirs2[i], new_dirs[i],
@@ -252,5 +255,10 @@ def interp_match_grid(overwrite=False):
 
 if __name__ == '__main__':
     import pdb; pdb.set_trace()
-    #interp_match_grid()
-    interp_mhefs()
+    #with new version, first do this:
+    #interp_mhefs()
+    # then do this, but need to update mhefs
+    interp_match_grid()
+    
+    # to do:
+    #argparse it, make it read mhefs from file (at least?)
