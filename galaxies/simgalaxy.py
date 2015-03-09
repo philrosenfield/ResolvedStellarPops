@@ -3,11 +3,11 @@ import brewer2mpl
 import logging
 import os
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 from astropy.table import Table
 from astropy.io import ascii
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import interp1d
 
 from .. import fileio
 from .. import match
@@ -19,6 +19,42 @@ from .starpop import StarPop
 logger = logging.getLogger(__name__)
 
 __all__ = ['SimGalaxy']
+
+class ExctinctionTable(object):
+    def __init__(self, extinction_table):
+        self.data = ascii.read(extinction_table)
+    
+    def column_fmt(self, column):
+        return column.translate(None, '()-').lower()
+    
+    def keyfmt(self, Rv, logg, column):
+        str_column = self.column_fmt(column)
+        return 'rv{}logg{}{}intp'.format(Rv, logg, str_column).replace('.', 'p')
+    
+    def select_Rv_logg(self, Rv, logg):
+        return list(set(np.nonzero(self.data['Rv'] == Rv)[0]) &
+                    set(np.nonzero(self.data['logg'] == logg)[0]))
+    
+    def _interpolate(self, column, Rv, logg):
+        inds = self.select_Rv_logg(Rv, logg)
+        key_name = self.keyfmt(Rv, logg, column)
+        self.__setattr__(key_name, interp1d(np.log10(self.data['Teff'][inds]),
+                                            self.data[column][inds],
+                                            bounds_error=False))
+    
+    def get_value(self, teff, column, Rv, logg):
+        new_arr = np.zeros(len(teff))
+
+        indxs = [np.nonzero(logg <= 2.75)[0], np.nonzero(logg > 2.75)[0]]
+        logg_vals = [2., 4.5]
+
+        for i, logg_val in enumerate(logg_vals):
+            key_name = self.keyfmt(Rv, logg_val, column)
+            if not hasattr(self, key_name):
+                self._interpolate(column, Rv, logg_val)
+            f = self.__getattribute__(key_name)
+            new_arr[indxs[i]] = f(teff[indxs[i]])
+        return new_arr
 
 
 class SimGalaxy(StarPop):
@@ -211,6 +247,22 @@ class SimGalaxy(StarPop):
         inds, = np.nonzero(self.data['stage'] == trilegal.get_stage_label(name))
         return inds
 
+    def apply_extinction(self, extinction_table, Rv=3.1, *filters):
+        assert np.sum(self.data['Av']) == 0., 'Will not convert Av, must run trilegal without Av set'
+        etab = ExctinctionTable(extinction_table)
+        fmt = '{}_rv{}'
+        names = []
+        data = []
+        for filt in filters:
+            column = 'A({})'.format(filt)
+            Alambda = etab.get_value(self.data['logTe'], column, Rv,
+                                     self.data['logg'])
+            names.append(fmt.format(filt, Rv))
+            data.append(Alambda)
+
+        self.add_data(names, data)
+        return data
+    
     def lognormalAv(self, disk_frac, mu, sigma, fg=0, df_young=0, df_old=8,
                     age_sep=3):
         '''

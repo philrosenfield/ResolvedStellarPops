@@ -22,7 +22,6 @@ from .likelihood import read_match_stats
 from .utils import grab_val
 from . import match_scripts
 
-min_proc = 1
 
 def vary_mpars(template_match_param, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
                flag='', vary='setz', gs=None, imf_flag=''):
@@ -317,9 +316,6 @@ def main(argv):
     #flags = ['-sub=s12_hb2']
     parser = argparse.ArgumentParser(description="Create bash script to run MATCH many times")
 
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='verbose mode')
-
     parser.add_argument('-n', '--nproc', type=int, default=8,
                         help='number of processors')
 
@@ -339,10 +335,10 @@ def main(argv):
                         help='set imf to chabrier')
 
     parser.add_argument('-m', '--mcmc', action='store_true',
-                        help='MCMC run')
+                        help='do MCMC run')
     
     parser.add_argument('-b', '--bestfits', type=str, default=None,
-                        help='Best_fit file to use with -r flag')
+                        help='Best fit file to use with -r flag')
 
     parser.add_argument('-r', '--res', type=str, default=None,
                         help='Cull results')
@@ -351,13 +347,13 @@ def main(argv):
                         help='comma separated imfmin, imfmax, dimf')
 
     parser.add_argument('-g', '--setz_at', type=str, default='-0.70',
-                        help='set metallicity')
+                        help='set metallicity to use with -z flag')
 
     parser.add_argument('-o', '--ovrange', type=str, default='0.3,0.75,0.05',
-                        help='core overshoot range -- needs to correspond with MATCH sub directories')
+                        help='core overshoot range. Must to correspond with MATCH sub directories')
     
     parser.add_argument('matchparam', type=str,
-                        help='input file. To create, see initialize_inputs.__doc__')
+                        help='match input file template')
 
     args = parser.parse_args(argv)
 
@@ -371,7 +367,7 @@ def main(argv):
 
     if args.setz:
         flag0 += ' -setz'
-        gs = [map(flaot(args.setzat))]
+        gs = [map(float(args.setzat))]
         match_params = run_grid(phot, fake, [template_match_param], gs=gs,
                                 vary='setz', flags=flags, flag0=flag0,
                                 max_proc=args.nproc)
