@@ -30,6 +30,7 @@ def grab_val(s, val, v2=None, v3=None):
                     d = split_str(s, v3)
     return d
 
+
 def float2sci(num):
     return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
 
@@ -725,3 +726,56 @@ def make_calcsfh_param_file(pmfile, starpop=None, calcsfh_par_dict=None,
     pm.close()
     logger.info('%s wrote %s' % (make_calcsfh_param_file.__name__, pmfile))
     return pmfile
+
+# moved from starpop
+def make_match_param(gal, more_gal_kw=None):
+    '''
+    Make param.sfh input file for match
+    see rsp.match_utils.match_param_fmt()
+
+    takes calcsfh search limits to be the photometric limits of the stars in
+    the cmd.
+    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
+    comp50mag2 are there.
+
+    only set up for acs and wfpc, if other photsystems need to check syntax
+    with match filters.
+
+    All values passed to more_gal_kw overwrite defaults.
+    '''
+
+    more_gal_kw = more_gal_kw or {}
+
+    # load parameters
+    inp = fileio.input_parameters(default_dict=match_param_default_dict())
+
+    # add parameteres
+    cmin = gal.color.min()
+    cmax = gal.color.max()
+    vmin = gal.mag1.min()
+    imin = gal.mag2.min()
+
+    if 'acs' in gal.photsys:
+        V = gal.filter1.replace('F', 'WFC')
+        I = gal.filter2.replace('F', 'WFC')
+    elif 'wfpc' in gal.photsys:
+        V = gal.filter1.lower()
+        I = gal.filter2.lower()
+    else:
+        print(gal.photsys, gal.name, gal.filter1, gal.filter2)
+
+    # default doesn't move dmod or av.
+    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av,
+              'av2': gal.Av, 'V': V, 'I': I, 'Vmax': gal.comp50mag1,
+              'Imax': gal.comp50mag2, 'V-Imin': cmin, 'V-Imax': cmax,
+              'Vmin': vmin, 'Imin': imin}
+
+    # combine sources of params
+    phot_kw = dict(match_param_default_dict().items() \
+                   + gal_kw.items() + more_gal_kw.items())
+
+    inp.add_params(phot_kw)
+
+    # write out
+    inp.write_params('param.sfh', match_param_fmt())
+    return inp

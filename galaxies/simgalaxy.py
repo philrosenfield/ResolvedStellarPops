@@ -4,10 +4,10 @@ import logging
 import os
 
 from astropy.table import Table
-from astropy.io import ascii
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
+import ResolvedStellarPops as rsp
 
 from .. import fileio
 from .. import match
@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 __all__ = ['SimGalaxy']
 
 class ExctinctionTable(object):
+    """
+    Class to use data from Leo's extinction Tables. Format is e.g,
+    #Teff logg Av Rv A(F275W) A(F336W) A(F475W) A(F814W) A(F110W) A(F160W) (F275W-F336W)0 E(F275W-F336W)
+     3500 4.5 1.0 3.1   1.433   1.623   1.167   0.58    0.327   0.202   4.271 -0.190  
+     3500 4.5 1.0 5.0   1.186   1.341   1.106   0.644   0.379   0.234   4.271 -0.155
+     3500 2.0 1.0 3.1   1.076   1.61    1.157   0.577   0.322   0.202   4.093 -0.534  
+     3500 2.0 1.0 5.0   0.981   1.338   1.1     0.642   0.373   0.234   4.093 -0.357 
+    """
     def __init__(self, extinction_table):
         self.data = ascii.read(extinction_table)
     
@@ -68,7 +76,12 @@ class SimGalaxy(StarPop):
         if trilegal_catalog.endswith('hdf5'):
             data = Table.read(trilegal_catalog, path='data')
         else:
-            data = ascii.read(trilegal_catalog)
+            print('reading')
+            data = Table.read(fname, format='ascii.commented_header',
+                              guess=False)
+            print('read')
+            #data = Table.read(trilegal_catalog, format='ascii')
+            #data = rsp.fileio.readfile(trilegal_catalog)
         self.key_dict = dict(zip(list(data.dtype.names),
                                  range(len(list(data.dtype.names)))))
         #self.data = data.view(np.recarray)
@@ -248,7 +261,15 @@ class SimGalaxy(StarPop):
         return inds
 
     def apply_extinction(self, extinction_table, Rv=3.1, *filters):
-        assert np.sum(self.data['Av']) == 0., 'Will not convert Av, must run trilegal without Av set'
+        """
+        Add extinction to a trilegal catalog filters as columns [filter]_rv[Rv].
+        
+        Made as a quick look at the effects of not knowing Rv.
+        Basically a call to function ExtinctionTable.get_value see that class
+        for details.
+        """
+        assert np.sum(self.data['Av']) == 0., \
+            'Will not convert Av, must run trilegal without Av set'
         etab = ExctinctionTable(extinction_table)
         fmt = '{}_rv{}'
         names = []
@@ -263,6 +284,39 @@ class SimGalaxy(StarPop):
         self.add_data(names, data)
         return data
     
+    def apply_dAv(self, dAv):
+        """
+          -dAv=0,0,0 sets differential extinction law, which is treated as two
+            flat distibutions.  The first flat distribution goes from Av=0
+            to the first number specified.  The second flat distirubtion
+            goes from the first to the third numbers specified, and contains
+            the second number's fraction of the total stars.  For example,
+            if one third of the stars should have zero differential extinction
+            and the rest to have differential extinction values stretching
+            between Av=0 and Av=1, the command would be -dAv=0,0.67,1
+        """
+        assert np.sum(self.data['Av']) == 0., \
+            'Will not convert Av, must run trilegal without Av set'
+        if type(dAv) is str:
+            # e.g., dAv = '0.0,0.67,1'
+            da0 = map(float, dAv.split(','))
+        elif type(dAv) is list:
+            # e.g., dAv = [0.0, 0.67, 1]
+            da0 = dAv
+        elif type(dAv) is float:
+            # e.g., dAv = 0.2
+            da0 = [dAv, 0.0, dAv]
+        assert len(DA0) == 2, print(apply_dAv.__doc__)
+        # if the second dist has lower Av than the first or if the fraction for
+        # the second distribution is less than 0% or more than 100%
+        if (da0[2] < da0[0]) or (da0[1] < 0.0) or (da0[1] > 1.0):
+            da0 = [dAv, 0.0, dAv]
+
+        # first flat dist: 0 --> dav[0]
+        # second flat dist: dav[0] --> dav[2] contains dav[1] fraction of stars
+        
+        
+
     def lognormalAv(self, disk_frac, mu, sigma, fg=0, df_young=0, df_old=8,
                     age_sep=3):
         '''

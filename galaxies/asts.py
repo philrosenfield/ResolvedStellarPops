@@ -1,9 +1,11 @@
 """ All about Artificial star tests """
 from __future__ import print_function
+import argparse
 import logging
 import os
 import pyfits
 import re
+import sys
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -16,17 +18,25 @@ logger = logging.getLogger(__name__)
 
 __all__ = ['ast_correct_starpop', 'ASTs', 'parse_pipeline']
 
+plt.style.use('ggplot')
+
 def parse_pipeline(filename):
     '''find target and filters from the filename'''    
-    name = os.path.split(filename)[1]
+    name = os.path.split(filename)[1].upper()
     
     # filters are assumed to be F???W
-    starts = [m.start() for m in re.finditer('F', name)]
-    filters = [name[s:s+5] for s in starts]
+    starts = np.array([m.start() for m in re.finditer('_F', name)])
+    starts += 1
+    if len(starts) == 1:
+        starts = np.append(starts, starts+6)
+    filters = [name[s: s+5] for s in starts]
+    
     
     # the target name is assumed to be before the filters in the filename
     pref = name[:starts[0]-1]
     for t in pref.split('_'):
+        if t == 'IR':
+            continue
         try:
             # this could be the proposal ID
             int(t)
@@ -405,7 +415,8 @@ class ASTs(object):
 
         return obs_mag1 + cor_mag1, obs_mag2 + cor_mag2
 
-    def completeness(self, combined_filters=False, interpolate=False):
+    def completeness(self, combined_filters=False, interpolate=False,
+                     binsize=0.2):
         '''
         calculate the completeness of the data in each filter
         
@@ -427,7 +438,7 @@ class ASTs(object):
 
         # make sure ast_bins are good to go
         if not hasattr(self, 'ast_bins'):
-            self.bin_asts()
+            self.bin_asts(binsize=binsize)
 
         # gst uses both filters for recovery.
         if combined_filters is True:
@@ -459,24 +470,26 @@ class ASTs(object):
                                    bounds_error=False)
         return
 
-    def get_completeness_fraction(self, frac, dmag=0.01, guess=24):
+    def get_completeness_fraction(self, frac, dmag=0.001, bright_lim=18):
         """Find the completeness magnitude at a given fraction"""
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
 
         # set up array to evaluate interpolation
-        arr_min = guess
-        arr_max = 31
-        search_arr = np.arange(arr_min, arr_max, dmag)
+        # sometimes with few asts at bright mags the curve starts with low
+        # completeness, reaches toward 1, and then declines as expected.
+        # To get around taking a value too bright, I search for values beginning
+        # at the faint end
+        search_arr = np.arange(bright_lim, 31, dmag)[::-1]
 
         # completeness in each filter, and the finite vals
         # (frac - nan = frac)
         cfrac1 = self.fcomp1(search_arr)
         ifin1 = np.isfinite(cfrac1)
-
+        
         cfrac2 = self.fcomp2(search_arr)
         ifin2 = np.isfinite(cfrac2)
-
+        
         # closest completeness fraction to passed fraction
         icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1]))
         icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2]))
@@ -485,36 +498,99 @@ class ASTs(object):
         comp1 = search_arr[ifin1][icomp1]
         comp2 = search_arr[ifin2][icomp2]
 
-        # sanity check... sometimes with few asts at bright mags the curve
-        # starts near zero, not 1, get a bright mag limit. This makes sure
-        # the completeness limit is past the half way point ... a bit of a
-        # hack.
-        if icomp1 < len(search_arr) / 2.:
-            logger.debug('filter1 AST completeness is too bright, sanity checking.')
-            cut_ind1 = np.argmax(cfrac1[ifin1])
-            icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1][cut_ind1:]))
-            comp1 = search_arr[ifin1][cut_ind1:][icomp1]
-
-        if icomp2 < len(search_arr) / 2.:
-            logger.debug('filter2 AST completeness is too bright, sanity checking.')
-            cut_ind2 = np.argmax(cfrac2[ifin2])
-            icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2][cut_ind2:]))
-            comp2 = search_arr[ifin2][cut_ind2:][icomp2]
-
+        if comp1 == bright_lim or comp2 == bright_lim:
+            logger.warning('Completeness fraction is at mag search limit and probably wrong. '
+                           'Try adjusting bright_lim')
         return comp1, comp2
 
     def magdiff_plot(self, axs=None):
         ''' not finished... plot some interesting stuff '''
         if not hasattr(self, 'rec'):
             self.completeness(combined_filters=True)
-        fig, axs = plt.subplots(ncols=2, figsize=(12,8))
+        if axs is None:
+            fig, axs = plt.subplots(ncols=2, figsize=(12, 6))
+
         axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.', color='k')
         axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.', color='k')
-        xlab = r'${\rm Input}\ {}$'
+
+        xlab = r'${{\rm Input}}\ {}$'
+
         axs[0].set_xlabel(xlab.format(self.filter1), fontsize=20)
         axs[1].set_xlabel(xlab.format(self.filter2), fontsize=20)
-        axs[0].set_ylabel(r'${\rm Input} - {\rm Ouput}$', fontsize=20)
+
+        axs[0].set_ylabel(r'${{\rm Input}} - {{\rm Ouput}}$', fontsize=20)
         return axs
 
-    def completeness_plot(self, axs=None):
-        pass
+    def completeness_plot(self, ax=None, comp_fracs=None):
+        assert hasattr(self, 'fcomp1'), \
+            'need to run completeness with interpolate=True'
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.plot(self.ast_bins, self.fcomp1(self.ast_bins),
+                label=r'${}$'.format(self.filter1))
+        ax.plot(self.ast_bins, self.fcomp2(self.ast_bins),
+                label=r'${}$'.format(self.filter2))
+        
+        if comp_fracs is not None:
+            self.add_complines()
+        ax.set_xlabel(r'${{\rm mag}}$', fontsize=20)
+        ax.set_ylabel(r'${{\rm Completeness\ Fraction}}$', fontsize=20)
+        plt.legend(loc='lower left', frameon=False)
+        return ax
+
+    def add_complines(self, ax, *fracs, **kwargs):
+        lblfmt = r'${frac} {filt}={comp: .2f}$'
+        for frac in fracs:
+            ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
+            comp1, comp2 = self.get_completeness_fraction(frac, **kwargs)
+            for comp, filt in zip((comp1, comp2), (self.filter1, self.filter2)):
+                ax.vlines(comp, 0, 1,
+                          label=lblfmt.format(frac=frac, filt=filt, comp=comp),
+                          color=next(ax._get_lines.color_cycle))
+        plt.legend(loc='lower left', frameon=False)
+        return ax
+
+def main(argv):
+    parser = argparse.ArgumentParser(description="Calculate completeness fraction, make AST plots")
+
+    parser.add_argument('-c', '--comp_frac', type=float, default=0.9,
+                        help='completeness fraction to calculate')
+
+    parser.add_argument('-p', '--makeplots', action='store_true',
+                        help='make AST plots')
+
+    parser.add_argument('-m', '--bright_mag', type=float, default=20.,
+                        help='brighest mag to consider for completeness frac')
+
+    parser.add_argument('-f', '--plot_fracs', type=str, default=None,
+                        help='comma separated completeness fractions to overplot')
+
+    parser.add_argument('fake', type=str, nargs='*', help='match AST file(s)')
+
+    args = parser.parse_args(argv)
+    for fake in args.fake:
+        ast = ASTs(fake)
+        ast.completeness(combined_filters=True, interpolate=True,
+                         binsize=0.15)
+        comp1, comp2 = ast.get_completeness_fraction(args.comp_frac,
+                                                     bright_lim=args.bright_mag)    
+        print('{} {} completeness fraction:'.format(fake, args.comp_frac))
+        print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
+        
+        if args.makeplots:
+            comp_name = os.path.join(ast.base, ast.name + '_comp.png')
+            ast_name = os.path.join(ast.base, ast.name + '_ast.png')
+    
+            ax = ast.completeness_plot()
+            if args.plot_fracs is not None:
+                fracs = map(float, args.plot_fracs.split(','))
+                ast.add_complines(ax, *fracs, **{'bright_lim': args.bright_mag})
+            plt.savefig(comp_name)
+            plt.close()
+    
+            ast.magdiff_plot()
+            plt.savefig(ast_name)
+            plt.close()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
