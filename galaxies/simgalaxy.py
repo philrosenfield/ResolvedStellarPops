@@ -77,7 +77,7 @@ class SimGalaxy(StarPop):
             data = Table.read(trilegal_catalog, path='data')
         else:
             print('reading')
-            data = Table.read(fname, format='ascii.commented_header',
+            data = Table.read(trilegal_catalog, format='ascii.commented_header',
                               guess=False)
             print('read')
             #data = Table.read(trilegal_catalog, format='ascii')
