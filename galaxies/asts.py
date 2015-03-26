@@ -31,7 +31,6 @@ def parse_pipeline(filename):
         starts = np.append(starts, starts+6)
     filters = [name[s: s+5] for s in starts]
     
-    
     # the target name is assumed to be before the filters in the filename
     pref = name[:starts[0]-1]
     for t in pref.split('_'):
@@ -123,6 +122,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
             [ax.legend(loc=0, frameon=False) for ax in axs]
         plt.savefig(replace_ext(outfile, '_ast_correction.png'))
     return cor_mag1, cor_mag2
+
 
 class ASTs(object):
     '''class for reading and using artificial stars'''
@@ -504,14 +504,16 @@ class ASTs(object):
         return comp1, comp2
 
     def magdiff_plot(self, axs=None):
-        ''' not finished... plot some interesting stuff '''
+        """Make a plot of input mag - output mag vs input mag"""
         if not hasattr(self, 'rec'):
             self.completeness(combined_filters=True)
         if axs is None:
             fig, axs = plt.subplots(ncols=2, figsize=(12, 6))
 
-        axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.', color='k')
-        axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.', color='k')
+        axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.',
+                    color='k', alpha=0.5)
+        axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.',
+                    color='k', alpha=0.5)
 
         xlab = r'${{\rm Input}}\ {}$'
 
@@ -522,10 +524,13 @@ class ASTs(object):
         return axs
 
     def completeness_plot(self, ax=None, comp_fracs=None):
+        """Make a plot of completeness vs mag"""
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
+
         if ax is None:
             fig, ax = plt.subplots()
+
         ax.plot(self.ast_bins, self.fcomp1(self.ast_bins),
                 label=r'${}$'.format(self.filter1))
         ax.plot(self.ast_bins, self.fcomp2(self.ast_bins),
@@ -538,17 +543,20 @@ class ASTs(object):
         plt.legend(loc='lower left', frameon=False)
         return ax
 
-    def add_complines(self, ax, *fracs, **kwargs):
-        lblfmt = r'${frac} {filt}={comp: .2f}$'
+    def add_complines(self, ax, *fracs, **get_comp_frac_kw):
+        """add verticle lines to a plot at given completeness fractions"""
+        lblfmt = r'${frac}\ {filt}:\ {comp: .2f}$'
         for frac in fracs:
             ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
-            comp1, comp2 = self.get_completeness_fraction(frac, **kwargs)
+            comp1, comp2 = self.get_completeness_fraction(frac,
+                                                          **get_comp_frac_kw)
             for comp, filt in zip((comp1, comp2), (self.filter1, self.filter2)):
-                ax.vlines(comp, 0, 1,
-                          label=lblfmt.format(frac=frac, filt=filt, comp=comp),
+                lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
+                ax.vlines(comp, 0, 1, label=lab,
                           color=next(ax._get_lines.color_cycle))
         plt.legend(loc='lower left', frameon=False)
         return ax
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Calculate completeness fraction, make AST plots")
@@ -591,6 +599,7 @@ def main(argv):
             ast.magdiff_plot()
             plt.savefig(ast_name)
             plt.close()
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

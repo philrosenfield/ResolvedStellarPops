@@ -248,13 +248,10 @@ def main(argv):
     parser.add_argument('-f', '--filters', type=str, default=None,
                         help='comma separated filter names')
 
-    parser.add_argument('-a', '--all_files', action='store_true',
-                        help='opportate on all files in current/set directory')
-
-    parser.add_argument('-d', '--directory', type=str, default=os.getcwd(),
+    parser.add_argument('-d', '--directory', type=str, default=None,
                         help='specify directory')
 
-    parser.add_argument('name', nargs='*', type=str, help='match cmd, sfh, zc\
+    parser.add_argument('-n', '--name', nargs='*', type=str, help='match cmd, sfh, zc\
                         file(s)')
 
     args = parser.parse_args(argv)
@@ -287,15 +284,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    '''
-    calls pgcmd
-    the labes for the plots are taken from the filename... this is hard coded
-    labels[1] = '${\\rm %s}$' % filename.split('.')[0].replace('_', '\ ')
-    I want to have the * usage in the command line, so the last two values
-    are the filter names.
-    usage eg:
-    python graphics.py 'F555W' 'F814W\ (HRC)' *v?.?.out.cmd
-    '''
     main(sys.argv[1:])
 
 

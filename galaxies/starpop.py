@@ -2,13 +2,14 @@ from __future__ import print_function
 import numpy as np
 import pylab as plt
 from scipy import integrate
-#import pyfits
 
-from ..graphics import scatter_contour, colorify, make_hess, plot_hess, plot_cmd_redding_vector
-from ..tools import get_dmodAv, mag2Mag, Mag2mag
-from ..angst_tables import angst_data
 from .. import utils
 from .. import fileio
+
+from ..angst_tables import angst_data
+from ..graphics import scatter_contour, colorify, make_hess, plot_hess, plot_cmd_redding_vector
+from ..trilegal import get_stage_label
+from ..tools import get_dmodAv, mag2Mag, Mag2mag
 
 __all__ = ['StarPop', 'plot_cmd', 'color_by_arg', 'stars_in_region']
 
@@ -35,6 +36,12 @@ class StarPop(object):
 
         return plot_cmd_redding_vector(self.filter1, self.filter2,
                                        self.photsys, dmag=dmag, **kwargs)
+
+    def scatter_hist(self, *args, **kwargs):
+        """
+        see :func: scatter_hist
+        """
+        return scatter_hist(self, *args, **kwargs)
 
     def decorate_cmd(self, mag1_err=None, mag2_err=None, trgb=False, ax=None,
                      reddening=True, dmag=0.5, text_kw={}, errors=True,
@@ -183,6 +190,17 @@ class StarPop(object):
                 self.__delattr__(data_name)
             if hasattr(self, data_name.title()):
                 self.__delattr__(data_name.title())
+
+    def histoattr(self, attr, bins=10, inds=None):
+        '''
+        call np.histogram for a given attribute in self.data sliced by inds
+        '''
+        if inds is None:
+            inds = np.arange(self.data.size)
+
+        hist, bins = np.histogram(self.data[attr][inds], bins=bins)
+
+        return hist, bins
 
     def convert_mag(self, dmod=0., Av=0., target=None, shift_distance=False,
                     useasts=False):
@@ -440,6 +458,7 @@ class StarPop(object):
 
         return
 
+
 def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
                     col_min=None, col_max=None):
     '''
@@ -466,6 +485,9 @@ def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
         indices of mag2 inside LF or
         indices of mag1 and mag2 inside CMD box or verts
     '''
+    if mag_dim < mag_bright:
+        mag_dim, mag_bright = mag_bright, mag_dim
+
     if verts is None:
         if col_min is None:
             return utils.between(mag2, mag_dim, mag_bright)
@@ -606,95 +628,202 @@ def plot_cmd(starpop, color, mag, ax=None, xlim=None, ylim=None, xlabel=None,
         np.savetxt(fname, np.column_stack((self.mag1, self.mag2)), fmt='%.4f')
 
 
-def color_by_arg(starpop, xcol, ycol, colorcol, bins=None, cmap=None, ax=None,
-                 fig=None, labelfmt='$%.3f$', xdata=None, ydata=None,
-                 coldata=None, xlim=None, ylim=None, slice_inds=None,
-                 legend=True):
-    """
-    Parameters
-    ----------
-    starpop: StarPop instance
-        population to plot
+def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
+                 slice_inds=None, xlim=None, ylim=None, clim=None,
+                 discrete=False, scatter_kw={}):
+    """ """
+    import brewer2mpl
+    import matplotlib.gridspec as gridspec
 
-    xcol: ndarray
+    def side_hist(ax, data, cdata, bins=50, cols=None, binsx=True,
+                  discrete=False, cbins=10):
+        """
+        Add a histogram of data to ax made from inds of unique values of cdata
+        
+        """
+        if discrete:
+            if type(cbins) == int:
+                hist, cbins = np.histogram(cdata, bins=cbins)
+            dinds = np.digitize(cdata, cbins)
+            uinds = range(len(cbins))
+        else:
+            uinds = np.unique(cdata)
+            dinds = np.digitize(cdata, uinds)
+            
+        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+                                  len(uinds)).mpl_colors
+            
+        for j, i in enumerate(uinds):
+            hist, hbins = np.histogram(data[dinds == i], bins=bins)
+            if binsx:
+                x = hbins[1:]
+                y = hist
+            else:
+                y = hbins[1:]
+                x = hist
+            ax.plot(x, y, linestyle='steps-pre', color=cols[j], zorder=100-j)
+        return ax
 
-    ycol: ndarray
+    fig = plt.figure(figsize=(11, 7))
+    gs = gridspec.GridSpec(3, 3)
+    axt = plt.subplot(gs[0,:-1])
+    axr = plt.subplot(gs[1:,-1])
+    ax = plt.subplot(gs[1:,:-1])
+    
 
-    colorcol: ndarray
+    if type(xdata) is str:
+        ax.set_xlabel(xdata.replace('_', '\_'))
+        xdata = starpop.data[xdata]
 
-    bins: optional
+    if type(ydata) is str:
+        ax.set_ylabel(ydata.replace('_', '\_'))
+        ydata = starpop.data[ydata]
 
-    cmap: optional
-        colormap to use
-
-    ax: plt.Axes instance, optional (default=plt.gca())
-
-    labelfmt: str, optional (default='$%.3f$')
-        colorbar label format
-
-    xdata: optional
-
-    ydata: optional
-
-    coldata: optional
-
-    xlim: optional
-        if set, adjust the limits on the x-axis
-
-    ylim: optional
-        if set, adjust the limits on the y-axis
-
-    slice_inds: slice instance, optional
-        if set, cull the data and only consider this slice
-
-
-    legend: bool, optional (default=True)
-        if set, add a legend to the figure
-    """
-    ax = ax or plt.gca()
-
-    if xlim is None:
-        xlim = (xdata.min(), xdata.max())
-
-    if ylim is None:
-        ylim = (ydata.max(), ydata.min())
-
-    if bins is None:
-        bins = 10
-
-    if xdata is None:
-        xdata = starpop.data.get_col(xcol)
-
-    if ydata is None:
-        ydata = starpop.data.get_col(ycol)
-
-    if colorcol is None:
-        coldata = starpop.data.get_col(colorcol)
+    collabel = None
+    if type(coldata) is str:
+        collabel = coldata.replace('_', '\_')
+        coldata = starpop.data[coldata]
 
     if slice_inds is not None:
         xdata = xdata[slice_inds]
         ydata = ydata[slice_inds]
         coldata = coldata[slice_inds]
+    
+    scatter_kw = dict({'edgecolors': 'none', 'cmap': plt.cm.Spectral}.items() \
+                       + scatter_kw.items())
+    l = ax.scatter(xdata, ydata, c=coldata,  **scatter_kw)
 
-    # need the bins to be an array to use digitize.
-    if type(bins) == int:
-        hist, bins = np.histogram(coldata, bins=bins)
-    inds = np.digitize(coldata, bins)
-    colors, scalarmap = colorify(inds, cmap=cmap)
-    lbls = [ labelfmt % bk for bk in bins ]  # bins are left bin edges.
+    axt = side_hist(axt, xdata, coldata, bins=xbins, discrete=discrete)
+    axr = side_hist(axr, ydata, coldata, bins=ybins, binsx=False,
+                    discrete=discrete)
+    
+    axt.set_yscale('log')
+    axr.set_xscale('log')
+    if xlim is not None:
+        axt.set_xlim(xlim)
+    ax.set_xlim(axt.get_xlim())
+    
+    if ylim is not None:
+        axr.set_ylim(ylim)
+    ax.set_ylim(axr.get_ylim())
 
-    # fake out the legend...
-    if labelfmt not in ['', 'None', None]:
-        for color, label in zip(colors, lbls):
-            ax.plot([999], [999], 'o', color=color, mec=color, label=label, visible=False)
+    if clim is not None:
+        l.set_clim(clim)
 
-    ax.scatter(xdata[inds], ydata[inds], marker='o', s=15, edgecolors='none',
-               color=colors[inds])
+    axt.set_ylabel('$\#$')
+    axr.set_xlabel('$\#$')
 
-    if legend is True:
+    axt.tick_params(labelbottom=False, labeltop=True, right=False)
+    axr.tick_params(labelright=True, labelleft=False, top=False)
+    gs.update(left=0.1, right=0.9, wspace=0, hspace=0)
+    
+    if collabel == 'stage':
+        axtr = plt.subplot(gs[0, -1])
+        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+                                  9).mpl_colors
+        [axtr.plot(0, 0, label=get_stage_label()[i], color=cols[i])
+         for i in range(len(cols))]
+        axtr.tick_params(labelbottom=False, labelleft=False)    
+        axtr.grid()  # should turn it off!!
+        plt.legend(mode='expand', ncol=2, frameon=False)
+        axs = [axt, ax, axr, axtr]
+    else:
+        axs = [axt, ax, axr]
+    
+    
+    return axs
+
+
+def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
+                 fig=None, labelfmt='$%.3f$', xlim=None, ylim=None, clim=None,
+                 slice_inds=None, legend=True, discrete=False):
+    """
+    Parameters
+    ----------
+    starpop : StarPop instance
+        population to plot
+
+    xdata, ydata, coldata : array or str
+        xdata array or column name of starpop.data
+        if column name, will add xlabel, ylabel, or colorbar label.
+
+    cmap : mpl colormap instance
+        colormap to use
+
+    ax : plt.Axes instance
+
+    bins : int or array
+        if discrete, passed to np.histogram bins=bins
+
+    labelfmt : str, optional (default='$%.3f$')
+        colorbar label format
+
+    xlim, ylim : tuples
+        if set, adjust the limits on the x and y axes
+
+    slice_inds : list or array
+        slice the data
+    
+    Returns
+    -------
+    ax : plt.Axes instance
+    """
+    ax = ax or plt.gca()
+
+    if type(xdata) is str:
+        ax.set_xlabel(xdata)
+        xdata = starpop.data[xdata]
+
+    if type(ydata) is str:
+        ax.set_ylabel(ydata)
+        ydata = starpop.data[ydata]
+
+    collabel = None
+    if type(coldata) is str:
+        collabel = coldata
+        coldata = starpop.data[coldata]
+
+    if slice_inds is not None:
+        xdata = xdata[slice_inds]
+        ydata = ydata[slice_inds]
+        coldata = coldata[slice_inds]
+ 
+    if discrete:
+        if bins is None:
+            bins = 10
+        # need the bins to be an array to use digitize.
+        if type(bins) == int:
+            hist, bins = np.histogram(coldata, bins=bins)
+        inds = np.digitize(coldata, bins)
+        colors, scalarmap = colorify(inds, cmap=cmap)
+        lbls = [ labelfmt % bk for bk in bins ]  # bins are left bin edges.
+    
+        # fake out the legend...
+        if labelfmt not in ['', 'None', None]:
+            for color, label in zip(colors, lbls):
+                ax.plot([999], [999], 'o', color=color, mec=color, label=label,
+                        visible=False)
+        ax.scatter(xdata[inds], ydata[inds], marker='o', s=15, edgecolors='none',
+                   color=colors[inds], alpha=0.3)
+        
         ax.legend(loc=0, numpoints=1, frameon=False)
 
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
+    else:
+        cmap = cmap or plt.cm.Paired
 
+        l = ax.scatter(xdata, ydata, c=coldata, marker='o', s=15,
+                       edgecolors='none', cmap=cmap)
+
+        c = plt.colorbar(l)
+        if collabel is not None:
+            c.set_label(collabel)
+  
+    if xlim is not None:
+        ax.set_xlim(xlim)
+
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    if clim is not None:
+        l.set_clim(clim)
     return ax

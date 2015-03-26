@@ -30,7 +30,7 @@ class ExctinctionTable(object):
      3500 2.0 1.0 5.0   0.981   1.338   1.1     0.642   0.373   0.234   4.093 -0.357 
     """
     def __init__(self, extinction_table):
-        self.data = ascii.read(extinction_table)
+        self.data = Table.read(extinction_table, format='ascii')
     
     def column_fmt(self, column):
         return column.translate(None, '()-').lower()
@@ -122,124 +122,6 @@ class SimGalaxy(StarPop):
         self.imstar, = np.nonzero((co <= 1) & (logl >= 3.3) & (stage == itpagb))
         self.icstar, = np.nonzero((co >= 1) & (stage == itpagb))
 
-    def cmd_by_stage(self, filt1, filt2, yfilt='I', xlim=None, ylim=None,
-                     oneplot=True, inds=None):
-        '''
-        Diagnostic plot(s) for a trilegal catalog.
-        Produces a CMD or many CMDs with points colored by evolutionary stage.
-        (Trilegal must have been run with -l flag or
-         there must exist self.data['stage'] and something similar to
-         trilegal.get_stage_label)
-        
-        Parameters
-        ----------
-        filt1, filt2 : str, str
-            filters from column headings (Assumes CMD xaxis = filt1-filt2)
-        
-        yfilt : str
-            if 'I', plot filt2 on yaxis, otherwise filt1.
-        
-        xlim, ylim : list or tuple
-            limits sent to ax.set_[x,y]lim()
-        
-        oneplot : bool
-            if True, will overlay all stages on one plot.
-            if False, will make a fig with an axes for each stage as well as a
-            summary panel on the top left (identical to oneplot=True)
-        inds : array of indices to slice the data (untested)
-        
-        Returns
-        -------
-        axs : matplotlib.axes._subplots.AxesSubplot or array of them.
-        '''
-        def addtext(ax, xlabel, ylabel, xlim=None, ylim=None, label=None,
-                    col=None):
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
-            
-            if label is not None:
-                ax.set_title(label, **{'color': col})
-            
-            if xlim is not None:
-                ax.set_xlim(xlim)
-            
-            if ylim is not None:
-                ax.set_ylim(ylim)
-            else:
-                ax.set_ylim(ax.get_ylim()[::-1])
-    
-            ax.legend(loc='best', numpoints=1, frameon=False)
-            return
-
-        stage = np.array(self.data['stage'], dtype=int)
-        color = self.data[filt1] - self.data[filt2]
-        xlabel = '${}-{}$'.format(filt1, filt2)
-        
-        if yfilt == 'I':
-            ymag = filt2
-        else:
-            ymag = filt1
-            
-        mag = self.data[ymag]
-        ylabel = '${}$'.format(ymag)
-
-        if inds is not None:
-            stage = stage[inds]
-            color = color[inds]
-            mag = mag[inds]
-
-        ustage = np.unique(stage)
-        nstage = len(ustage)
-        cols = brewer2mpl.get_map('Paired', 'Qualitative', nstage).mpl_colors
-        icols = np.array(cols)[stage]
-        labels = trilegal.get_stage_label(ustage)
-        
-        if oneplot:
-            fig, axs = plt.subplots()
-            ax = axs
-        else:
-            fig, (axs) = graphics.setup_multiplot(nstage + 1)
-            ax = axs[0, 0]
-
-        ax.scatter(color, mag, c=icols, alpha=0.2)
-        # couldn't figure out how to make scatter care about labels...
-        if oneplot:
-            [ax.plot(-99, -99, '.', c=cols[i], label=labels[i])
-             for i in range(nstage)]
-        addtext(ax, xlabel, ylabel, xlim=xlim, ylim=ylim)
-
-        if not oneplot:
-            for i, (ax, st) in enumerate(zip(axs.ravel()[1:], ustage)):
-                ind, = np.nonzero(stage == st)
-                if len(ind) == 0:
-                    continue
-                ax.plot(color[ind], mag[ind], '.', color=cols[i], mew=0,
-                        label='$N={}$'.format(len(ind)))
-                addtext(ax, xlabel, ylabel, xlim=xlim, ylim=ylim,
-                        label=labels[i], col=cols[i])
-        return axs
-
-    def hist_by_attr(self, attr, bins=10, stage=None, slice_inds=None):
-        '''
-        histogram of attribute in self.data sliced by slice_inds and/or stage.
-        '''
-        data = self.data[attr]
-        if stage is not None:
-            istage_s = 'i%s' % stage.lower()
-            if not hasattr(self, istage_s):
-                self.all_stages(stage.lower())
-            istage = self.__dict__[istage_s]
-        else:
-            istage = np.arange(data.size)
-
-        if slice_inds is None:
-            slice_inds = np.arange(data.size)
-
-        inds = list(set(istage) & set(slice_inds))
-        hist, bins = np.histogram(data[inds], bins=bins)
-
-        return hist, bins
-
     def all_stages(self, *stages):
         '''
         add the indices of evolutionary stage(s) as an attribute i[stage]
@@ -260,9 +142,11 @@ class SimGalaxy(StarPop):
         inds, = np.nonzero(self.data['stage'] == trilegal.get_stage_label(name))
         return inds
 
-    def apply_extinction(self, extinction_table, Rv=3.1, *filters):
+    def apply_extinction(self, extinction_table, filters, Rv=3.1, Av=1.,
+                         add_to_array=False):
         """
-        Add extinction to a trilegal catalog filters as columns [filter]_rv[Rv].
+        Add extinction correction to a trilegal catalog filters as columns
+        [filter]_rv[Rv]_av[Av].
         
         Made as a quick look at the effects of not knowing Rv.
         Basically a call to function ExtinctionTable.get_value see that class
@@ -270,22 +154,28 @@ class SimGalaxy(StarPop):
         """
         assert np.sum(self.data['Av']) == 0., \
             'Will not convert Av, must run trilegal without Av set'
+        if type(filters) is str:
+            filters = [filters]
+
         etab = ExctinctionTable(extinction_table)
-        fmt = '{}_rv{}'
+        fmt = '{}_rv{}_av{}'
         names = []
         data = []
         for filt in filters:
             column = 'A({})'.format(filt)
             Alambda = etab.get_value(self.data['logTe'], column, Rv,
                                      self.data['logg'])
-            names.append(fmt.format(filt, Rv))
-            data.append(Alambda)
+            names.append(fmt.format(filt, Rv, Av))
+            data.append(Alambda * Av)
 
-        self.add_data(names, data)
-        return data
+        if add_to_array:
+            self.add_data(names, data)
+        else:
+            return {k:v for k,v in zip(filters, data)}
     
-    def apply_dAv(self, dAv):
+    def apply_dAv(self, dAv, filters, photsys, Av=1., dAvy=0.5):
         """
+        no need to apply this, right now it's only A = Av + 0.5 * dAv
           -dAv=0,0,0 sets differential extinction law, which is treated as two
             flat distibutions.  The first flat distribution goes from Av=0
             to the first number specified.  The second flat distirubtion
@@ -294,7 +184,7 @@ class SimGalaxy(StarPop):
             if one third of the stars should have zero differential extinction
             and the rest to have differential extinction values stretching
             between Av=0 and Av=1, the command would be -dAv=0,0.67,1
-        """
+        
         assert np.sum(self.data['Av']) == 0., \
             'Will not convert Av, must run trilegal without Av set'
         if type(dAv) is str:
@@ -314,8 +204,16 @@ class SimGalaxy(StarPop):
 
         # first flat dist: 0 --> dav[0]
         # second flat dist: dav[0] --> dav[2] contains dav[1] fraction of stars
+        """
+        dAv *= dAvy
+
+        if type(filters) is str:
+            filters = [filters]
+
+        Alambdas = [rsp.astronomy_utils.Av2Alambda(Av + dAv, photsys, filt)
+                    for filt in filters]
         
-        
+        return Alambdas
 
     def lognormalAv(self, disk_frac, mu, sigma, fg=0, df_young=0, df_old=8,
                     age_sep=3):

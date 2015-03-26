@@ -1,19 +1,120 @@
 from __future__ import print_function
+import logging
 import os
 import re
-import logging
+import sys
+
+
 import numpy as np
 import matplotlib.pyplot as plt
+
 logger = logging.getLogger()
 
 from .. import fileio
+from astropy.table import Table
 #from .. import graphics
 
 
-__all__ = ['calcsfh_dict', 'call_match', 'check_exclude_gates', 'grab_val',
+__all__ = ['calcsfh_dict', 'call_match', 'match_diagnostic', 'grab_val',
            'check_for_bg_file', 'make_calcsfh_param_file', 'strip_header',
            'match_param_default_dict', 'match_param_fmt', 'process_match_sfh',
            'read_binned_sfh', 'read_match_cmd', 'write_match_bg', 'cheat_fake']
+
+ 
+def match_diagnostic(param, phot):
+    """
+    make two panel cmd figure (ymag = mag1, mag2)
+    from match photometery and cmd parameter space from the match param drawn
+    """
+    #mc = 0
+    mag1, mag2 = np.loadtxt(phot, unpack=True)
+    color = mag1 - mag2
+
+    with open(param, 'r') as f:
+        paramlines = f.readlines()
+    
+    colmin, colmax = map(float, paramlines[4].split()[3: 5])
+    mag1max, mag1min = map(float, paramlines[5].split()[0: 2])
+    mag2max, mag2min = map(float, paramlines[6].split()[0: 2])
+    filters = paramlines[4].split()[-1].split(',')
+    excludes = np.array([paramlines[7].split()], dtype=float)
+
+    nregions = excludes[0][0]
+    if nregions == 1:
+        vs = np.array(paramlines[7].split()[1:-1], dtype=float)
+        exgverts = np.append(vs, vs[:2]).reshape(5, 2)
+    
+    verts = [np.array([[colmin, mag1min], [colmin, mag1max], [colmax, mag1max],
+                       [colmax, mag1min], [colmin, mag1min]]),
+             np.array([[colmin, mag2min], [colmin, mag2max], [colmax, mag2max],
+                       [colmax, mag2min], [colmin, mag2min]])]
+
+    magcuts = [np.nonzero((mag1 > mag1max) & (mag1 < mag1min)),
+               np.nonzero((mag2 > mag2max) & (mag2 < mag2min))]
+
+    fig, axs = plt.subplots(ncols=2, sharex=True, figsize=(12, 6))
+
+    for i, ymag in enumerate([mag1, mag2]):    
+        axs[i].plot(color, ymag, '.')
+        axs[i].plot(color[magcuts[i]], ymag[magcuts[i]], '.')
+        axs[i].plot(verts[i][:, 0], verts[i][:, 1])
+        axs[i].set_ylabel(r'${}$'.format(filters[i]))
+        axs[i].set_xlabel(r'${}-{}$'.format(*filters))
+    if nregions > 0:
+        axs[0].plot(exgverts[:, 0] , exgverts[:, 1])
+        # mag2 = mag1 - color
+        axs[1].plot(exgverts[:, 0] , exgverts[:, 1] - exgverts[:, 0])
+    
+    for ax in axs:
+        ax.set_ylim(ax.get_ylim()[::-1])
+
+    plt.savefig(param + '.png')
+    print('wrote', param + '.png')
+    plt.close()
+    return axs
+
+ 
+def make_matchfake(fname):
+    """
+    make four-column Vin, Iin, Vdiff, Idiff artificial stars
+    
+    made to work with pipeline fake.fits files with 3 filters, should work
+    for two but not tested
+    assumes _F*W_F*W_ etc in the file name label the filters.
+    """
+    try:
+        tbl = Table.read(fname, format='fits')
+    except:
+        logger.error('problem with {}'.format(fname))
+        return
+    filters = [f for f in fname.split('_') if f.startswith('F')]
+    pref = fname.split('F')[0]
+    sufx = fname.split('W')[-1].replace('fits', 'matchfake')
+    for i in range(len(filters)-1):
+        mag1in_col = 'MAG{}IN'.format(i+1)
+        mag2in_col = 'MAG{}IN'.format(len(filters))
+        
+        if mag1in_col == mag2in_col:
+            continue
+
+        mag1out_col = 'MAG{}OUT'.format(i+1)
+        mag2out_col = 'MAG{}OUT'.format(len(filters))
+        
+        try:
+            mag1in = tbl[mag1in_col]
+            mag2in = tbl[mag2in_col]
+            mag1diff = tbl[mag1in_col] - tbl[mag1out_col]
+            mag2diff = tbl[mag2in_col] - tbl[mag2out_col]
+        except:
+            logger.error('problem with column formats in {}'.format(fname))
+            return
+
+        fout = pref + '{}_{}'.format(filters[i],filters[-1]) + sufx
+        np.savetxt(fout, np.column_stack((mag1in, mag2in, mag1diff, mag2diff)),
+                   fmt='%.4f')
+        logger.info('wrote {}'.format(fout))
+    return
+    
 
 def grab_val(s, val, v2=None, v3=None):
     def split_str(s, val):
@@ -453,96 +554,6 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
 
     print('wrote', outfile)
     return outfile
-
-
-def check_exclude_gates(matchpars=None, qsub=None, match=None, save=True):
-    #mc = 0
-    zinc = 0
-    if qsub is not None:
-        q = open(qsub,'r').readlines()
-        for line in q:
-            if line.startswith('#'):
-                continue
-            if line.startswith('cd'):
-                os.chdir(line.strip().split()[-1])
-                continue
-            command = line.split()
-            #calcsfh = command[0]
-            matchpars = command[1]
-            match = command[2]
-            #matchfake = command[3]
-            #sfh = command[4]
-            flags = command[5:command.index('>')]
-        for flag in flags:
-            #if flag == '-allstars':
-            #    mc = 1
-            if flag == '-zinc':
-                zinc = 1
-    else:
-        if matchpars is None or match is None:
-            print('need either qsub file or matchpars and match file')
-            return 0
-
-    mag1, mag2 = np.loadtxt(match, unpack=True)
-    with open(matchpars, 'r') as f:
-        m = f.readlines()
-
-    if (zinc == 1) & (len(m[1].split()) != 7):
-        print('zinc might not be set right in matchpars')
-
-    if (zinc == 0) & (len(m[1].split()) == 7):
-        print('zinc flag should be on according to matchpars.')
-
-    for mm in m:
-        if re.search('bg.dat', mm):
-            bg = 0
-            files = os.listdir('.')
-            for file in files:
-                if file == 'bg.dat':
-                    bg = 1
-            if bg == 0:
-                print('No bg.dat file in this directory, but matchpars calls for one')
-
-    excludes = map(float, m[7].split())
-    nregions = excludes[0]
-    if nregions > 0:
-        col = excludes[1:-1:2]
-        mag = excludes[2:-1:2]
-        col.append(col[0])
-        mag.append(mag[0])
-        if len(col) > 5:
-            print('not ready to do more than one region')
-
-    colmin = float(m[4].split()[3])
-    colmax = float(m[4].split()[4])
-    mag1min = float(m[5].split()[1])
-    mag1max = float(m[5].split()[0])
-    mag2min = float(m[6].split()[1])
-    mag2max = float(m[6].split()[0])
-
-    mag2cut = np.nonzero((mag2 > mag2max) & (mag2 < mag2min))
-
-    plt.plot(mag1 - mag2, mag1, '.', color='grey')
-    plt.plot(mag1[mag2cut] - mag2[mag2cut], mag1[mag2cut], '.', color='black')
-    plt.plot([colmin, colmin], [mag1min, mag1max],'--', lw=3, color='green')
-    plt.plot([colmax, colmax], [mag1min, mag1max],'--', lw=3, color='green')
-    plt.plot([colmin, colmax], [mag1min, mag1min],'--', lw=3, color='green')
-    plt.plot([colmin, colmax], [mag1max, mag1max],'--', lw=3, color='green')
-    plt.xlabel(m[4].split(' ')[-1].replace(',','-'))
-    plt.ylabel(m[5].split()[-1])
-    if qsub is not None:
-        plt.title(qsub.split('/')[-1])
-    if nregions > 0:
-        plt.plot(col, mag, lw=3, color='red')
-    off = 0.1
-    plt.axis([colmin - off,
-              colmax + off,
-              mag1min + off,
-              mag1max - off])
-    if save is True:
-        plt.savefig(os.getcwd() + '/' + qsub.split('/')[-1] + '.png')
-        print('wrote ' + os.getcwd() + '/' + qsub.split('/')[-1] + '.png')
-    plt.show()
 
 
 def read_match_cmd(filename):
