@@ -34,7 +34,7 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
 
 
 def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
-               **kwargs):
+               imagegrid_kw={}, **kwargs):
     '''
     ex ZS = [h[2],sh[2],diff_cmd,resid]
     '''
@@ -43,18 +43,21 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
     max_sig = kwargs.get('max_sig')
 
     fig = plt.figure(figsize=(9, 9))
-    grid = ImageGrid(fig, 111,
-                     nrows_ncols=(2, 2),
-                     direction="row",
-                     axes_pad=.7,
-                     add_all=True,
-                     label_mode="all",
-                     share_all=True,
-                     cbar_location="top",
-                     cbar_mode="each",
-                     cbar_size="7%",
-                     cbar_pad="2%",
-                     aspect=0)
+    defaults = {'nrows_ncols': (2, 2),
+                'direction': "row",
+                'axes_pad': .7,
+                'add_all': True,
+                'label_mode': "all",
+                'share_all': True,
+                'cbar_location': "top",
+                'cbar_mode': "each",
+                'cbar_size': "7%",
+                'cbar_pad': "2%",
+                'aspect': 0}
+
+    imagegrid_kw = dict(defaults.items() + imagegrid_kw.items())
+    
+    grid = ImageGrid(fig, 111, **imagegrid_kw)
 
     # scale color bar data and model the same
 
@@ -133,9 +136,7 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
     else:
         hesses = cmd.hesses
         extent = cmd.extent
-        labels = cmd.labels
-        figname = cmd.figname
-
+        
     if axis_labels.lower() == 'default':
         if filter1 is None or filter2 is None:
             filter1 = ''

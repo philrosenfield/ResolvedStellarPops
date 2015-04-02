@@ -459,8 +459,8 @@ class StarPop(object):
         return
 
 
-def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
-                    col_min=None, col_max=None):
+def stars_in_region(ymag, mag_dim, mag_bright, mag1=None, verts=None,
+                    col_min=None, col_max=None, color=None):
     '''
     counts stars in a region of a CMD or LF
 
@@ -490,7 +490,7 @@ def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
 
     if verts is None:
         if col_min is None:
-            return utils.between(mag2, mag_dim, mag_bright)
+            return utils.between(ymag, mag_dim, mag_bright)
         else:
             verts = np.array([[col_min, mag_dim],
                               [col_min, mag_bright],
@@ -498,7 +498,9 @@ def stars_in_region(mag2, mag_dim, mag_bright, mag1=None, verts=None,
                               [col_max, mag_dim],
                               [col_min, mag_dim]])
 
-    points = np.column_stack((mag1 - mag2, mag2))
+    if color is None:
+        color = mag1 - mag2
+    points = np.column_stack((color, ymag))
     inds, = np.nonzero(utils.points_inside_poly(points, verts))
     return inds
 

@@ -108,7 +108,7 @@ class AngstTables(object):
         return target
 
     @deprecated
-    def get_tab5_trgb_av_dmod(self, target, filters):
+    def get_tab5_trgb_av_dmod(self, target, filters=None):
         '''
         backward compatibility to my old codes.
         it's a bit crap.
@@ -123,8 +123,10 @@ class AngstTables(object):
         target = target.upper().replace('-', '_')
         if 'F160W' in filters:
             return self.get_snap_trgb_av_dmod(target)
+        
+        k = [k for k in self.__dict__[target].keys() if ',' in k]
         try:
-            datum = self.__dict__[target][filters]
+            datum = self.__dict__[target][k]
         except KeyError:
             otarget = target
             target = target.replace('_', '-').split('WIDE')[0]
@@ -157,8 +159,9 @@ class AngstTables(object):
             datum = self.__dict__[target][filter]
         return datum['50_completeness']
 
-    def get_snap_trgb_av_dmod(self, target):
-        target = difflib.get_close_matches(target, self.snap_tab3['target'])[0]
+    def get_snap_trgb_av_dmod(self, otarget):
+        target = difflib.get_close_matches(otarget, self.snap_tab3['target'])[0]
+        print(target, otarget)
         ind, = np.nonzero(self.snap_tab3['target'] == target)
         mTRGB, = self.snap_tab3['mTRGB_raw'][ind]
         dmod, = self.snap_tab3['dmod'][ind]
