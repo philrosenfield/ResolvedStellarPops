@@ -3,7 +3,7 @@ from __future__ import print_function
 import argparse
 import logging
 import os
-import pyfits
+from astropy.io import fits
 import re
 import sys
 
@@ -192,7 +192,7 @@ class ASTs(object):
         elif filename.endswith('.fits'):
             assert not None in [self.filter1, self.filter2], \
                 'Must specify filter strings'
-            self.data = pyfits.getdata(filename)
+            self.data = fits.getdata(filename)
             self.mag1 = self.data['{}_IN'.format(self.filter1)]
             self.mag2 = self.data['{}_IN'.format(self.filter2)]
             mag1out = self.data['{}{}'.format(self.filter1, self.filt_extra)]
