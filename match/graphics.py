@@ -15,6 +15,7 @@ from matplotlib.patheffects import withStroke
 
 from ResolvedStellarPops.match.utils import MatchSFH
 from ResolvedStellarPops.fileio.fileIO import get_files
+from ResolvedStellarPops.galaxies.asts import parse_pipeline
 
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd',
            'read_match_cmd' ]
@@ -152,8 +153,9 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
     else:
         grid = match_plot(hesses, extent, labels=labels, **kwargs)
 
-    [ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20) for ax in grid.axes_all]
-    [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_all]
+    [ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
+     for ax in grid.axes_row[1]]
+    [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_column[0]]
     grid.axes_all[0].xaxis.label.set_visible(True)
 
     if figname is not None:
@@ -174,7 +176,7 @@ def sfh_plot(MatchSFH):
     figname = os.path.join(MatchSFH.base, MatchSFH.name + '.png')
     plt.savefig(figname)
     plt.close()
-    print ' % s wrote %s' % (sfh_plot.__name__, figname)
+    print ' %s wrote %s' % (sfh_plot.__name__, figname)
 
 
 class MatchCMD(object):
@@ -220,28 +222,23 @@ def read_match_cmd(filename):
 
 
 def call_pgcmd(filenames, filter1, filter2, labels=[]):
-    nfiles = len(filenames)
-    if nfiles == 1:
-        figname = os.path.split(filenames[0])[1] + '.png'
-        labels[1] = '${\\rm %s}$' % figname.split('.')[0].replace('_', '\ ')
-        pgcmd(filename=filenames[0], filter1=filter1, filter2=filter2, labels=labels,
-              figname=figname)
-        plt.close()
-    else:
-        mcmds = np.array([])
-        for filename in filenames:
-            mcmd = MatchCMD(filename)
-            mcmds = np.append(mcmds, mcmd)
 
-        max_diff = np.mean([m.max_diff for m in mcmds])
-        max_counts = np.mean([m.max_counts for m in mcmds])
-        max_sig = np.mean([m.max_sig for m in mcmds])
-        # HACK  -- over wrote to not have all vmins and vmax the same
-        max_diff = None #15
-        max_counts = None
-        max_sig = None #7
-        [pgcmd(cmd=mcmd, max_diff=max_diff, max_counts=max_counts, max_sig=max_sig,
-               filter1=filter1, filter2=filter2) for mcmd in mcmds]
+    if len(filenames) == 1:
+        filenames = [filenames]
+
+    for filename in filenames:
+        mcmd = MatchCMD(filename)
+        figname = os.path.split(filename)[1] + '.png'
+        try:
+            target, [filter1, filter2] = parse_pipeline(filename)
+            labels[0] = '${}$'.format(target)
+        except:
+            pass
+
+        pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, labels=labels,
+              figname=figname)
+
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Plot match diagnostics")
@@ -249,15 +246,17 @@ def main(argv):
     parser.add_argument('-f', '--filters', type=str, default=None,
                         help='comma separated filter names')
 
-    parser.add_argument('-d', '--directory', type=str, default=None,
+    parser.add_argument('-d', '--directory', type=str, default=os.getcwd(),
                         help='specify directory')
 
     parser.add_argument('-n', '--name', nargs='*', type=str, help='match cmd, sfh, zc\
                         file(s)')
 
     args = parser.parse_args(argv)
-
-    if args.all_files:
+    
+    sfh_files = []
+    
+    if args.name is None:
         cmd_names = get_files(args.directory, '*cmd')
         sfh_files = get_files(args.directory, '*sfh')
         sfh_files.extend(get_files(args.directory, '*zc'))
