@@ -202,7 +202,7 @@ def load_input(filename, comment_char='#', list_sep=','):
 
 
 def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
-             string_length=16, only_keys=None):
+             string_length=16, only_keys=None, delimiter=' '):
     '''
     reads a file as a np array, uses the comment char and col_key_line
     to get the name of the columns.

@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-import pylab as plt
+import matplotlib.pyplot as plt
 from scipy import integrate
 
 from .. import utils
@@ -502,6 +502,7 @@ def stars_in_region(ymag, mag_dim, mag_bright, mag1=None, verts=None,
         color = mag1 - mag2
     points = np.column_stack((color, ymag))
     inds, = np.nonzero(utils.points_inside_poly(points, verts))
+
     return inds
 
 

@@ -147,18 +147,18 @@ def load_ptcri(inputs, find=False, from_p2m=False):
     if from_p2m is True, force find/load my ptcri file regardless
     of inputs.from_p2m value.
     '''
+
     # find the ptcri file
+    sandro = True
+    search_term = 'pt*'
     if inputs.from_p2m or from_p2m:
         sandro = False
         search_term = 'p2m_p*'
         if inputs.hb:
             search_term = 'p2m_hb*'
         #print('reading ptcri from saved p2m file.')
-    else:
-        sandro = True
-        search_term = 'pt*'
 
-    search_term += '%s*dat' % inputs.prefix
+    search_term += '%sY*dat' % inputs.prefix.split('Y')[0]
     if inputs.ptcri_file is not None:
         ptcri_file = inputs.ptcri_file
     else:
@@ -166,6 +166,7 @@ def load_ptcri(inputs, find=False, from_p2m=False):
             ptcri_file, = fileio.get_files(inputs.ptcrifile_loc, search_term)
         except:
             ptcri_file = None
+    assert os.path.isfile(ptcri_file)
     if find:
         return ptcri_file
     else:
@@ -185,14 +186,14 @@ def define_eeps(tfm, inputs):
                'debug': inputs.debug,
                'hb': inputs.hb}
 
-
     if inputs.hb:
         track_str = 'hbtracks'
         defined = Eep().eep_list_hb
         filename = 'define_eeps_hb_%s.log'
     else:
         track_str = 'tracks'
-        defined = inputs.ptcri.please_define
+        #defined = inputs.ptcri.please_define
+        defined = Eep().eep_list
         filename = 'define_eeps_%s.log'
     # load critical points calls de.define_eep
     tracks = [de.load_critical_points(track, ptcri=inputs.ptcri, **crit_kw)
@@ -209,6 +210,8 @@ def define_eeps(tfm, inputs):
             if t.flag is not None:
                 out.write(t.flag)
             else:
+                for ptc in defined:
+                    t.info[ptc] = ''
                 [out.write('%s: %s\n' % (ptc, t.info[ptc])) for ptc in defined]
     if not inputs.from_p2m:
         inputs.ptcri.save_ptcri(tracks, hb=inputs.hb)

@@ -34,7 +34,8 @@ class TrackSet(object):
         else:
             self.tracks_base = inputs.outfile_dir
             inputs.track_search_term = \
-                                inputs.track_search_term.replace('PMS', '.dat')
+                                inputs.track_search_term.replace('PMS', '')
+            inputs.track_search_term += '.dat'
 
         if inputs.agb:
             self.find_tracks(track_search_term=inputs.track_search_term,

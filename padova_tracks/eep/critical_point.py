@@ -6,6 +6,10 @@ import sys
 high_mass = 19.
 inte_mass = 12.
 
+MODE = 'MODE'
+MODE = 'MODELL'
+
+
 class Eep(object):
     '''
     a simple class to hold eep data. Gets added as an attribute to
@@ -67,11 +71,20 @@ class critical_point(object):
         ..._Z0.01_Y0.25...
         '''
         zstr = filename.split('_Z')[-1]
-        self.Z = float(zstr.split('_')[0])
+        try:
+            self.Z = float(zstr.split('_')[0])
+        except:
+            self.Z = float(zstr.split('Y')[0])
         ystr = filename.replace('.dat', '').split('_Y')[-1].split('_')[0]
         if ystr.endswith('.'):
             ystr = ystr[:-1]
-        self.Y = float(ystr)
+        try:
+            self.Y = float(ystr)
+        except:
+            ystr = filename.replace('.dat', '').split('Y')[-1].split('_')[0]
+            if ystr.endswith('.'):
+                ystr = ystr[:-1]
+            self.Y = float(ystr)
 
     def inds_between_ptcris(self, track, name1, name2, sandro=True):
         '''
@@ -190,7 +203,7 @@ class critical_point(object):
             return track
         if sandro:
             track.sptcri = \
-                np.concatenate([np.nonzero(track.data.MODE == m)[0]
+                np.concatenate([np.nonzero(track.data[MODE] == m)[0]
                                 for m in ptcri])
         else:
             track.iptcri = ptcri
@@ -233,8 +246,13 @@ class critical_point(object):
         if (mass > inte_mass) and (mass <= high_mass):
             if ndefined != needed:
                 print('check_ptcri error: M%.3f does not have enough EEPs' % mass)
-                masses = np.array([f.split('F7_M')[1].replace('.PMS', '')
-                                   for f in self.fnames], dtype=float)
+                try:
+                    masses = np.array([f.split('F7_M')[1].replace('.PMS', '')
+                                       for f in self.fnames], dtype=float)
+                except:
+                    masses = np.array([f.split('F7_M')[1].replace('.DAT', '')
+                                       for f in self.fnames], dtype=float)
+
                 inds, = np.nonzero(mass == masses)
                 print('files in question:')
                 print(np.array(self.fnames)[inds])
@@ -294,7 +312,8 @@ class critical_point(object):
                 the final value decided
             """
             go_on = 1
-            outmsg = '%s MODE: %i' % (ptname, track.data.MODE[pt])
+
+            outmsg = '%s MODE: %i' % (ptname, track.data[MODE][pt])            
             if pt is not None:
                 # plot guess first
                 print(outmsg)
@@ -304,7 +323,7 @@ class critical_point(object):
                 go_on, pt = plot_point(ptname, pt)
 
             print(outmsg)
-            return track.data.MODE[pt]
+            return track.data[MODE][pt]
 
         def plot_point(ptname, pt):
             inmsg = 'Enter new value for %s or 0 to move on: ' % ptname
@@ -317,13 +336,14 @@ class critical_point(object):
             return go_on, pt
 
         track_dir = self.base.replace('data', 'tracks')
-        track_file = os.path.join(track_dir, '/'.join(fname.split('/')[1:]))
+        #track_file = os.path.join(track_dir, '/'.join(fname.split('/')[1:]))
+        track_file = os.path.join(track_dir, fname)
         track = self.load_eeps(Track(track_file))
 
         ax = td.plot_sandro_ptcri(track, ptcri=self)
         print('open ptcri file and get ready to edit. Current values:')
         print(track.sptcri)
-        ms_beg = guessandcheck('ms_beg')
+        ms_beg = guessandcheck('ms_beg', pt=track.sptcri[3])
 
         # experience has shown that Sandro's code sets MS_BEG as what should
         # be point C
@@ -331,18 +351,18 @@ class critical_point(object):
         point_c = guessandcheck('point_c', pt=point_c)
 
         # MS_TMIN is the min LOG_TE between MS_BEG and POINT_C
-        inds = np.arange(ms_beg, point_c)
+        inds = np.arange(ms_beg, point_c, dtype=int)
         point_b = ms_beg + np.argmin(track.data.LOG_TE[inds])
         point_b = guessandcheck('point_b', pt=point_b)
 
         # RG_BASE is probably the lowest LOG_L after POINT_C
-        inds = np.arange(point_c, len(track.data))
+        inds = np.arange(point_c, len(track.data), dtype=int)
         rg_base = point_c + np.argmin(track.data.LOG_L[inds])
         rg_base = guessandcheck('rg_base', pt=rg_base)
 
         # RG_TIP is the peak LOG_L after RG_BASE, probably happens soon
         # in high mass tracks.
-        inds = np.arange(rg_base, rg_base + 200)
+        inds = np.arange(rg_base, rg_base + 200, dtype=int)
         rg_tip = rg_base + np.argmax(track.data.LOG_L[inds])
         rg_tip = guessandcheck('rg_tip', pt=rg_tip)
 
@@ -352,8 +372,8 @@ class critical_point(object):
 
         # Take the final point of the track, either the final, or where
         # Sandro cut it
-        fin = track.data.MODE[-1]
-        fin_sandro = track.stpcri[np.nonzero(track.sptcri>0)][-1]
+        fin = track.data[MODE][-1]
+        fin_sandro = track.sptcri[np.nonzero(track.sptcri>0)][-1]
         if fin > fin_sandro:
             print('last point in track %i, Sandro cut at %i.' %  (fin, fin_sandro))
             fin = guessandcheck('final point', pt=fin_sandro)

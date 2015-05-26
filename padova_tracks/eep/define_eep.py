@@ -19,6 +19,14 @@ high_mass = 19.
 # for low mass stars with no MS_TO listed, where to place it (and ms_tmin)
 max_age = 10e10
 
+XCEN = 'XCEN'
+YCEN = 'YCEN'
+MODE = 'MODE'
+
+XCEN = 'H_CEN'
+YCEN = 'HE_CEN'
+MODE = 'MODELL'
+
 class DefineEeps(Interpolator):
     '''
     Define the stages if not simply using Sandro's defaults.
@@ -135,10 +143,14 @@ class DefineEeps(Interpolator):
         [self.add_eep(track, cp, 0) for cp in self.ptcri.please_define]
         nsandro_pts = len(np.nonzero(track.sptcri != 0)[0])
 
-        if track.data.XCEN[track.sptcri[4]] < .6:
-            track.info['MS_BEG'] = \
-                'Sandro\'s MS_BEG but could be wrong XCEN < 0.6, %.f' % \
-                track.data.XCEN[track.sptcri[4]]
+        if len(track.sptcri) <= 4 or track.data[XCEN][track.sptcri[4]] < .6:
+            try:
+                track.info['MS_BEG'] = \
+                    'Sandro\'s MS_BEG but could be wrong XCEN < 0.6, %.f' % \
+                    track.data[XCEN][track.sptcri[4]]
+            except:
+                track.info['MS_BEG'] = 'Incomplete track?'
+                print('incomplete track?!', track.mass)
             if track.mass <= low_mass:
                 self.add_ms_beg_eep(track)
 
@@ -186,7 +198,7 @@ class DefineEeps(Interpolator):
 
     def add_ms_beg_eep(self, track, xcen=0.6):
         msg = 'overwrote Sandro for closer match to XCEN=%g' % xcen
-        imsbeg = np.argmin(np.abs(xcen - track.data.XCEN))
+        imsbeg = np.argmin(np.abs(xcen - track.data[XCEN]))
         self.add_eep(track, 'MS_BEG', imsbeg, message=msg)
         return imsbeg
 
@@ -251,7 +263,7 @@ class DefineEeps(Interpolator):
             self.add_eep(track, 'MS_TMIN', ms_tmin, message=message)
             return ms_tmin
 
-        ms_to = np.nonzero(track.data.XCEN == 0)[0][0]
+        ms_to = np.nonzero(track.data[XCEN] == 0)[0][0]
         self.add_eep(track, 'MS_TO', ms_to, message='XCEN==0')
 
         if track.Z > 0.01:
@@ -279,7 +291,7 @@ class DefineEeps(Interpolator):
         # cens[-1] will occur at fin even though the track is complete.
         # this is a little reset to push that YCEN=0.000 between
         # YCEN_0.005 and fin
-        if track.data.YCEN[cens[-2]] == 0.0:
+        if track.data[YCEN][cens[-2]] == 0.0:
             #import pdb; pdb.set_trace()
             cens[-1] = (cens[-2] + fin) / 2
             self.add_eep(track, 'YCEN_0.000', cens[-1],
@@ -333,7 +345,7 @@ class DefineEeps(Interpolator):
             pstart = self.ptcri.get_ptcri_name(start, sandro=False)
             istart = track.iptcri[pstart]
 
-        inds = np.arange(istart, len(track.data.YCEN))
+        inds = np.arange(istart, len(track.data[YCEN]))
 
         # use defined central values
         # e.g., YCEN_0.500
@@ -341,17 +353,17 @@ class DefineEeps(Interpolator):
         cens = [float(cen.split('_')[-1]) for cen in cens]
         icens = []
         for cen in cens:
-            ind, dif = utils.closest_match(cen, track.data.YCEN[inds])
+            ind, dif = utils.closest_match(cen, track.data[YCEN][inds])
             icen = inds[ind]
             # some tolerance for a good match.
             if dif > tol:
                 icen = 0
             self.add_eep(track, 'YCEN_%.3f' % cen, icen, hb=hb,
-                         message='YCEN == %.6f' % track.data.YCEN[icen])
+                         message='YCEN == %.6f' % track.data[YCEN][icen])
             # for monotonic increase, even if there is another flare up in
             # He burning, this limits the matching indices to begin at this
             # new eep index.
-            inds = np.arange(icen + 1, len(track.data.YCEN))
+            inds = np.arange(icen + 1, len(track.data[YCEN]))
             icens.append(icen)
         return icens
 
@@ -384,7 +396,7 @@ class DefineEeps(Interpolator):
         lx = track.data.LX
         norm_age = track.data.AGE/track.data.AGE[-1]
 
-        ex_inds, = np.nonzero(track.data.YCEN == 0.00)
+        ex_inds, = np.nonzero(track.data[YCEN] == 0.00)
 
         diff_L = np.abs(ly[ex_inds] - lx[ex_inds])
         peak_dict = utils.find_peaks(diff_L)
@@ -536,7 +548,7 @@ class DefineEeps(Interpolator):
             if track.mass <= low_mass:
                 # BaSTi uses XCEN == 0.3, could put this as a keyword
                 xcen = 0.3
-                dte = np.abs(track.data.XCEN[inds] - xcen)
+                dte = np.abs(track.data[XCEN][inds] - xcen)
                 ms_tmin = inds[np.argmin(dte)]
                 msg = 'XCEN==%.1f' % xcen
             elif delta_te < .1:  # value to use interp instead
@@ -589,7 +601,7 @@ class DefineEeps(Interpolator):
                 ms_to = second_derivative(xdata, inds)
                 msg = 'Min LOG_L between MS_TMIN and RG_BMP1 by interpolation'
                 if ms_to == -1:
-                    ms_to = inds[np.nonzero(track.data.XCEN[inds] == 0)[0][0]]
+                    ms_to = inds[np.nonzero(track.data[XCEN][inds] == 0)[0][0]]
                     msg = 'XCEN==0 as last resort'
             if ms_to == -1:
                 # tried four ways!?!!
@@ -625,7 +637,7 @@ class DefineEeps(Interpolator):
             return [imin_l - msto < 50,
                     imin_l == -1,
                     (np.abs(imin_l - track.sptcri[7]) > 100),
-                    np.round(track.data.XCEN[imin_l], 4) > 0]
+                    np.round(track.data[XCEN][imin_l], 4) > 0]
 
         eep2 = 'RG_BMP1'
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
@@ -679,7 +691,7 @@ class DefineEeps(Interpolator):
         if imax_l == -1:
             self.check_for_monotonic_increase(track)
 
-        #if np.round(track.data.XCEN[imin_l], 4) > 0 or imin_l < 0:
+        #if np.round(track.data[XCEN][imin_l], 4) > 0 or imin_l < 0:
 
 
         return
@@ -804,7 +816,7 @@ class DefineEeps(Interpolator):
         msto = track.iptcri[self.ptcri.get_ptcri_name('MS_TO', sandro=False)]
         if max_l == msto:
             print('SG_MAXL is at MS_TO!')
-            print('XCEN at MS_TO (%i): %.3f' % (msto, track.data.XCEN[msto]))
+            print('XCEN at MS_TO (%i): %.3f' % (msto, track.data[XCEN][msto]))
             max_l = -1
             msg = 'SG_MAXL is at MS_TO'
         self.add_eep(track, 'SG_MAXL', max_l, message=msg)
@@ -908,7 +920,7 @@ class DefineEeps(Interpolator):
                 track.flag = 'no ptcri mass'
                 return track
             track.sptcri = \
-                np.concatenate([np.nonzero(track.data.MODE == m)[0]
+                np.concatenate([np.nonzero(track.data[MODE] == m)[0]
                                 for m in mptcri])
             if len(track.sptcri) != len(np.nonzero(mptcri)[0]):
                 track.flag = 'ptcri file does not match track, not enough MODEs'
@@ -930,7 +942,7 @@ class DefineEeps(Interpolator):
 
                 # and if sandro cut the track before it reached this point,
                 # no index error!
-                track.iptcri[track.iptcri > len(track.data.MODE)] = 0
+                track.iptcri[track.iptcri > len(track.data[MODE])] = 0
 
                 # define the eeps
                 self.define_eep_stages(track, hb=hb, plot_dir=plot_dir,
@@ -1042,7 +1054,7 @@ class InDevelopment(object):
 
         morigs = [t for t in self.ptcri.data_dict['M%.3f' % self.mass]
                   if t > 0 and t < len(track.data.LOG_L)]
-        iorigs = [np.nonzero(track.data.MODE == m)[0][0] for m in morigs]
+        iorigs = [np.nonzero(track.data[MODE] == m)[0][0] for m in morigs]
         try:
             inds = self.ptcri.inds_between_ptcris(track, 'MS_BEG', 'POINT_B',
                                                   sandro=True)
@@ -1114,7 +1126,7 @@ class InDevelopment(object):
             track.data['AGE'][finds] = agenew
             print('LOG_L, LOG_TE, AGE interpolated from inds %i:%i' %
                   (finds[0], finds[-1]))
-            track.header.append('LOG_L, LOG_TE, AGE interpolated from MODE %i:%i \n' % (track.data.MODE[finds][0], track.data.MODE[finds][-1]))
+            track.header.append('LOG_L, LOG_TE, AGE interpolated from MODE %i:%i \n' % (track.data[MODE][finds][0], track.data[MODE][finds][-1]))
 
             self.check_strip_instablities(track)
         return track

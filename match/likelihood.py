@@ -36,11 +36,11 @@ def stellar_prob(obs, model, normalize=False):
 
     sig = np.sqrt(d) * np.sign(n - m)
     pct_dif = (m - n) / n
-    prob = np.sum(d) / float(len(n) - 1)
+    prob = np.sum(d) / float(len(np.concatenate(n)) - 1)
     return prob, pct_dif, sig
 
 def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
-                outfile='cmd_stats.dat', dry_run=True, extra=''):
+                outfile='cmd_stats.dat', dry_run=False, extra=''):
     '''
     NFP = # of non-zero time bins
           + dmod + av + 1 for metallicity (zinc) + 2 for background.

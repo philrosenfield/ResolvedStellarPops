@@ -84,10 +84,13 @@ class Track(object):
         except TypeError:
             self.mass = self.data.MASS[good_age[0]]
 
-        ind = -1
+        try:
+            ind = self.name.lower().split('.').index('dat')
+        except:
+            ind = -1
         if self.hb:
             #extension is .PMS.HB
-            ind = -2
+            ind = self.name.lower().split('.').index('hb')
 
         ext = self.name.split('.')[ind]
 
@@ -122,13 +125,22 @@ class Track(object):
         ai = np.array([1., 4., 12., 16.])
         # fully ionized
         qi = ai/2.
-        self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
-                                 for i in range(len(xi))))
+        try:
+            self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
+                                     for i in range(len(xi))))
+        except:
+            xi = np.array(['H_CEN', 'HE_CEN', 'C_cen', 'O_cen'])
+            self.muc = 1. / (np.sum((self.data[xi[i]] / ai[i]) * (1 + qi[i])
+                                     for i in range(len(xi))))            
         return self.muc
 
     def calc_lifetimes(self):
         self.tau_he = np.sum(self.data.Dtime[self.data.LY>0])
-        coreh, = np.nonzero((self.data.LX > 0) & (self.data.XCEN > 0))
+        try:
+            coreh, = np.nonzero((self.data.LX > 0) & (self.data['XCEN'] > 0))
+        except:
+            coreh, = np.nonzero((self.data.LX > 0) & (self.data['H_CEN'] > 0))
+
         self.tau_h = np.sum(self.data.Dtime[coreh])
         return
 
@@ -146,8 +158,11 @@ class Track(object):
         self.Z = float(Z)
         self.Y = float(Y)
         if hasattr(self, 'header'):
-            self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
-                                     for l in self.header if ' ALFOV ' in l])
+            try:
+                self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
+                                         for l in self.header if ' ALFOV ' in l])
+            except:
+                pass        
 
         if hasattr(self.data, 'QHEL'):
             if self.hb:
@@ -206,7 +221,16 @@ class Track(object):
                 begin_track = i
                 break
 
-        self.header = lines[:begin_track]
+        if begin_track > -1:
+            header = lines[:begin_track]
+            if type(header) is not list:
+                header = [header]
+            begin_track += 1
+        else:
+            header = ['']
+            begin_track = 0
+            
+        self.header = header
 
         if begin_track == -1:
             self.data = np.array([])
@@ -232,7 +256,7 @@ class Track(object):
                 'No footer unfinished track? %s' % filename
 
         # find ndarray titles (column keys)
-        begin_track += 1
+        
         col_keys = lines[begin_track].replace('#', '').strip().split()
         begin_track += 1
 
