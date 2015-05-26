@@ -499,7 +499,7 @@ def stars_in_region(ymag, mag_dim, mag_bright, mag1=None, verts=None,
                               [col_min, mag_dim]])
 
     if color is None:
-        color = mag1 - mag2
+        color = mag1 - ymag
     points = np.column_stack((color, ymag))
     inds, = np.nonzero(utils.points_inside_poly(points, verts))
 
