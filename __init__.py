@@ -9,7 +9,7 @@ from __future__ import absolute_import
 from . import angst_tables
 from . import tools
 from .galaxies import *
-from . import graphics
+#from . import graphics
 from . import fileio
 from . import match
 from . import utils

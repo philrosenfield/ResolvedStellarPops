@@ -88,7 +88,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
     if asts_obj is None:
         sgal.fake_file = fake_file
         _, filter1, filter2 = parse_pipeline(fake_file)
-        if fmt.format(filter1) in sgal.data.keys() and fmt.format(filter2) in sgal.data.keys():
+        if fmt.format(filter1) in sgal.data.keys() or fmt.format(filter2) in sgal.data.keys():
             errfmt = '{}, {} ast corrections already in file.'
             logger.warning(errfmt.format(filter1, filter2))
             return sgal.data[fmt.format(filter1)], sgal.data[fmt.format(filter2)]
