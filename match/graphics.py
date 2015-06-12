@@ -53,7 +53,7 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
                 'cbar_mode': "each",
                 'cbar_size': "7%",
                 'cbar_pad': "2%",
-                'aspect': 0}
+                'aspect': 'square'}
 
     imagegrid_kw = dict(defaults.items() + imagegrid_kw.items())
     
@@ -169,7 +169,7 @@ def sfh_plot(MatchSFH):
     from matplotlib.ticker import NullFormatter
     fig, (ax1, ax2) = plt.subplots(nrows=2)
     MatchSFH.age_plot(ax=ax1)
-    MatchSFH.age_plot(val='mh', convertz=True, ax=ax2)
+    MatchSFH.age_plot(val='mh', convertz=False, ax=ax2)
     ax1.xaxis.set_major_formatter(NullFormatter())
     plt.subplots_adjust(hspace=0.1)
     figname = os.path.join(MatchSFH.base, MatchSFH.name + '.png')
@@ -222,7 +222,7 @@ def read_match_cmd(filename):
 
 def call_pgcmd(filenames, filter1, filter2, labels=[]):
 
-    if len(filenames) == 1:
+    if type(filenames) is not list:
         filenames = [filenames]
 
     for filename in filenames:

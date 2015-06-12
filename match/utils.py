@@ -322,7 +322,7 @@ class MatchSFH(object):
             lages, vals = self.plot_bins(val=val, convertz=convertz)
             # mask values with no SF
             isfr, = np.nonzero(sfrs==0)
-            vals[isfr] = 0.
+            vals[isfr] = np.nan
             if self.flag != 'setz':
                 rlages, (rvals, val_merrs, val_perrs) = self.plot_bins(val=val,
                                                                        err=True)
@@ -330,6 +330,8 @@ class MatchSFH(object):
                 irsfr, = np.nonzero(rsfrs==0)
                 val_merrs[irsfr] = 0.
                 val_perrs[irsfr] = 0.
+                if np.sum(val_merrs) == 0 or np.sum(val_perrs) == 0:
+                    errors = False
             else:
                 errors = False
             if 'mh' in val:
