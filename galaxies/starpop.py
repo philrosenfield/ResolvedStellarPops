@@ -442,16 +442,19 @@ class StarPop(object):
         '''
         return stars_in_region(*args, **kwargs)
 
-    def write_data(self, outfile, overwrite=False, hdf5=False):
+    def write_data(self, outfile, overwrite=False, hdf5=False, slice_inds=None):
         '''call fileio.savetxt to write self.data'''
+        data = self.data
+        if slice_inds is not None:
+            data = self.data[slice_inds]
         if not hdf5:
-            fileio.savetxt(outfile, self.data, fmt='%5g', header=self.get_header(),
+            fileio.savetxt(outfile, data, fmt='%5g', header=self.get_header(),
                            overwrite=overwrite)
         else:
             from astropy.table import Table
             if not outfile.endswith('.hdf5'):
                 outfile = fileio.replace_ext(outfile, '.hdf5')
-            tbl = Table(self.data)
+            tbl = Table(data)
             tbl.write(outfile, format='hdf5', path='data', compression=True,
                       overwrite=overwrite)
             print('wrote {0:s}'.format(outfile))
@@ -739,7 +742,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
 
 def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
                  fig=None, labelfmt='$%.3f$', xlim=None, ylim=None, clim=None,
-                 slice_inds=None, legend=True, discrete=False):
+                 slice_inds=None, legend=True, discrete=False, skw={}):
     """
     Parameters
     ----------
@@ -771,19 +774,22 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
     -------
     ax : plt.Axes instance
     """
+    def latexify(string):
+        return r'${}$'.format(string.replace('_', '\_'))
+    
     ax = ax or plt.gca()
 
     if type(xdata) is str:
-        ax.set_xlabel(xdata)
+        ax.set_xlabel(latexify(xdata))
         xdata = starpop.data[xdata]
 
     if type(ydata) is str:
-        ax.set_ylabel(ydata)
+        ax.set_ylabel(latexify(ydata))
         ydata = starpop.data[ydata]
 
     collabel = None
     if type(coldata) is str:
-        collabel = coldata
+        collabel = latexify(coldata)
         coldata = starpop.data[coldata]
 
     if slice_inds is not None:
@@ -812,12 +818,19 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
         ax.legend(loc=0, numpoints=1, frameon=False)
 
     else:
-        cmap = cmap or plt.cm.Paired
-
+        
+        if bins is not None:
+            if cmap is None:
+                cmap = plt.get_cmap('Spectral', bins)
+            cmap.set_under('gray')
+            cmap.set_over('gray')
+        else:
+            cmap = cmap or plt.cm.Paired
+        
         l = ax.scatter(xdata, ydata, c=coldata, marker='o', s=15,
-                       edgecolors='none', cmap=cmap)
+                       edgecolors='none', cmap=cmap, **skw)
 
-        c = plt.colorbar(l)
+        c = plt.colorbar(l, ax=ax)
         if collabel is not None:
             c.set_label(collabel)
   

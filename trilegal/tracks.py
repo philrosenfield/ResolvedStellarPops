@@ -53,6 +53,11 @@ class PadovaTrack(object):
                     masses=None, labels=False, title=False):
         if masses is None:
             masses = np.sort(self.track_dict.keys())
+        elif type(masses[0]) == float:
+            masses = ['M%.4f' % m for m in masses if m in self.masses]
+        elif type(masses) == str:
+            masses = eval(masses)
+            masses = ['M%.4f' % m for m in masses if m in self.masses]
 
         if ax is None:
             fig, ax = plt.subplots()
@@ -64,7 +69,7 @@ class PadovaTrack(object):
             try:
                 data = self.track_dict[key]
             except KeyError:
-                pass
+                print '{}'.format(self.track_dict.keys())
             ax.plot(data[col1], data[col2], **plt_kw)
         
         if title:

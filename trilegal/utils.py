@@ -20,7 +20,8 @@ __all__ = ['Trilegal_SFH', 'IsoTrack',
            'galaxy_input_fmt', 'get_args', 'get_loop_data',
            'get_stage_label', 'read_cmd_input_file', 'read_isotrack_file',
            'read_loop_from_ptrci', 'run_trilegal',
-           'string_in_lines', 'write_spread', 'trilegal_sfh']
+           'string_in_lines', 'write_spread', 'trilegal_sfh',
+           'read_leos_tracks']
 
 def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
     """
@@ -34,6 +35,11 @@ def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
         os.remove(trilegal_output)
     return new_out
     
+     
+ def read_leos_tracks(fname):
+     data = np.genfromtxt(fname, usecols=(1,2,3,4,5),
+                          names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
+     return data.view(np.recarray)
 
 def write_spread(sgal, outfile, overwrite=False, slice_inds=None):
     if overwrite or not os.path.isfile(outfile):

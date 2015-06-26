@@ -76,10 +76,10 @@ class SimGalaxy(StarPop):
         if trilegal_catalog.endswith('hdf5'):
             data = Table.read(trilegal_catalog, path='data')
         else:
-            print('reading')
+            #print('reading')
             data = Table.read(trilegal_catalog, format='ascii.commented_header',
                               guess=False)
-            print('read')
+            #print('read')
             #data = Table.read(trilegal_catalog, format='ascii')
             #data = rsp.fileio.readfile(trilegal_catalog)
         self.key_dict = dict(zip(list(data.dtype.names),
@@ -103,8 +103,8 @@ class SimGalaxy(StarPop):
         self.ast_mag2[self.rec][self.icstar]
 
         Hard coded:
-        M star: C/O <= 1, LogL >= 3.3 Mdot <=-5, and TPAGB flag
-        C star: C/O >= 1, Mdot <=-5, and TPAGB flag
+        M star: C/O <= 1, LogL >= 3.3, and TPAGB flag
+        C star: C/O >= 1 and TPAGB flag
         '''
         if not hasattr(self, 'rec'):
             self.rec = np.arange(len(self.data['CO']))

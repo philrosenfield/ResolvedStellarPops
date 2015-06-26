@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
 
-from ResolvedStellarPops.match.utils import MatchSFH
+from ResolvedStellarPops.match.utils import MatchSFH, match_diagnostic
 from ResolvedStellarPops.fileio.fileIO import get_files
 from ResolvedStellarPops.galaxies.asts import parse_pipeline
 
@@ -227,7 +227,7 @@ def call_pgcmd(filenames, filter1, filter2, labels=[]):
 
     for filename in filenames:
         mcmd = MatchCMD(filename)
-        figname = os.path.split(filename)[1] + '.png'
+        figname = filename + '.png'
         try:
             target, [filter1, filter2] = parse_pipeline(filename)
             labels[0] = '${}$'.format(target)
@@ -253,16 +253,18 @@ def main(argv):
 
     args = parser.parse_args(argv)
     
-    sfh_files = []
-    
     if args.name is None:
         cmd_names = get_files(args.directory, '*cmd')
         sfh_files = get_files(args.directory, '*sfh')
         sfh_files.extend(get_files(args.directory, '*zc'))
+        params = get_files(args.directory, '*param')
+        phots = get_files(args.directory, '*match')
     else:
         cmd_names = [n for n in args.name if n.endswith('cmd')]
         sfh_files = [n for n in args.name if n.endswith('sfh')]
         sfh_files.extend([n for n in args.name if n.endswith('zc')])
+        params = [n for n in args.name if n.endswith('param')]
+        phots = [n for n in args.name if n.endswith('match')]
 
     try:
         filter1, filter2 = args.filters.split(',')
@@ -280,7 +282,9 @@ def main(argv):
             if len(msfh.data) != 0:
                 sfh_plot(msfh)
                 msfh.plot_csfr()
-
+    
+    [match_diagnostic(params[i], phots[i]) for i in range(len(phots))]
+    
 
 if __name__ == "__main__":
     main(sys.argv[1:])
