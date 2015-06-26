@@ -36,7 +36,7 @@ def trilegal2hdf5(trilegal_output, overwrite=False, remove=True):
     return new_out
     
      
- def read_leos_tracks(fname):
+def read_leos_tracks(fname):
      data = np.genfromtxt(fname, usecols=(1,2,3,4,5),
                           names=['age', 'LOG_L', 'LOG_TE', 'mass', 'stage'])
      return data.view(np.recarray)
