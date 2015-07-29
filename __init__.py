@@ -11,7 +11,6 @@ from . import tools
 from .galaxies import *
 #from . import graphics
 from . import fileio
-from . import match
 from . import utils
 from . import trilegal
 from . import padova_tracks

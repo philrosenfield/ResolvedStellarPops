@@ -93,7 +93,8 @@ class StarPop(object):
         if annotate is True:
             xy = (new_xarr[-1] - 0.1, yarr[-1] - 0.2)
             ax.annotate(annotate_fmt % val, xy=xy, ha='right', fontsize=16, **kwargs)
-
+        return new_xarr, yarr
+    
     def text_on_cmd(self, extra=None, ax=None, distance_av=True, **kwargs):
         """ add a text on the cmd
         """

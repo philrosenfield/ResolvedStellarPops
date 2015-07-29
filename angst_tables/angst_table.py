@@ -127,7 +127,7 @@ class AngstTables(object):
         k = [k for k in self.__dict__[target].keys() if ',' in k]
         try:
             datum = self.__dict__[target][k]
-        except KeyError:
+        except:
             otarget = target
             target = target.replace('_', '-').split('WIDE')[0]
             target = difflib.get_close_matches(target, self.table5['target'])[0]

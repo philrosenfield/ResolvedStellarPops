@@ -10,7 +10,6 @@ from scipy.interpolate import interp1d
 import ResolvedStellarPops as rsp
 
 from .. import fileio
-from .. import match
 from .. import trilegal
 from .. import graphics
 from .. import utils

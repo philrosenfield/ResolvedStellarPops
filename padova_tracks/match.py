@@ -304,6 +304,7 @@ class TracksForMatch(TrackSet, DefineEeps, TrackDiag, Interpolator):
         # CO place holder!
         CO = np.zeros(len(logL))
         mass_arr = np.repeat(track.mass, len(logL))
+        logger.warning('mass array is a copy of the track.mass is that kosher?')
         eep = critical_point.Eep()
         if len(logL) not in [eep.nms, eep.nhb, eep.nlow, eep.ntot]:
             print('array size is wrong')
