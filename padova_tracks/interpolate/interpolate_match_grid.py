@@ -1,8 +1,8 @@
 import matplotlib.pylab as plt
 import numpy as np
 import os
-from ... import trilegal
-from ... import fileio
+from ResolvedStellarPops import trilegal
+from ResolvedStellarPops import fileio
 
 __all__ = ['interp_match_grid', 'interp_mhefs']
 
