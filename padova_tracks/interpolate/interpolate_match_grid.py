@@ -247,7 +247,7 @@ def interp_match_grid(overwrite=False):
     #                  1.55, 1.60, 1.67])
     #v3
     mhefs = np.array([1.81, 1.86, 1.94])#, 1.70, 1.76, 1.84, 1.60, 1.66, 1.75,
-                      1.51, 1.56, 1.66])
+    #                  1.51, 1.56, 1.66])
 
     for i in range(len(mhefs)):
         interpolate_between_sets(match_dirs1[i], match_dirs2[i], new_dirs[i],
