@@ -639,7 +639,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
                  slice_inds=None, xlim=None, ylim=None, clim=None,
                  discrete=False, scatter_kw={}):
     """ """
-    import brewer2mpl
+    import palettable
     import matplotlib.gridspec as gridspec
 
     def side_hist(ax, data, cdata, bins=50, cols=None, binsx=True,
@@ -657,7 +657,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
             uinds = np.unique(cdata)
             dinds = np.digitize(cdata, uinds)
             
-        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+        cols = palettable.get_map('Spectral', 'Diverging',
                                   len(uinds)).mpl_colors
             
         for j, i in enumerate(uinds):
@@ -726,7 +726,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
     
     if collabel == 'stage':
         axtr = plt.subplot(gs[0, -1])
-        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+        cols = palettable.get_map('Spectral', 'Diverging',
                                   9).mpl_colors
         [axtr.plot(0, 0, label=get_stage_label()[i], color=cols[i])
          for i in range(len(cols))]

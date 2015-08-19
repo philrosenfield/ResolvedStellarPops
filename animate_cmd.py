@@ -1,12 +1,12 @@
 import os
 import ResolvedStellarPops as rsp
 import matplotlib.pyplot as plt
-import brewer2mpl
+import palettable
 
 galfile = '/Users/phil/research/BRratio/models/TRILEGAL_RUNS/big_galaxy/output_big_galaxy_wfpc2_z0.001.dat'
 sgal = rsp.Galaxies.simgalaxy(galfile, filter1='F555W', filter2='F814W')
 
-bmap = brewer2mpl.get_map('Paired', map_type='Qualitative', number=7)
+bmap = palettable.get_map('Paired', map_type='Qualitative', number=7)
 
 ages = np.array([50e6, 100e6, 500e6, 1e9, 2e9, 5e9, 10e9])
 lages = np.log10(ages)

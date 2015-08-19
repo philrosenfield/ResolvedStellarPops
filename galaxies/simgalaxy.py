@@ -1,5 +1,5 @@
 from __future__ import print_function
-import brewer2mpl
+import palettable
 import logging
 import os
 
