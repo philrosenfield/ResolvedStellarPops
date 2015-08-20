@@ -248,12 +248,12 @@ class model_grid(object):
         """
         Check that each file has the same number of columns within as well
         as the same number of columns from file to file.
-        
+
         This is not a perfect test if trilgal finished execution
         """
         if not hasattr(self, 'grid'):
             self.load_grid()
-        
+
         tests = np.array([])
         for fname in self.grid:
             lines = open(fname).readlines()
@@ -261,7 +261,7 @@ class model_grid(object):
             if len(test) != 1:
                 logger.error('unequal number of columns within: {}'.format(fname))
             tests = np.append(tests, test)
-        
+
         if len(np.unique(tests)) != 1:
             bad, = np.nonzero(np.diff(tests))
             logger.error('check {} for bad number of columns {}'.format(self.grid[bad]))
@@ -287,16 +287,16 @@ class model_grid(object):
         '''
         if not hasattr(self, 'grid'):
             self.load_grid()
-        
+
         if 'acs' in self.photsys:
-            logger.error('delete_columns_from_files: only F814W is saved')
+            logger.error('delete_columns_from_files: only F814W and F475W are saved')
             sys.exit(2)
 
         if keep_cols == 'default':
             cols = ['logAge', '[M/H]', 'm_ini', 'logL', 'logTe', 'logg', 'm-M0',
-                    'Av', 'm2/m1', 'mbol', 'F814W', 'stage']
+                    'Av', 'm2/m1', 'mbol', 'F814W', 'F475W', 'stage']
 
-            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %i'
+            fmt = '%.2f %.2f %.5f %.3f %.3f %.3f %.2f %.3f %.2f %.3f %.3f %.3f %i'
 
         for filename in self.grid:
             logger.debug('cleaning up: {}'.format(filename))
@@ -322,10 +322,10 @@ def main(argv):
 
     parser.add_argument('-v', '--pdb', action='store_true',
                         help='verbose mode')
-    
+
     parser.add_argument('-c', '--check', action='store_true',
                         help='check grid')
-    
+
     parser.add_argument('name', type=str,
                         help='input file e.g., {}'.format(example_inputfile()))
 
@@ -341,9 +341,9 @@ def main(argv):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
+
     indict = rsp.fileio.load_input(args.name)
-    
+
     rsp.fileio.ensure_file(indict['cmd_input'])
 
     location = os.path.split(indict['cmd_input'].replace('.dat', '').replace('cmd_input_', ''))[1]
@@ -356,7 +356,7 @@ def main(argv):
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
                      galaxy_inkw={'filter1': indict.get('filter')})
         mg.run_parallel(nproc=indict.get('nproc', 8))
-    
+
         clean_up = indict.get('clean_up', False)
         if clean_up:
             logger.info('now cleaning up files')
