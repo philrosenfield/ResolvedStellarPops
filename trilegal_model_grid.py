@@ -8,7 +8,6 @@ import time
 import ResolvedStellarPops as rsp
 import numpy as np
 
-from argparse import RawTextHelpFormatter
 from IPython import parallel
 
 logger = logging.getLogger()
@@ -331,8 +330,7 @@ def main(argv):
                         help='check grid')
 
     parser.add_argument('name', type=str,
-                        help='input file e.g., {}'.format(example_inputfile()),
-                        formatter_class=RawTextHelpFormatter)
+                        help='input file e.g., {}'.format(example_inputfile()))
 
 
     args = parser.parse_args(argv)
