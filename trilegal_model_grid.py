@@ -1,12 +1,15 @@
 import argparse
+import itertools
+import logging
+import os
+import sys
+import time
+
 import ResolvedStellarPops as rsp
 import numpy as np
-import itertools
-import sys
-import os
-import logging
+
+from argparse import RawTextHelpFormatter
 from IPython import parallel
-import time
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -307,6 +310,7 @@ class model_grid(object):
                 continue
 
             cols_save = [i for i, c in enumerate(file_cols) if c in cols]
+
             try:
                 new_tab = np.genfromtxt(filename, usecols=cols_save)
             except ValueError:
@@ -318,16 +322,17 @@ class model_grid(object):
             logger.debug('cleaned up {}'.format(filename))
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="Make a large number of sfh bursts with TRILEGAL")
+    parser = argparse.ArgumentParser(description="Make a large number of sfh bursts with TRILEGAL",)
 
-    parser.add_argument('-v', '--pdb', action='store_true',
-                        help='verbose mode')
+    parser.add_argument('-n', '--nproc', type=int, default=8,
+                        help='number of processors to use')
 
     parser.add_argument('-c', '--check', action='store_true',
                         help='check grid')
 
     parser.add_argument('name', type=str,
-                        help='input file e.g., {}'.format(example_inputfile()))
+                        help='input file e.g., {}'.format(example_inputfile()),
+                        formatter_class=RawTextHelpFormatter)
 
 
     args = parser.parse_args(argv)
@@ -355,7 +360,7 @@ def main(argv):
     else:
         mg.make_grid(ages=indict.get('ages'), zs=indict.get('zs'),
                      galaxy_inkw={'filter1': indict.get('filter')})
-        mg.run_parallel(nproc=indict.get('nproc', 8))
+        mg.run_parallel(nproc=indict.get('nproc', args.nproc))
 
         clean_up = indict.get('clean_up', False)
         if clean_up:
