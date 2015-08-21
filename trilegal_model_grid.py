@@ -329,6 +329,9 @@ def main(argv):
     parser.add_argument('-c', '--check', action='store_true',
                         help='check grid')
 
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='debug level in logger')
+
     parser.add_argument('name', type=str,
                         help='input file e.g., {}'.format(example_inputfile()))
 
@@ -337,7 +340,7 @@ def main(argv):
 
     # set up logging
     handler = logging.FileHandler('{}.log'.format(args.name))
-    if args.pdb:
+    if args.verbose:
         handler.setLevel(logging.DEBUG)
     else:
         handler.setLevel(logging.INFO)
