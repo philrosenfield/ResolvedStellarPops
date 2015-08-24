@@ -177,7 +177,7 @@ class model_grid(object):
             # parallel call to run
             res = [clients[i].apply(rsp.trilegal.run_trilegal,
                                     self.cmd_input, self.galaxy_inputs[iset[i]],
-                                    self.outputs[iset[i]], dry_run=True)
+                                    self.outputs[iset[i]],)
                    for i in range(len(iset))]
             logger.debug('waiting on set {} of {}'.format(j, niters))
             while False in [r.ready() for r in res]:
