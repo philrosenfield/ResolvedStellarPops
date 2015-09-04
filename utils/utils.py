@@ -46,8 +46,11 @@ def count_uncert_ratio(numerator, denominator):
     ''' combine poisson error to calculate ratio uncertainty'''
     n = float(numerator)
     d = float(denominator)
-    return (n / d) * (1./np.sqrt(n) + 1./np.sqrt(d))
-
+    try:
+        cur = (n / d) * (1./np.sqrt(n) + 1./np.sqrt(d))
+    except ZeroDivisionError:
+        cur = np.nan
+    return cur
 
 def points_inside_poly(points, all_verts):
     """ Proxy to the correct way with mpl """

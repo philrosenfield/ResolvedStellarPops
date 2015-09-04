@@ -1,7 +1,7 @@
 import matplotlib.pylab as plt
 import numpy as np
 import os
-from ResolvedStellarPops import trilegal
+import trilegal
 from ResolvedStellarPops import fileio
 
 __all__ = ['interp_match_grid', 'interp_mhefs']
@@ -259,6 +259,6 @@ if __name__ == '__main__':
     #interp_mhefs()
     # then do this, but need to update mhefs
     interp_match_grid()
-    
+
     # to do:
     #argparse it, make it read mhefs from file (at least?)

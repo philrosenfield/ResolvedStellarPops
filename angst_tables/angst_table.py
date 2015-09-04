@@ -123,7 +123,7 @@ class AngstTables(object):
         target = target.upper().replace('-', '_')
         if 'F160W' in filters:
             return self.get_snap_trgb_av_dmod(target)
-        
+
         k = [k for k in self.__dict__[target].keys() if ',' in k]
         try:
             datum = self.__dict__[target][k]
@@ -160,7 +160,10 @@ class AngstTables(object):
         return datum['50_completeness']
 
     def get_snap_trgb_av_dmod(self, otarget):
-        target = difflib.get_close_matches(otarget, self.snap_tab3['target'])[0]
+        try:
+            target = self[snap_tab3['target']]
+        except:
+            target = difflib.get_close_matches(otarget, self.snap_tab3['target'])[0]
         if target != otarget:
             print('get_snap_trgb_av_dmod: using {}, not {}'.format(target, otarget))
         ind, = np.nonzero(self.snap_tab3['target'] == target)

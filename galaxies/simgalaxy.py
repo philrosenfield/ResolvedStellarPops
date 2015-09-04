@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 import ResolvedStellarPops as rsp
 
 from .. import fileio
-from .. import trilegal
+import trilegal
 from .. import graphics
 from .. import utils
 from .starpop import StarPop
@@ -23,32 +23,32 @@ class ExctinctionTable(object):
     """
     Class to use data from Leo's extinction Tables. Format is e.g,
     #Teff logg Av Rv A(F275W) A(F336W) A(F475W) A(F814W) A(F110W) A(F160W) (F275W-F336W)0 E(F275W-F336W)
-     3500 4.5 1.0 3.1   1.433   1.623   1.167   0.58    0.327   0.202   4.271 -0.190  
+     3500 4.5 1.0 3.1   1.433   1.623   1.167   0.58    0.327   0.202   4.271 -0.190
      3500 4.5 1.0 5.0   1.186   1.341   1.106   0.644   0.379   0.234   4.271 -0.155
-     3500 2.0 1.0 3.1   1.076   1.61    1.157   0.577   0.322   0.202   4.093 -0.534  
-     3500 2.0 1.0 5.0   0.981   1.338   1.1     0.642   0.373   0.234   4.093 -0.357 
+     3500 2.0 1.0 3.1   1.076   1.61    1.157   0.577   0.322   0.202   4.093 -0.534
+     3500 2.0 1.0 5.0   0.981   1.338   1.1     0.642   0.373   0.234   4.093 -0.357
     """
     def __init__(self, extinction_table):
         self.data = Table.read(extinction_table, format='ascii')
-    
+
     def column_fmt(self, column):
         return column.translate(None, '()-').lower()
-    
+
     def keyfmt(self, Rv, logg, column):
         str_column = self.column_fmt(column)
         return 'rv{}logg{}{}intp'.format(Rv, logg, str_column).replace('.', 'p')
-    
+
     def select_Rv_logg(self, Rv, logg):
         return list(set(np.nonzero(self.data['Rv'] == Rv)[0]) &
                     set(np.nonzero(self.data['logg'] == logg)[0]))
-    
+
     def _interpolate(self, column, Rv, logg):
         inds = self.select_Rv_logg(Rv, logg)
         key_name = self.keyfmt(Rv, logg, column)
         self.__setattr__(key_name, interp1d(np.log10(self.data['Teff'][inds]),
                                             self.data[column][inds],
                                             bounds_error=False))
-    
+
     def get_value(self, teff, column, Rv, logg):
         new_arr = np.zeros(len(teff))
 
@@ -146,7 +146,7 @@ class SimGalaxy(StarPop):
         """
         Add extinction correction to a trilegal catalog filters as columns
         [filter]_rv[Rv]_av[Av].
-        
+
         Made as a quick look at the effects of not knowing Rv.
         Basically a call to function ExtinctionTable.get_value see that class
         for details.
@@ -171,7 +171,7 @@ class SimGalaxy(StarPop):
             self.add_data(names, data)
         else:
             return {k:v for k,v in zip(filters, data)}
-    
+
     def apply_dAv(self, dAv, filters, photsys, Av=1., dAvy=0.5):
         """
         no need to apply this, right now it's only A = Av + 0.5 * dAv
@@ -183,7 +183,7 @@ class SimGalaxy(StarPop):
             if one third of the stars should have zero differential extinction
             and the rest to have differential extinction values stretching
             between Av=0 and Av=1, the command would be -dAv=0,0.67,1
-        
+
         assert np.sum(self.data['Av']) == 0., \
             'Will not convert Av, must run trilegal without Av set'
         if type(dAv) is str:
@@ -211,7 +211,7 @@ class SimGalaxy(StarPop):
 
         Alambdas = [rsp.astronomy_utils.Av2Alambda(Av + dAv, photsys, filt)
                     for filt in filters]
-        
+
         return Alambdas
 
     def lognormalAv(self, disk_frac, mu, sigma, fg=0, df_young=0, df_old=8,
@@ -259,4 +259,3 @@ class SimGalaxy(StarPop):
         from scipy.stats import lognorm
         N1 + lognorm(mu=N3, sigma=N4)
         pass
-
