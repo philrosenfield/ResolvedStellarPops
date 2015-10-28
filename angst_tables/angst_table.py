@@ -107,7 +107,7 @@ class AngstTables(object):
             target = 'NGC404_DEEP'
         return target
 
-    @deprecated
+
     def get_tab5_trgb_av_dmod(self, target, filters=None):
         '''
         backward compatibility to my old codes.
@@ -158,6 +158,7 @@ class AngstTables(object):
             target = difflib.get_close_matches(target, self.table5['target'])[0]
             datum = self.__dict__[target][filter]
         return datum['50_completeness']
+
 
     def get_snap_trgb_av_dmod(self, otarget):
         try:

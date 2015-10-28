@@ -5,7 +5,8 @@ import numpy as np
 __all__ = ['add_data', 'count_uncert_ratio', 'between', 'brighter',
            'closest_match', 'closest_match2d', 'double_gaussian', 'extrap1d',
            'find_peaks', 'gaussian', 'get_verts', 'is_numeric', 'min_dist2d',
-           'mp_double_gauss', 'points_inside_poly', 'smooth', 'sort_dict']
+           'mp_double_gauss', 'points_inside_poly', 'smooth', 'sort_dict',
+           'mp_gauss']
 
 def add_data(old_data, names, new_data):
     '''
@@ -392,6 +393,11 @@ def double_gaussian(x, p):
     '''
     return gaussian(x, p[:3]) + gaussian(x, p[3:])
 
+def mp_gauss(p, fjac=None, x=None, y=None, err=None):
+    '''double gaussian for mpfit'''
+    model = gaussian(x, p)
+    status = 0
+    return [status, (y - model) / err]
 
 def mp_double_gauss(p, fjac=None, x=None, y=None, err=None):
     '''double gaussian for mpfit'''

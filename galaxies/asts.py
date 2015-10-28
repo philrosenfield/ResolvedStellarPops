@@ -24,13 +24,19 @@ def parse_pipeline(filename):
     '''find target and filters from the filename'''
     name = os.path.split(filename)[1].upper()
 
-    # filters are assumed to be F???W
-    starts = np.array([m.start() for m in re.finditer('_F', name)])
+    # filters are assumed to be like F814W
+    starts = [m.start() for m in re.finditer('_F', name)]
+    starts.extend([m.start() for m in re.finditer('-F', name)])
+    starts = np.array(starts)
     starts += 1
-    if len(starts) == 1:
-        starts = np.append(starts, starts+6)
-    filters = [name[s: s+5] for s in starts]
 
+    filters = [name[s: s+5] for s in starts]
+    for i, f in enumerate(filters):
+        try:
+            # sometimes you get FIELD...
+            int(f[1])
+        except:
+            filters.pop(i)
     # the target name is assumed to be before the filters in the filename
     pref = name[:starts[0]-1]
     for t in pref.split('_'):

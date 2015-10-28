@@ -7,13 +7,14 @@ from astropy.table import Table
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
-import ResolvedStellarPops as rsp
 
 from .. import fileio
 import trilegal
 from .. import graphics
 from .. import utils
 from .starpop import StarPop
+from .asts import parse_pipeline
+from ..astronomy_utils import Av2Alambda
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +81,14 @@ class SimGalaxy(StarPop):
                               guess=False)
             #print('read')
             #data = Table.read(trilegal_catalog, format='ascii')
-            #data = rsp.fileio.readfile(trilegal_catalog)
         self.key_dict = dict(zip(list(data.dtype.names),
                                  range(len(list(data.dtype.names)))))
         #self.data = data.view(np.recarray)
         self.data = data
+        try:
+            self.target, self.filters = parse_pipeline(trilegal_catalog)
+        except:
+            pass
 
     def burst_duration(self):
         '''calculate ages of bursts'''
@@ -209,7 +213,7 @@ class SimGalaxy(StarPop):
         if type(filters) is str:
             filters = [filters]
 
-        Alambdas = [rsp.astronomy_utils.Av2Alambda(Av + dAv, photsys, filt)
+        Alambdas = [Av2Alambda(Av + dAv, photsys, filt)
                     for filt in filters]
 
         return Alambdas
