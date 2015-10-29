@@ -541,7 +541,7 @@ class ASTs(object):
                 label=r'${}$'.format(self.filter2))
 
         if comp_fracs is not None:
-            self.add_complines()
+            self.add_complines(ax, *comp_fracs)
         ax.set_xlabel(r'${{\rm mag}}$', fontsize=20)
         ax.set_ylabel(r'${{\rm Completeness\ Fraction}}$', fontsize=20)
         plt.legend(loc='lower left', frameon=False)
@@ -551,12 +551,12 @@ class ASTs(object):
         """add verticle lines to a plot at given completeness fractions"""
         lblfmt = r'${frac}\ {filt}:\ {comp: .2f}$'
         for frac in fracs:
-            ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
+            ax.axhline(frac, alpha=0.5)
             comp1, comp2 = self.get_completeness_fraction(frac,
                                                           **get_comp_frac_kw)
             for comp, filt in zip((comp1, comp2), (self.filter1, self.filter2)):
                 lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
-                ax.vlines(comp, 0, 1, label=lab,
+                ax.axvline(comp, label=lab,
                           color=next(ax._get_lines.color_cycle))
         plt.legend(loc='lower left', frameon=False)
         return ax

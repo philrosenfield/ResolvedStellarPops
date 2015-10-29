@@ -121,7 +121,7 @@ class AngstTables(object):
         locally.
         '''
         target = target.upper().replace('-', '_')
-        if 'F160W' in filters:
+        if filters is not None and 'F160W' in filters:
             return self.get_snap_trgb_av_dmod(target)
 
         k = [k for k in self.__dict__[target].keys() if ',' in k]
@@ -164,7 +164,7 @@ class AngstTables(object):
         try:
             target = self[snap_tab3['target']]
         except:
-            target = difflib.get_close_matches(otarget, self.snap_tab3['target'])[0]
+            target = difflib.get_close_matches(otarget.upper(), self.snap_tab3['target'])[0]
         if target != otarget:
             print('get_snap_trgb_av_dmod: using {}, not {}'.format(target, otarget))
         ind, = np.nonzero(self.snap_tab3['target'] == target)
