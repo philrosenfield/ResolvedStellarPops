@@ -76,10 +76,15 @@ class SimGalaxy(StarPop):
             data = Table.read(trilegal_catalog, path='data')
         else:
             #print('reading')
-            data = Table.read(trilegal_catalog, format='ascii.commented_header',
-                              guess=False)
+            try:
+                data = Table.read(trilegal_catalog,
+                                  format='ascii.commented_header',
+                                  guess=False)
+            except:
+                # the slow boat...
+                header = open(trilegal_catalog).readline().replace('#', '').strip().split()
+                data = np.genfromtxt(trilegal_catalog, names=header)
             #print('read')
-            #data = Table.read(trilegal_catalog, format='ascii')
             #data = rsp.fileio.readfile(trilegal_catalog)
         self.key_dict = dict(zip(list(data.dtype.names),
                                  range(len(list(data.dtype.names)))))

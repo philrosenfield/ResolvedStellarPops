@@ -155,8 +155,8 @@ class Track(object):
                 Y += y
             else:
                 break
-        self.Z = float(Z)
-        self.Y = float(Y)
+        self.Z = float(Z.replace('_', ''))
+        self.Y = float(Y.replace('_', ''))
         if hasattr(self, 'header'):
             try:
                 self.ALFOV, = np.unique([float(l.replace('ALFOV', '').strip())
