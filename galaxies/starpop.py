@@ -8,7 +8,7 @@ from .. import fileio
 
 from ..angst_tables import angst_data
 from ..graphics import scatter_contour, colorify, make_hess, plot_hess, plot_cmd_redding_vector
-from ..trilegal import get_stage_label
+from trilegal import get_stage_label
 from ..tools import get_dmodAv, mag2Mag, Mag2mag
 
 __all__ = ['StarPop', 'plot_cmd', 'color_by_arg', 'stars_in_region']
@@ -94,7 +94,7 @@ class StarPop(object):
             xy = (new_xarr[-1] - 0.1, yarr[-1] - 0.2)
             ax.annotate(annotate_fmt % val, xy=xy, ha='right', fontsize=16, **kwargs)
         return new_xarr, yarr
-    
+
     def text_on_cmd(self, extra=None, ax=None, distance_av=True, **kwargs):
         """ add a text on the cmd
         """
@@ -639,14 +639,14 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
                  slice_inds=None, xlim=None, ylim=None, clim=None,
                  discrete=False, scatter_kw={}):
     """ """
-    import brewer2mpl
+    import palettable
     import matplotlib.gridspec as gridspec
 
     def side_hist(ax, data, cdata, bins=50, cols=None, binsx=True,
                   discrete=False, cbins=10):
         """
         Add a histogram of data to ax made from inds of unique values of cdata
-        
+
         """
         if discrete:
             if type(cbins) == int:
@@ -656,10 +656,10 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
         else:
             uinds = np.unique(cdata)
             dinds = np.digitize(cdata, uinds)
-            
-        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+
+        cols = palettable.get_map('Spectral', 'Diverging',
                                   len(uinds)).mpl_colors
-            
+
         for j, i in enumerate(uinds):
             hist, hbins = np.histogram(data[dinds == i], bins=bins)
             if binsx:
@@ -676,7 +676,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
     axt = plt.subplot(gs[0,:-1])
     axr = plt.subplot(gs[1:,-1])
     ax = plt.subplot(gs[1:,:-1])
-    
+
 
     if type(xdata) is str:
         ax.set_xlabel(xdata.replace('_', '\_'))
@@ -695,7 +695,7 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
         xdata = xdata[slice_inds]
         ydata = ydata[slice_inds]
         coldata = coldata[slice_inds]
-    
+
     scatter_kw = dict({'edgecolors': 'none', 'cmap': plt.cm.Spectral}.items() \
                        + scatter_kw.items())
     l = ax.scatter(xdata, ydata, c=coldata,  **scatter_kw)
@@ -703,13 +703,13 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
     axt = side_hist(axt, xdata, coldata, bins=xbins, discrete=discrete)
     axr = side_hist(axr, ydata, coldata, bins=ybins, binsx=False,
                     discrete=discrete)
-    
+
     axt.set_yscale('log')
     axr.set_xscale('log')
     if xlim is not None:
         axt.set_xlim(xlim)
     ax.set_xlim(axt.get_xlim())
-    
+
     if ylim is not None:
         axr.set_ylim(ylim)
     ax.set_ylim(axr.get_ylim())
@@ -723,21 +723,21 @@ def scatter_hist(starpop, xdata, ydata, coldata='stage', xbins=50, ybins=50,
     axt.tick_params(labelbottom=False, labeltop=True, right=False)
     axr.tick_params(labelright=True, labelleft=False, top=False)
     gs.update(left=0.1, right=0.9, wspace=0, hspace=0)
-    
+
     if collabel == 'stage':
         axtr = plt.subplot(gs[0, -1])
-        cols = brewer2mpl.get_map('Spectral', 'Diverging',
+        cols = palettable.get_map('Spectral', 'Diverging',
                                   9).mpl_colors
         [axtr.plot(0, 0, label=get_stage_label()[i], color=cols[i])
          for i in range(len(cols))]
-        axtr.tick_params(labelbottom=False, labelleft=False)    
+        axtr.tick_params(labelbottom=False, labelleft=False)
         axtr.grid()  # should turn it off!!
         plt.legend(mode='expand', ncol=2, frameon=False)
         axs = [axt, ax, axr, axtr]
     else:
         axs = [axt, ax, axr]
-    
-    
+
+
     return axs
 
 
@@ -770,14 +770,14 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
 
     slice_inds : list or array
         slice the data
-    
+
     Returns
     -------
     ax : plt.Axes instance
     """
     def latexify(string):
         return r'${}$'.format(string.replace('_', '\_'))
-    
+
     ax = ax or plt.gca()
 
     if type(xdata) is str:
@@ -797,7 +797,7 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
         xdata = xdata[slice_inds]
         ydata = ydata[slice_inds]
         coldata = coldata[slice_inds]
- 
+
     if discrete:
         if bins is None:
             bins = 10
@@ -807,7 +807,7 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
         inds = np.digitize(coldata, bins)
         colors, scalarmap = colorify(inds, cmap=cmap)
         lbls = [ labelfmt % bk for bk in bins ]  # bins are left bin edges.
-    
+
         # fake out the legend...
         if labelfmt not in ['', 'None', None]:
             for color, label in zip(colors, lbls):
@@ -815,11 +815,11 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
                         visible=False)
         ax.scatter(xdata[inds], ydata[inds], marker='o', s=15, edgecolors='none',
                    color=colors[inds], alpha=0.3)
-        
+
         ax.legend(loc=0, numpoints=1, frameon=False)
 
     else:
-        
+
         if bins is not None:
             if cmap is None:
                 cmap = plt.get_cmap('Spectral', bins)
@@ -827,14 +827,14 @@ def color_by_arg(starpop, xdata, ydata, coldata, bins=None, cmap=None, ax=None,
             cmap.set_over('gray')
         else:
             cmap = cmap or plt.cm.Paired
-        
+
         l = ax.scatter(xdata, ydata, c=coldata, marker='o', s=15,
                        edgecolors='none', cmap=cmap, **skw)
 
         c = plt.colorbar(l, ax=ax)
         if collabel is not None:
             c.set_label(collabel)
-  
+
     if xlim is not None:
         ax.set_xlim(xlim)
 

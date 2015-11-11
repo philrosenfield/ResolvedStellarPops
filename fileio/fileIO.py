@@ -309,7 +309,7 @@ def ensure_file(f, mad=True):
     '''
     test = os.path.isfile(f)
     if test is False:
-        logging.warning('there is no file', f)
+        logging.warning('{} not found'.format(f))
         if mad:
             sys.exit()
     return test

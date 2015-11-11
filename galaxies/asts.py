@@ -21,16 +21,22 @@ __all__ = ['ast_correct_starpop', 'ASTs', 'parse_pipeline']
 plt.style.use('ggplot')
 
 def parse_pipeline(filename):
-    '''find target and filters from the filename'''    
+    '''find target and filters from the filename'''
     name = os.path.split(filename)[1].upper()
-    
-    # filters are assumed to be F???W
-    starts = np.array([m.start() for m in re.finditer('_F', name)])
+
+    # filters are assumed to be like F814W
+    starts = [m.start() for m in re.finditer('_F', name)]
+    starts.extend([m.start() for m in re.finditer('-F', name)])
+    starts = np.array(starts)
     starts += 1
-    if len(starts) == 1:
-        starts = np.append(starts, starts+6)
+
     filters = [name[s: s+5] for s in starts]
-    
+    for i, f in enumerate(filters):
+        try:
+            # sometimes you get FIELD...
+            int(f[1])
+        except:
+            filters.pop(i)
     # the target name is assumed to be before the filters in the filename
     pref = name[:starts[0]-1]
     for t in pref.split('_'):
@@ -137,7 +143,7 @@ class ASTs(object):
         self.filt_extra = filt_extra
 
         self.target, filters = parse_pipeline(filename)
-        
+
         try:
             self.filter1, self.filter2 = filters
         except:
@@ -183,13 +189,13 @@ class ASTs(object):
         mag1diff is assumed to be mag1in-mag1out
         mag2diff is assumed to be mag2in-mag2out
         '''
-        if 'match' in filename:
+        if not filename.endswith('.fits'):
             names = ['mag1', 'mag2', 'mag1diff', 'mag2diff']
             self.data = np.genfromtxt(filename, names=names)
             # unpack into attribues
             for name in names:
                 self.__setattr__(name, self.data[name])
-        elif filename.endswith('.fits'):
+        else:
             assert not None in [self.filter1, self.filter2], \
                 'Must specify filter strings'
             self.data = fits.getdata(filename)
@@ -199,8 +205,6 @@ class ASTs(object):
             mag2out = self.data['{}{}'.format(self.filter2, self.filt_extra)]
             self.mag1diff = self.mag1 - mag1out
             self.mag2diff = self.mag2 - mag2out
-        else:
-            logger.error('{} not supported'.format(filename))
 
     def write_matchfake(self, newfile):
         '''write matchfake file'''
@@ -255,7 +259,7 @@ class ASTs(object):
                        not_rec_val=np.nan, missing_data1=0., missing_data2=0.):
         '''
         Apply ast correction to input mags.
-        
+
         Corrections are made by going through obs_mag1 in bins of
         bin_asts and randomly selecting magdiff values in that ast_bin.
         obs_mag2 simply follows along since it is tied to obs_mag1.
@@ -279,7 +283,7 @@ class ASTs(object):
             value for not recovered ast
         missing_data1, missing_data2 : float, float
             value for data outside ast limits per filter (include=0)
-        
+
         Returns
         -------
         cor_mag1, cor_mag2: array, array
@@ -419,15 +423,15 @@ class ASTs(object):
                      binsize=0.2):
         '''
         calculate the completeness of the data in each filter
-        
+
         Parameters
         ----------
         combined_filters : bool
             Use individual or combined ast recovery
-        
+
         interpolate : bool
             add a 1d spline the completeness function to self
-        
+
         Returns
         -------
         self.comp1, self.comp2 : array, array
@@ -486,10 +490,10 @@ class ASTs(object):
         # (frac - nan = frac)
         cfrac1 = self.fcomp1(search_arr)
         ifin1 = np.isfinite(cfrac1)
-        
+
         cfrac2 = self.fcomp2(search_arr)
         ifin2 = np.isfinite(cfrac2)
-        
+
         # closest completeness fraction to passed fraction
         icomp1 = np.argmin(np.abs(frac - cfrac1[ifin1]))
         icomp2 = np.argmin(np.abs(frac - cfrac2[ifin2]))
@@ -535,9 +539,9 @@ class ASTs(object):
                 label=r'${}$'.format(self.filter1))
         ax.plot(self.ast_bins, self.fcomp2(self.ast_bins),
                 label=r'${}$'.format(self.filter2))
-        
+
         if comp_fracs is not None:
-            self.add_complines()
+            self.add_complines(ax, *comp_fracs)
         ax.set_xlabel(r'${{\rm mag}}$', fontsize=20)
         ax.set_ylabel(r'${{\rm Completeness\ Fraction}}$', fontsize=20)
         plt.legend(loc='lower left', frameon=False)
@@ -547,12 +551,12 @@ class ASTs(object):
         """add verticle lines to a plot at given completeness fractions"""
         lblfmt = r'${frac}\ {filt}:\ {comp: .2f}$'
         for frac in fracs:
-            ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
+            ax.axhline(frac, alpha=0.5)
             comp1, comp2 = self.get_completeness_fraction(frac,
                                                           **get_comp_frac_kw)
             for comp, filt in zip((comp1, comp2), (self.filter1, self.filter2)):
                 lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
-                ax.vlines(comp, 0, 1, label=lab,
+                ax.axvline(comp, label=lab,
                           color=next(ax._get_lines.color_cycle))
         plt.legend(loc='lower left', frameon=False)
         return ax
@@ -581,21 +585,21 @@ def main(argv):
         ast.completeness(combined_filters=True, interpolate=True,
                          binsize=0.15)
         comp1, comp2 = ast.get_completeness_fraction(args.comp_frac,
-                                                     bright_lim=args.bright_mag)    
+                                                     bright_lim=args.bright_mag)
         print('{} {} completeness fraction:'.format(fake, args.comp_frac))
         print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
-        
+
         if args.makeplots:
             comp_name = os.path.join(ast.base, ast.name + '_comp.png')
             ast_name = os.path.join(ast.base, ast.name + '_ast.png')
-    
+
             ax = ast.completeness_plot()
             if args.plot_fracs is not None:
                 fracs = map(float, args.plot_fracs.split(','))
                 ast.add_complines(ax, *fracs, **{'bright_lim': args.bright_mag})
             plt.savefig(comp_name)
             plt.close()
-    
+
             ast.magdiff_plot()
             plt.savefig(ast_name)
             plt.close()

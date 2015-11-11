@@ -107,7 +107,7 @@ class AngstTables(object):
             target = 'NGC404_DEEP'
         return target
 
-    @deprecated
+
     def get_tab5_trgb_av_dmod(self, target, filters=None):
         '''
         backward compatibility to my old codes.
@@ -121,9 +121,9 @@ class AngstTables(object):
         locally.
         '''
         target = target.upper().replace('-', '_')
-        if 'F160W' in filters:
+        if filters is not None and 'F160W' in filters:
             return self.get_snap_trgb_av_dmod(target)
-        
+
         k = [k for k in self.__dict__[target].keys() if ',' in k]
         try:
             datum = self.__dict__[target][k]
@@ -159,8 +159,12 @@ class AngstTables(object):
             datum = self.__dict__[target][filter]
         return datum['50_completeness']
 
+
     def get_snap_trgb_av_dmod(self, otarget):
-        target = difflib.get_close_matches(otarget, self.snap_tab3['target'])[0]
+        try:
+            target = self[snap_tab3['target']]
+        except:
+            target = difflib.get_close_matches(otarget.upper(), self.snap_tab3['target'])[0]
         if target != otarget:
             print('get_snap_trgb_av_dmod: using {}, not {}'.format(target, otarget))
         ind, = np.nonzero(self.snap_tab3['target'] == target)
