@@ -53,7 +53,7 @@ def parse_pipeline(filename):
 
 def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
                         asts_obj=None, correct_kw={}, diag_plot=False,
-                        plt_kw={}, hdf5=True):
+                        plt_kw={}, hdf5=True, correct='both'):
     '''
     correct mags with artificial star tests, finds filters by fake_file name
 
@@ -84,6 +84,9 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
     plt_kw :
         kwargs to pass to pylab.plot
 
+    correct : 'both' 'filter1' 'filter2'
+        sepcifiy which filters get corrections
+
     Returns
     -------
     adds corrected mag1 and mag2
@@ -107,8 +110,19 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
     correct_kw = dict({'dxy': (0.2, 0.15)}.items() + correct_kw.items())
     cor_mag1, cor_mag2 = ast.correct(mag1, mag2, **correct_kw)
-    names = [fmt.format(ast.filter1), fmt.format(ast.filter2)]
-    data = [cor_mag1, cor_mag2]
+    if correct == 'filter2':
+        logger.info('adding corrections for {}'.format(ast.filter2))
+        names = [fmt.format(ast.filter2)]
+        data = [cor_mag2]
+    elif correct == 'filter1':
+        logger.info('adding corrections for {}'.format(ast.filter1))
+        names = [fmt.format(ast.filter1)]
+        data = [cor_mag1]
+    else:
+        logger.info('adding corrections for {}, {}'.format(ast.filter1, ast.filter2))
+        names = [fmt.format(ast.filter1), fmt.format(ast.filter2)]
+        data = [cor_mag1, cor_mag2]
+
     sgal.add_data(names, data)
 
     if outfile is not None:
@@ -293,9 +307,9 @@ class ASTs(object):
             returns -1 if obs_mag1 and obs_mag2 are different sizes
 
         To do:
-        possibly return magXdiff rather than magX + magXdiff?
-        reason not to: using AST results from one filter to another isn't
-        kosher. At least not glatt kosher.
+        Maybe not asssume combined_filters=True or completeness.
+        A minor issue unless the depth of the individual filters are
+        vastly different.
         '''
         self.completeness(combined_filters=True, interpolate=True)
 

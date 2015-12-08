@@ -2,6 +2,7 @@ from __future__ import print_function
 import palettable
 import logging
 import os
+import sys
 
 from astropy.table import Table
 import matplotlib.pyplot as plt
@@ -77,8 +78,12 @@ class SimGalaxy(StarPop):
             data = Table.read(trilegal_catalog, path='data')
         else:
             #print('reading')
-            data = Table.read(trilegal_catalog, format='ascii.commented_header',
-                              guess=False)
+            try:
+                data = Table.read(trilegal_catalog, format='ascii.commented_header',
+                                guess=False)
+            except:
+                print("Can't read {}: {}".format(trilegal_catalog, sys.exc_info()[0]))
+                return
             #print('read')
             #data = Table.read(trilegal_catalog, format='ascii')
         self.key_dict = dict(zip(list(data.dtype.names),
