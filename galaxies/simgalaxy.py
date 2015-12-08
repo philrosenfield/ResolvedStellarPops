@@ -84,8 +84,7 @@ class SimGalaxy(StarPop):
             except:
                 print("Can't read {}: {}".format(trilegal_catalog, sys.exc_info()[0]))
                 return
-            #print('read')
-            #data = Table.read(trilegal_catalog, format='ascii')
+
         self.key_dict = dict(zip(list(data.dtype.names),
                                  range(len(list(data.dtype.names)))))
         #self.data = data.view(np.recarray)
